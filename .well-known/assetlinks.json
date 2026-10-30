@@ -1,8 +1,26 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "io.github.garciaperezeduardo2001_creator.twa",
-        "sha256_cert_fingerprints": ["D6:61:CA:1B:27:4D:CD:23:3E:9E:B0:01:8F:EE:DD:C2:9E:EC:B1:F1:C3:0B:5C:9A:51:55:97:6A:54:CC:05:12"]
-      }
-    }]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.garciaperezeduardo2001_creator.twa",
+      "sha256_cert_fingerprints": [
+        "D6:61:CA:1B:27:4D:CD:23:3E:9E:B0:01:8F:EE:DD:C2:9E:EC:B1:F1:C3:0B:5C:9A:51:55:97:6A:54:CC:05:12"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.garciaperezeduardo2001_creator.myteam",
+      "sha256_cert_fingerprints": [
+        "89:0A:07:2A:9E:CC:3F:7A:5C:1C:4C:AC:8F:78:16:CD:58:F8:9A:07:24:73:C0:57:DD:9C:27:96:C7:FB:A2:5F"
+      ]
+    }
+  }
+]
