@@ -1,33 +1,37 @@
 {
- "name": "Vestuario · Control de carga",
- "short_name": "Vestuario",
- "description": "Control de carga, minutos y rendimiento de tus equipos de fútbol.",
- "id": "./",
- "start_url": "./",
- "scope": "./",
- "display": "standalone",
- "orientation": "any",
- "lang": "es",
- "background_color": "#f4f6f3",
- "theme_color": "#23408e",
- "icons": [
-  {
-   "src": "icon-192.png",
-   "sizes": "192x192",
-   "type": "image/png",
-   "purpose": "any"
-  },
-  {
-   "src": "icon-512.png",
-   "sizes": "512x512",
-   "type": "image/png",
-   "purpose": "any"
-  },
-  {
-   "src": "icon-maskable-512.png",
-   "sizes": "512x512",
-   "type": "image/png",
-   "purpose": "maskable"
-  }
- ]
+  "id": "./",
+  "name": "My Coach · Biblioteca de tareas",
+  "short_name": "My Coach",
+  "description": "Biblioteca de ejercicios y tareas de fútbol 11 con diagramas, intensidad y día del microciclo.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#15803d",
+  "theme_color": "#15803d",
+  "categories": [
+    "sports",
+    "education"
+  ],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
 }
