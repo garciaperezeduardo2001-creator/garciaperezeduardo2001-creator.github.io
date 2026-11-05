@@ -690,20 +690,21 @@
     Object.entries(plan).forEach(([f, e]) => { if (e.realSrc === 'myteam' && !r.days[f]) { delete e.real; delete e.realSrc; if (e.k === 'none') delete plan[f]; n++; } });
     r.games.forEach(g => { const e = plan[g.iso]; if (!e || e.k === 'none' || e.k === 'rest') { const real = e && e.real; const x = r.days[g.iso]; plan[g.iso] = { k: 'match', name: g.rival ? 'Partido vs ' + g.rival : 'Partido', min: g.dur, rpe: x ? x.rpe || 8 : 8, src: 'myteam' }; if (real != null) { plan[g.iso].real = real; plan[g.iso].realSrc = 'myteam'; } n++; } });
     savePlan();
-    if (!silent) toast(n ? `Datos de My Team actualizados (${Object.keys(r.days).length} días con carga, ${r.games.length} partidos)` : 'Ya estaba todo al día');
+    if (!silent) toast(n ? `Datos actualizados (${Object.keys(r.days).length} días con carga, ${r.games.length} partidos)` : 'Ya estaba todo al día');
     return n;
   }
   async function mtPanel(mon) {
     const box = $('#mt'); if (!box) return;
     let ts = null; try { ts = await MyTeamLink.teams(); } catch (e) { }
     if (!$('#mt')) return;
-    if (!ts) { box.innerHTML = `<p class="sub">No se han encontrado datos de My Team en este móvil. La conexión directa funciona cuando las dos apps están instaladas en el mismo teléfono (las dos usan Chrome por dentro) y My Team tiene datos guardados. Mientras tanto, puedes usar los archivos CSV.</p>`; return; }
+    if (!ts) { box.innerHTML = `<p class="sub">No se han encontrado datos de My Team ni de Vestuario en este móvil. La conexión directa funciona cuando las dos apps están instaladas en el mismo teléfono (las dos usan Chrome por dentro) y My Team tiene datos guardados. Mientras tanto, puedes usar los archivos CSV.</p>`; return; }
     if (!mtTeam || !ts.some(t => t.id === mtTeam)) { mtTeam = ts[0].id; store.set('mtTeam', mtTeam); }
     const cur = ts.find(t => t.id === mtTeam);
-    box.innerHTML = `<div class="mtok"><b>✓ Conectado con My Team</b><span class="sub">${esc(cur.name)} · ${cur.players} jugadores</span></div>
-      ${ts.length > 1 ? `<label class="mtsel">Equipo <select id="mtteam">${ts.map(t => `<option value="${t.id}" ${t.id === mtTeam ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>` : ''}
-      <div class="acts"><button class="btn" id="mtin">⟳ Traer carga real y partidos</button><button class="btn pri" id="mtout">⬆ Enviar plan a My Team</button></div>
-      <p class="sub">Se trae la carga real (media de RPE × minutos por jugador) y los partidos de My Team cada vez que abres el Plan. «Enviar plan» escribe la carga objetivo de cada día en la Planificación semanal de My Team, donde verás plan frente a real.</p>`;
+    const apps = new Set(ts.map(t => t.app));
+    box.innerHTML = `<div class="mtok"><b>✓ Conectado con ${esc(cur.app)}</b><span class="sub">${esc(cur.name)} · ${cur.players} jugadores</span></div>
+      ${ts.length > 1 ? `<label class="mtsel">Equipo <select id="mtteam">${ts.map(t => `<option value="${esc(t.id)}" ${t.id === mtTeam ? 'selected' : ''}>${esc(t.name)}${apps.size > 1 ? ' · ' + esc(t.app) : ''}</option>`).join('')}</select></label>` : ''}
+      <div class="acts"><button class="btn" id="mtin">⟳ Traer carga real y partidos</button><button class="btn pri" id="mtout">⬆ Enviar plan a ${esc(cur.app.split(' (')[0])}</button></div>
+      <p class="sub">Se trae la carga real (media de RPE × minutos por jugador) y los partidos de ${esc(cur.app.split(' (')[0])} cada vez que abres el Plan. «Enviar plan» escribe la carga objetivo de cada día en su Planificación semanal, donde verás plan frente a real.${apps.size > 1 ? ' Tienes las dos versiones con datos: elige en «Equipo» la que usas.' : ''}</p>`;
     if ($('#mtteam')) $('#mtteam').onchange = e => { mtTeam = e.target.value; store.set('mtTeam', mtTeam); mtAuto = false; rePlan(); };
     $('#mtin').onclick = async () => { await mtSync(mtTeam); rePlan(); };
     $('#mtout').onclick = async () => {
@@ -711,8 +712,8 @@
       Object.entries(plan).forEach(([f, e]) => { if (f >= from && (e.k === 'ses' || e.k === 'match' || e.k === 'rest')) by[f] = dayLoad(e); });
       const n = Object.keys(by).length;
       if (!n) { toast('No hay días planificados desde la semana pasada'); return; }
-      if (!confirm(`Se enviará la carga objetivo de ${n} días al plan de My Team (${cur.name}). Los días que no hayas planificado aquí no se tocan.\n\nSi tienes My Team abierta, ciérrala del todo y vuelve a abrirla para ver los cambios.`)) return;
-      try { const w = await MyTeamLink.writePlan(mtTeam, by); toast(`Plan enviado a My Team: ${w} días`); } catch (e) { toast('No se pudo escribir en My Team'); }
+      if (!confirm(`Se enviará la carga objetivo de ${n} días al plan de ${cur.app} (${cur.name}). Los días que no hayas planificado aquí no se tocan.\n\nSi tienes la app abierta, ciérrala del todo y vuelve a abrirla para ver los cambios.`)) return;
+      try { const w = await MyTeamLink.writePlan(mtTeam, by); toast(`Plan enviado: ${w} días`); } catch (e) { toast('No se pudo escribir en ' + cur.app); }
     };
     if (!mtAuto) { mtAuto = true; try { if (await mtSync(mtTeam, true)) rePlan(); } catch (e) { } }
   }

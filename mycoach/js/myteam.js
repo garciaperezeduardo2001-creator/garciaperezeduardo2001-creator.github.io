@@ -3,14 +3,17 @@
    o, si no hay IndexedDB, en localStorage con la clave 'myteam:<colección>'. Al estar las dos apps en el mismo
    dominio (garciaperezeduardo2001-creator.github.io) My Coach puede leer esos datos y escribir el plan semanal. */
 (function () {
-  const DBN = 'myteam', ST = 'cols', LSP = 'myteam:';
+  // Dos versiones de la app de control de carga, en la misma web: My Team (/myteam/) y la primera, Vestuario (raíz)
+  const SRC = { mt: { db: 'myteam', ls: 'myteam:', name: 'My Team' }, vest: { db: 'vestuario', ls: 'vest:', name: 'Vestuario (primera versión)' } };
+  const ST = 'cols';
+  const split = id => { const i = String(id).indexOf('|'); return i < 0 ? ['mt', id] : [id.slice(0, i), id.slice(i + 1)]; };
   const D0 = Date.UTC(1899, 11, 30), DAY = 864e5;
   const serialOf = iso => { const [y, m, d] = iso.split('-').map(Number); return Math.round((Date.UTC(y, m - 1, d) - D0) / DAY); };
   const isoOf = s => { const d = new Date(D0 + s * DAY); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`; };
   const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
 
   // Abre la base de datos de My Team SIN crearla si no existe (crearla vacía rompería My Team)
-  async function openDB() {
+  async function openDB(DBN) {
     if (!('indexedDB' in window)) return null;
     try { if (indexedDB.databases) { const l = await indexedDB.databases(); if (!l.some(d => d.name === DBN)) return null; } } catch (e) { }
     return new Promise(res => {
@@ -21,20 +24,26 @@
       r.onsuccess = () => { const db = r.result; if (created || !db.objectStoreNames.contains(ST)) { db.close(); res(null); } else res(db); };
     });
   }
-  const lsGet = path => { try { const v = localStorage.getItem(LSP + path); return v ? JSON.parse(v) : null; } catch (e) { return null; } };
-  const hasLS = () => { try { for (let i = 0; i < localStorage.length; i++) if ((localStorage.key(i) || '').startsWith(LSP)) return true; } catch (e) { } return false; };
+  const lsGet = (LSP, path) => { try { const v = localStorage.getItem(LSP + path); return v ? JSON.parse(v) : null; } catch (e) { return null; } };
+  const hasLS = LSP => { try { for (let i = 0; i < localStorage.length; i++) if ((localStorage.key(i) || '').startsWith(LSP)) return true; } catch (e) { } return false; };
   const idbGet = (db, path) => new Promise(res => { try { const q = db.transaction(ST, 'readonly').objectStore(ST).get(path); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); } catch (e) { res(null); } });
 
-  async function source() {
-    const db = await openDB();
+  async function source(sk) {
+    const S = SRC[sk]; if (!S) return null;
+    const db = await openDB(S.db);
     if (db) return { get: p => idbGet(db, p), db, close: () => db.close() };
-    if (hasLS()) return { get: async p => lsGet(p), db: null, close: () => { } };
+    if (hasLS(S.ls)) return { get: async p => lsGet(S.ls, p), db: null, close: () => { } };
     return null;
   }
   const pre = tid => tid === 'main' ? '' : `teams/${tid}/`;
 
   async function teams() {
-    const s = await source(); if (!s) return null;
+    const all = [];
+    for (const sk of Object.keys(SRC)) { try { const t = await teamsOf(sk); if (t) all.push(...t); } catch (e) { } }
+    return all.length ? all : null;
+  }
+  async function teamsOf(sk) {
+    const s = await source(sk); if (!s) return null;
     try {
       const tl = (await s.get('teamlist')) || {}, cfg = ((await s.get('config')) || {}).main || {};
       const ids = ['main', ...Object.keys(tl).filter(k => k !== 'main')];
@@ -42,15 +51,16 @@
       for (const id of ids) {
         const c = id === 'main' ? cfg : (((await s.get(pre(id) + 'config')) || {}).main || {});
         const pl = (await s.get(pre(id) + 'players')) || {};
-        if (id !== 'main' || Object.keys(pl).length || c.team || tl.main) out.push({ id, name: (tl[id] && tl[id].name) || c.team || (id === 'main' ? 'Mi equipo' : 'Equipo'), players: Object.keys(pl).length });
+        if (id !== 'main' || Object.keys(pl).length || c.team || tl.main) out.push({ id: sk + '|' + id, app: SRC[sk].name, name: (tl[id] && tl[id].name) || c.team || (id === 'main' ? 'Mi equipo' : 'Equipo'), players: Object.keys(pl).length });
       }
       return out.length ? out : null;
     } finally { s.close(); }
   }
 
   // Lee un equipo y calcula la carga real media por jugador y día (sRPE = RPE × minutos)
-  async function read(tid) {
-    const s = await source(); if (!s) return null;
+  async function read(fullId) {
+    const [sk, tid] = split(fullId);
+    const s = await source(sk); if (!s) return null;
     try {
       const p = pre(tid), cfg0 = ((await s.get(p + 'config')) || {}).main || {};
       const cfg = { start: 46272, dur: 90, ...cfg0 };
@@ -82,8 +92,9 @@
   }
 
   // Escribe la carga objetivo por día en el plan semanal de My Team (colección 'plan', documentos 'w<semana>' con { targets: { díaDeLaSemana: UA } })
-  async function writePlan(tid, byIso) {
-    const info = await read(tid); if (!info) throw new Error('No se encontró My Team');
+  async function writePlan(fullId, byIso) {
+    const [sk, tid] = split(fullId), S = SRC[sk];
+    const info = await read(fullId); if (!info) throw new Error('No se encontró My Team');
     const start = info.cfg.start, weeks = {};
     Object.entries(byIso).forEach(([iso, ua]) => {
       const sr = serialOf(iso), off = sr - start; if (off < 0) return;
@@ -93,7 +104,7 @@
     const path = pre(tid) + 'plan', n = Object.values(weeks).reduce((t, x) => t + Object.keys(x).length, 0);
     if (!n) return 0;
     const merge = cur => { cur = cur || {}; Object.entries(weeks).forEach(([w, t]) => { const doc = cur['w' + w] || {}; cur['w' + w] = { ...doc, targets: { ...(doc.targets || {}), ...t } }; }); return cur; };
-    const db = await openDB();
+    const db = await openDB(S.db);
     if (db) {
       await new Promise((ok, ko) => {
         const tx = db.transaction(ST, 'readwrite'), st = tx.objectStore(ST), q = st.get(path);
@@ -101,7 +112,7 @@
         tx.oncomplete = () => ok(); tx.onerror = () => ko(tx.error); tx.onabort = () => ko(tx.error);
       });
       db.close();
-    } else localStorage.setItem(LSP + path, JSON.stringify(merge(lsGet(path))));
+    } else localStorage.setItem(S.ls + path, JSON.stringify(merge(lsGet(S.ls, path))));
     return n;
   }
 
