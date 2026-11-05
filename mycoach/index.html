@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Coach · Biblioteca de tareas</title>
+<meta name="description" content="Biblioteca de ejercicios y tareas de fútbol 11 con diagramas, intensidad y día del microciclo (MD).">
+<meta name="theme-color" content="#15803d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <button class="back" id="back" aria-label="Volver" hidden>‹</button>
+  <div class="brand"><img src="icons/icon-192.png" alt=""><div><b id="title">My Coach</b><small id="subtitle">Biblioteca de tareas</small></div></div>
+</header>
+<main id="app"></main>
+<nav class="bottom">
+  <a href="#/" data-r="lib"><span>📚</span>Biblioteca</a>
+  <a href="#/sesion" data-r="ses"><span>📋</span>Sesión</a>
+  <a href="#/plan" data-r="plan"><span>📅</span>Plan</a>
+  <a href="#/micro" data-r="micro"><span>🔁</span>Microciclo</a>
+  <a href="#/mis" data-r="mis"><span>★</span>Mis tareas</a>
+</nav>
+<div id="toast" class="toast" hidden></div>
+<script src="js/diagram.js"></script>
+<script src="data/helpers.js"></script>
+<script src="data/tareas-tactico.js"></script>
+<script src="data/tareas-fisico.js"></script>
+<script src="data/tareas-prevencion.js"></script>
+<script src="data/tareas-porteros.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/myteam.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
