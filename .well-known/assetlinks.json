@@ -22,5 +22,17 @@
         "CD:97:D3:02:AE:57:C6:79:6A:94:F4:F8:3E:B9:67:FC:28:FC:75:E3:79:21:75:AA:7B:E6:04:2A:FB:00:7F:A6"
       ]
     }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.garciaperezeduardo2001_creator.mycoach",
+      "sha256_cert_fingerprints": [
+        "D9:E9:55:3D:8F:B7:F3:71:58:40:9C:80:3F:A4:4E:43:36:2A:08:7F:8A:7B:D4:CE:59:8C:A2:48:D8:32:A3:EC"
+      ]
+    }
   }
 ]
