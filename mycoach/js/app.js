@@ -45,7 +45,7 @@
   // Puente con My Team: misma web (github.io) → mismo almacenamiento. My Team puede leer esta clave.
   function bridge() {
     try {
-      const dias = Object.keys(plan).sort().map(f => { const e = plan[f]; const l = dayLoad(e); return { fecha: f, md: mdOf(f), tipo: e.k, nombre: e.name || (e.k === 'match' ? 'Partido' : e.k === 'rest' ? 'Descanso' : ''), minutos: e.min || 0, rpe: e.min ? Math.round(l / e.min * 10) / 10 : 0, ua: l, ua_real: e.real ?? null }; });
+      const dias = Object.keys(plan).sort().map(f => { const e = plan[f]; const l = dayLoad(e); return { fecha: f, md: mdOf(f), tipo: e.k, nombre: e.name || (e.k === 'match' ? 'Partido' : e.k === 'rest' ? 'Descanso' : ''), minutos: e.min || 0, rpe: e.min ? Math.round(l / e.min * 10) / 10 : 0, ua: l, ua_real: e.real ?? null, md_sesion: e.md || '', tareas: e.k === 'ses' && Array.isArray(e.items) ? e.items.map(x => byId[x.id] ? { id: x.id, n: byId[x.id].n, tipo: byId[x.id].tipo, dur: byId[x.id].dur, int: byId[x.id].int, bloque: x.b } : null).filter(Boolean) : [] }; });
       localStorage.setItem('mycoach.planificado', JSON.stringify({ app: 'My Coach', version: 1, actualizado: new Date().toISOString(), dias }));
     } catch (e) { }
   }
