@@ -1,7 +1,7 @@
 /* Utilidades para escribir los diagramas de las tareas */
 window.TAREAS = [];
 const T = o => TAREAS.push(o);
-const A = (x, y, l) => ['A', x, y, l], B = (x, y, l) => ['B', x, y, l], N = (x, y, l) => ['N', x, y, l], P = (x, y) => ['P', x, y], E = (x, y) => ['E', x, y, 'E'];
+const A = (x, y, l) => ['A', x, y, l], B = (x, y, l) => ['B', x, y, l], N = (x, y, l) => ['N', x, y, l], C = (x, y, l) => ['C', x, y, l], P = (x, y) => ['P', x, y], E = (x, y) => ['E', x, y, 'E'];
 // Jugadores en círculo
 const ring = (cx, cy, r, n, team, off = -90) => Array.from({ length: n }, (_, i) => { const a = (off + i * 360 / n) * Math.PI / 180; return [team, +(cx + r * Math.cos(a)).toFixed(1), +(cy + r * Math.sin(a)).toFixed(1)]; });
 // Jugadores en línea

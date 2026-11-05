@@ -206,3 +206,40 @@ T({ id: 'p23', n: 'Lanzamientos con balón medicinal (core explosivo)', cat: 'pr
   cons: ['El giro empieza en la cadera.', 'Abdomen firme.'],
   var: ['+ Lanzamiento tras desplazamiento.', '− Balón de 1-2 kg.'],
   d: { z: [[42.5, 26.5, 20, 15]], p: [A(45, 30), B(45, 38), A(52.5, 30), B(52.5, 38), A(60, 30), B(60, 38)], b: [[45, 31.5], [52.5, 31.5], [60, 31.5]], a: [['pase', 45, 30, 45, 38, 1.5], ['pase', 52.5, 30, 52.5, 38, 1.5], ['pase', 60, 30, 60, 38, 1.5]] } });
+
+// ---------- AMPLIACIÓN 2 ----------
+T({ id: 'p24', n: 'Hip thrust a una pierna', cat: 'pre', tipo: 'Prevención', ed: 'CJS', dif: 1, md: ['MD-4', 'MD-3'], int: 2, rpe: '5', carga: 'Tensión', fase: 'vc',
+  jug: 'Todo el grupo', np: 20, esp: [20, 10], ser: '3 x 10-12 por pierna', rec: '45"', dur: 8,
+  obj: 'Fortalecer el glúteo para estabilizar la cadera y proteger isquios y rodilla.',
+  desc: 'Espalda apoyada en un banco o en el balón, pie de apoyo en el suelo y la otra pierna elevada. Subir la cadera hasta alinear el cuerpo y bajar lento.',
+  reglas: ['Pausa de 1" arriba.', 'Pelvis nivelada.', 'Ambas piernas igual.'],
+  cons: ['Empujar con el talón.', 'Costillas abajo, sin arquear la espalda.'],
+  var: ['+ Con carga en la cadera.', '− A dos piernas.'],
+  d: { z: [[42.5, 29, 20, 10]], p: [A(45, 34), A(50, 34), A(55, 34), A(60, 34)], t: [[52.5, 31, 'Hip thrust unilateral', .8]] } });
+
+T({ id: 'p25', n: 'Step-down y control de rodilla', cat: 'pre', tipo: 'Prevención', ed: 'ICJS', dif: 1, md: ['MD-2', 'MD-3', 'MD-4'], int: 2, rpe: '4', carga: 'Activación', fase: 'cal',
+  jug: 'Todo el grupo', np: 20, esp: [20, 10], ser: '2 x 10 por pierna', rec: '30"', dur: 6,
+  obj: 'Control excéntrico del cuádriceps y alineación de la rodilla.',
+  desc: 'De pie sobre un escalón o cajón bajo, bajar lentamente el talón de la otra pierna hasta rozar el suelo y volver a subir, sin que la rodilla se vaya hacia dentro.',
+  reglas: ['Bajada en 3".', 'Rodilla por encima del segundo dedo.', 'Ante el espejo o con el compañero corrigiendo.'],
+  cons: ['Cadera atrás como al sentarse.', 'Pelvis estable.'],
+  var: ['+ Escalón más alto.', '− Apoyo de una mano.'],
+  d: { z: [[42.5, 29, 20, 10]], p: [A(46, 34), B(46, 37), A(53, 34), B(53, 37), A(60, 34), B(60, 37)], t: [[52.5, 31, 'Step-down · el compañero corrige', .75]] } });
+
+T({ id: 'p26', n: 'Respiración y relajación post-partido', cat: 'pre', tipo: 'Recuperación', ed: 'AICJS', dif: 1, md: ['MD+1'], int: 1, rpe: '1', carga: 'Recuperación', fase: 'vc',
+  jug: 'Todo el grupo', np: 20, esp: [20, 15], ser: '1 x 8-10\'', rec: '—', dur: 10,
+  obj: 'Bajar la activación y favorecer la recuperación tras el partido.',
+  desc: 'Tumbados, respiración diafragmática 4-6 (4" inspirar, 6" espirar), seguida de relajación progresiva: tensar 5" y soltar cada grupo muscular, de los pies a la cabeza.',
+  reglas: ['Ambiente tranquilo.', 'Sin móviles.', 'Terminar con una frase de cierre del entrenador.'],
+  cons: ['Espirar más largo que inspirar.', 'Notar la diferencia entre tensión y relajación.'],
+  var: ['+ 15 minutos.', '− Solo respiración, 5 minutos.'],
+  d: { z: [[42.5, 26.5, 20, 15]], p: [...ring(52.5, 34, 5.5, 9, 'A'), E(52.5, 34)] } });
+
+T({ id: 'p27', n: 'Saltos con giro de 90° y aterrizaje estable', cat: 'pre', tipo: 'Prevención', ed: 'ICJS', dif: 2, md: ['MD-4', 'MD-3'], int: 2, rpe: '5', carga: 'Tensión', fase: 'cal',
+  jug: 'Grupos de 4', np: 16, esp: [20, 15], ser: '2 x 6 saltos por lado', rec: '45"', dur: 8,
+  obj: 'Prevención de lesión de rodilla: controlar la rotación al aterrizar.',
+  desc: 'Salto vertical con giro de 90° en el aire y aterrizaje a dos piernas manteniendo la posición 2". Progresión a aterrizaje a una pierna.',
+  reglas: ['Aterrizaje silencioso.', 'Rodillas alineadas con los pies.', 'Mismo número de giros a cada lado.'],
+  cons: ['Mirar al frente al aterrizar.', 'Cadera y rodillas flexionadas.'],
+  var: ['+ Aterrizaje a una pierna.', '− Sin giro.'],
+  d: { z: [[42.5, 26.5, 20, 15]], c: [[46, 30], [52, 30], [58, 30], [46, 38], [52, 38], [58, 38]], p: [A(46, 32), A(52, 32), A(46, 36)], t: [[55, 34.5, '↻ 90°', 1.2]] } });

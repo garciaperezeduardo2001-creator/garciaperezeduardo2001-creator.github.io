@@ -206,3 +206,49 @@ T({ id: 'gk23', n: 'Circuito físico-técnico de portero', cat: 'por', tipo: 'Po
   cons: ['Recuperar la posición básica entre acciones.', 'Calidad técnica con fatiga.'],
   var: ['+ 5 vueltas.', '− Sin vallas.'],
   d: { v: [80, 18, 28, 32], h: [[99, 25, 0], [99, 28, 0]], p: [P(101, 22), E(93, 34), E(90, 42)], b: [[96, 32], [94, 40]], a: [['mov', 101, 23, 101, 29, 0], ['mov', 101, 30, 103, 35, 0], ['mov', 103, 36, 95, 41, 0]] } });
+
+// ---------- AMPLIACIÓN 2 ----------
+T({ id: 'gk24', n: 'Juego aéreo con bloqueo de rivales', cat: 'por', tipo: 'Portero · Técnica', ed: 'CJS', dif: 3, md: ['MD-3', 'MD-2'], int: 3, rpe: '7', carga: 'Duración', fase: 'pri',
+  jug: 'Portero + 2 bloqueadores + centrador', np: 4, esp: [20, 30], ser: '3 x 6 centros', rec: '1\'', dur: 14,
+  obj: 'Salir a centros con tráfico y contacto en el área pequeña.',
+  desc: 'Dos jugadores se colocan delante del portero y le dificultan la salida con contacto legal mientras llega el centro. El portero decide si sale a blocar o a despejar.',
+  reglas: ['Contacto sin agarrar ni empujar con las manos.', 'Centros a distintas alturas.', 'El portero avisa siempre: "¡mía!".'],
+  cons: ['Rodilla arriba para protegerse.', 'Atacar el balón por encima de los rivales.'],
+  var: ['+ Tres bloqueadores.', '− Bloqueadores pasivos.'],
+  d: { v: [76, 0, 32, 56], g: [], p: [P(103, 34), A(100, 31), A(100, 37), N(94, 6)], b: [[94.9, 6.6]], a: [['pase', 94, 6, 100, 33, 3, 1], ['mov', 103, 34, 100.5, 33.5, 0, 1]] } });
+
+T({ id: 'gk25', n: 'Saque rápido tras blocaje', cat: 'por', tipo: 'Portero · Juego de pies', ed: 'ICJS', dif: 2, md: ['MD-2', 'MD-1'], int: 2, rpe: '5', carga: 'Activación', fase: 'pri',
+  jug: 'Portero + tirador + 2 receptores', np: 4, esp: [50, 68], ser: '3 x 6 acciones', rec: '1\'', dur: 12,
+  obj: 'Lanzar el contraataque nada más blocar: lectura y precisión del saque.',
+  desc: 'El portero bloca un tiro y saca inmediatamente con la mano (raso) o con el pie hacia uno de los dos receptores que salen en carrera hacia las bandas. El receptor elegido es el que queda libre.',
+  reglas: ['Saque en menos de 3" tras blocar.', 'Receptor a la carrera.', 'Alternar saque con la mano y con el pie.'],
+  cons: ['Mirar antes de blocar dónde están los receptores.', 'Saque tenso y al espacio del receptor.'],
+  var: ['+ Defensor que tapa a uno de los receptores.', '− Receptores parados.'],
+  d: { v: [50, 0, 57, 68], g: [], p: [P(102, 34), E(90, 34), A(84, 14), A(84, 54)], b: [[91, 34.5]], a: [['tiro', 90, 34, 101, 34.5, 0, 1], ['mov', 84, 54, 70, 58, 0, 2], ['pase', 102, 34, 70, 57, 0, 2], ['mov', 84, 14, 72, 10, 0, 2]] } });
+
+T({ id: 'gk26', n: 'Tiros tras pantalla de jugadores', cat: 'por', tipo: 'Portero · Técnica', ed: 'CJS', dif: 3, md: ['MD-2', 'MD-3'], int: 3, rpe: '7', carga: 'Velocidad', fase: 'pri',
+  jug: 'Portero + 2 pantallas + tirador', np: 4, esp: [20, 25], ser: '3 x 6 tiros', rec: '45"', dur: 12,
+  obj: 'Reaccionar a tiros que aparecen tarde por detrás de jugadores.',
+  desc: 'Dos jugadores (o maniquíes) se colocan entre el tirador y el portero, tapando parcialmente el balón. El tirador dispara por un lado o por el hueco entre ambos.',
+  reglas: ['Pantallas quietas al principio y luego en movimiento.', 'Tiros rasos y a media altura.', 'El portero se mueve para ver el balón.'],
+  cons: ['Buscar ver el balón, no adivinar.', 'Peso delante y manos preparadas.'],
+  var: ['+ Pantallas que se apartan en el último momento.', '− Una sola pantalla.'],
+  d: { v: [82, 20, 26, 28], p: [P(104, 34), B(97, 32.5), B(97, 35.5), A(89, 34)], b: [[90, 34.3]], a: [['tiro', 89, 34, 104.5, 31, 0]] } });
+
+T({ id: 'gk27', n: 'Despeje con el pie fuera del área', cat: 'por', tipo: 'Portero · Juego de pies', ed: 'CJS', dif: 2, md: ['MD-3', 'MD-2'], int: 3, rpe: '6', carga: 'Duración', fase: 'pri',
+  jug: 'Portero + pasador + delantero', np: 3, esp: [40, 40], ser: '3 x 5 acciones', rec: '1\'', dur: 12,
+  obj: 'Salir del área y despejar con el pie con decisión ante un delantero.',
+  desc: 'Balones rasos y largos a la espalda de la defensa. El portero sale fuera del área y despeja con el pie hacia la banda antes de que llegue el delantero.',
+  reglas: ['Despeje siempre hacia la banda.', 'El delantero sale a la vez que el pase.', 'Si no llega, el portero vuelve a su posición.'],
+  cons: ['Decidir rápido y salir con convicción.', 'Golpeo con el empeine, cuerpo encima del balón.'],
+  var: ['+ Delantero con ventaja de 2 m.', '− Sin delantero.'],
+  d: { v: [60, 10, 48, 50], g: [], p: [P(100, 34), A(66, 34), B(78, 40)], b: [[66.9, 34.5]], a: [['pase', 66, 34, 87, 36, 0, 1], ['mov', 100, 34, 88, 36, 0, 1], ['mov', 78, 40, 86, 38, 0, 1], ['pase', 88, 36, 84, 14, 0, 2]] } });
+
+T({ id: 'gk28', n: 'Caídas desde rodillas (iniciación)', cat: 'por', tipo: 'Portero · Técnica', ed: 'AI', dif: 1, md: ['MD-3', 'MD-2', 'MD-4'], int: 2, rpe: '4', carga: 'Activación', fase: 'pri',
+  jug: 'Porteros por parejas', np: 2, esp: [10, 10], ser: '3 x 6 caídas por lado', rec: '30"', dur: 10,
+  obj: 'Aprender la caída lateral sin miedo y sin golpes.',
+  desc: 'De rodillas, el compañero lanza el balón con la mano a un lado. El portero cae de lado blocando con las dos manos y el balón contra el suelo. Progresión: de cuclillas y luego de pie.',
+  reglas: ['Caer sobre el costado, nunca sobre el codo.', 'Mano de abajo detrás del balón, mano de arriba encima.', 'Ambos lados por igual.'],
+  cons: ['Ir hacia delante a por el balón.', 'Mirar el balón hasta tenerlo blocado.'],
+  var: ['+ Desde de pie.', '− Balón rodando más lento.'],
+  d: { z: [[47.5, 29, 10, 10]], p: [P(50, 34), P(55.5, 34)], b: [[54.5, 33.6]], a: [['pase', 55.5, 33.5, 50, 31.5, 0], ['mov', 50, 34, 50, 32, 0]] } });

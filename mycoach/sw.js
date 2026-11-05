@@ -1,6 +1,6 @@
-const CACHE = 'mycoach-v8';
+const CACHE = 'mycoach-v9';
 const FILES = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'js/diagram.js', 'js/editor.js', 'js/myteam.js', 'js/app.js',
-  'data/helpers.js', 'data/tareas-tactico.js', 'data/tareas-fisico.js', 'data/tareas-prevencion.js', 'data/tareas-porteros.js',
+  'data/helpers.js', 'data/tareas-tactico.js', 'data/tareas-fisico.js', 'data/tareas-prevencion.js', 'data/tareas-porteros.js', 'data/tareas-juegos.js',
   'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x))))); self.clients.claim(); });

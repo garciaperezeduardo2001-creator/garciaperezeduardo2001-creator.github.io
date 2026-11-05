@@ -1,26 +1,29 @@
-/* Motor de diagramas: dibuja una vista aérea del campo (105 x 68 m) en SVG.
+/* Motor de diagramas: dibuja una vista aérea del campo (105 x 68 m) en SVG y anima las tareas.
    Coordenadas en metros: x = 0 (portería izquierda) → 105 (portería derecha), y = 0 (banda superior) → 68.
    Elementos de un diagrama (todos opcionales):
    v  : [x, y, ancho, alto]  vista (si falta se calcula sola)
    z  : zonas  [x, y, w, h, color?, etiqueta?]
    l  : líneas discontinuas [x1, y1, x2, y2]
-   p  : jugadores [equipo, x, y, texto?]   equipo: A rojo, B azul, N comodín, P portero, E entrenador
+   p  : jugadores [equipo, x, y, texto?]   equipo: A rojo, B azul, N comodín, P portero, E entrenador, C naranja
    c  : conos [x, y, color?]
    pk : picas [x, y]
    h  : vallas [x, y, vertical?]
    esc: escaleras [x, y, largo, vertical?]
-   mg : miniporterías [x, y, orientación 'L'|'R'|'U'|'D']
+   mg : miniporterías [x, y, orientación 'L'|'R'|'U'|'D'] (hacia dónde mira la boca)
    g  : porterías móviles [x, y, orientación]
    b  : balones [x, y]
-   a  : flechas [tipo, x1, y1, x2, y2, curva?]  tipo: pase | mov | cond | tiro
+   a  : flechas [tipo, x1, y1, x2, y2, curva?, paso?]  tipo: pase | mov | cond | tiro
+        «paso» es opcional: las flechas con el mismo paso se animan a la vez. Si falta, se calcula solo:
+        los desplazamientos sin balón se mueven a la vez que la siguiente acción con balón.
    t  : textos [x, y, texto, tamaño?]
 */
 (function () {
   const L = 105, W = 68;
   const TEAM = {
-    A: ['#dc2626', '#fff'], B: ['#1d4ed8', '#fff'], N: ['#facc15', '#1f2937'],
-    P: ['#111827', '#facc15'], E: ['#ffffff', '#111827'], C: ['#f97316', '#fff']
+    A: ['#e11d48', '#fff', '#fb7185', '#9f1239'], B: ['#2563eb', '#fff', '#60a5fa', '#1e3a8a'], N: ['#facc15', '#1f2937', '#fde68a', '#a16207'],
+    P: ['#111827', '#facc15', '#4b5563', '#000000'], E: ['#ffffff', '#111827', '#ffffff', '#9ca3af'], C: ['#f97316', '#fff', '#fdba74', '#9a3412']
   };
+  const ARW = { pase: { c: '#ffffff', w: .22, dash: '' }, mov: { c: '#fde047', w: .2, dash: 'd' }, cond: { c: '#ffffff', w: .17, dash: '' }, tiro: { c: '#fb923c', w: .34, dash: '' } };
   let uid = 0;
 
   function bbox(d) {
@@ -37,10 +40,48 @@
     return [x0 - m, y0 - m, x1 - x0 + 2 * m, y1 - y0 + 2 * m];
   }
 
-  function pitch(lw) {
+  // Agrupa las flechas en pasos de animación
+  function steps(d) {
+    const a = d.a || [], out = [];
+    if (a.some(x => x[6] != null)) {
+      const m = new Map(); a.forEach((x, i) => { const k = x[6] ?? (i + 1000); if (!m.has(k)) m.set(k, []); m.get(k).push(i); });
+      return [...m.keys()].sort((p, q) => p - q).map(k => m.get(k));
+    }
+    let pend = [];
+    a.forEach((x, i) => { if (x[0] === 'mov') pend.push(i); else { out.push([...pend, i]); pend = []; } });
+    if (pend.length) { if (out.length) out[out.length - 1].push(...pend); else out.push(pend); }
+    return out;
+  }
+
+  function geom(a, k, players) {
+    let [type, x1, y1, x2, y2, cv] = a; cv = cv || 0;
+    const r = 0.85 * k;
+    const near = (x, y) => players.some(p => Math.hypot(p[1] - x, p[2] - y) < 0.6);
+    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+    if (near(x1, y1)) { x1 += ux * r * 1.05; y1 += uy * r * 1.05; }
+    if (near(x2, y2)) { x2 -= ux * r * 1.25; y2 -= uy * r * 1.25; }
+    const mx = (x1 + x2) / 2 - uy * cv, my = (y1 + y2) / 2 + ux * cv;
+    const at = t => [(1 - t) ** 2 * x1 + 2 * (1 - t) * t * mx + t * t * x2, (1 - t) ** 2 * y1 + 2 * (1 - t) * t * my + t * t * y2];
+    let path;
+    if (type === 'cond') {
+      const pts = [], n = Math.max(8, Math.round(len / (0.7 * k)) * 2), amp = 0.35 * k;
+      for (let i = 0; i <= n; i++) {
+        const t = i / n, [bx, by] = at(t);
+        const tx = 2 * (1 - t) * (mx - x1) + 2 * t * (x2 - mx), ty = 2 * (1 - t) * (my - y1) + 2 * t * (y2 - my), tl = Math.hypot(tx, ty) || 1;
+        const o = (i === 0 || i >= n - 1) ? 0 : (i % 2 ? amp : -amp);
+        pts.push(`${(bx - ty / tl * o).toFixed(2)} ${(by + tx / tl * o).toFixed(2)}`);
+      }
+      path = 'M' + pts.join(' L');
+    } else path = `M${x1.toFixed(2)} ${y1.toFixed(2)} Q${mx.toFixed(2)} ${my.toFixed(2)} ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+    return { type, path, at, len };
+  }
+
+  function pitch(lw, id, mini) {
     const s = [];
-    for (let i = 0; i < 14; i++) s.push(`<rect x="${i * 7.5}" y="0" width="7.5" height="${W}" fill="${i % 2 ? '#16a34a' : '#15803d'}"/>`);
-    const ln = `fill="none" stroke="rgba(255,255,255,.85)" stroke-width="${lw}"`;
+    s.push(`<rect x="0" y="0" width="${L}" height="${W}" fill="#1f8a43"/>`);
+    for (let i = 0; i < 14; i++) if (i % 2) s.push(`<rect x="${i * 7.5}" y="0" width="7.5" height="${W}" fill="#25994c"/>`);
+    if (!mini) s.push(`<rect x="0" y="0" width="${L}" height="${W}" fill="url(#vg-${id})"/>`);
+    const ln = `fill="none" stroke="rgba(255,255,255,.88)" stroke-width="${lw}" stroke-linecap="round"`;
     s.push(`<g ${ln}>
       <rect x="0" y="0" width="${L}" height="${W}"/>
       <line x1="52.5" y1="0" x2="52.5" y2="${W}"/>
@@ -49,145 +90,212 @@
       <rect x="88.5" y="13.84" width="16.5" height="40.32"/><rect x="99.5" y="24.84" width="5.5" height="18.32"/>
       <path d="M16.5 26.69 A9.15 9.15 0 0 1 16.5 41.31"/><path d="M88.5 26.69 A9.15 9.15 0 0 0 88.5 41.31"/>
       <path d="M0 1 A1 1 0 0 0 1 0"/><path d="M104 0 A1 1 0 0 0 105 1"/><path d="M0 67 A1 1 0 0 1 1 68"/><path d="M104 68 A1 1 0 0 1 105 67"/>
-      <rect x="-2" y="30.34" width="2" height="7.32" fill="rgba(255,255,255,.18)"/><rect x="105" y="30.34" width="2" height="7.32" fill="rgba(255,255,255,.18)"/>
     </g>`);
-    s.push(`<g fill="rgba(255,255,255,.85)"><circle cx="52.5" cy="34" r="${lw * 1.6}"/><circle cx="11" cy="34" r="${lw * 1.6}"/><circle cx="94" cy="34" r="${lw * 1.6}"/></g>`);
+    const net = mini ? 'rgba(255,255,255,.25)' : `url(#net-${id})`;
+    s.push(`<rect x="-2" y="30.34" width="2" height="7.32" fill="${net}" stroke="#fff" stroke-width="${lw}"/><rect x="105" y="30.34" width="2" height="7.32" fill="${net}" stroke="#fff" stroke-width="${lw}"/>`);
+    s.push(`<g fill="rgba(255,255,255,.9)"><circle cx="52.5" cy="34" r="${lw * 1.6}"/><circle cx="11" cy="34" r="${lw * 1.6}"/><circle cx="94" cy="34" r="${lw * 1.6}"/></g>`);
+    if (!mini) [[0, 0], [L, 0], [0, W], [L, W]].forEach(([x, y]) => s.push(`<line x1="${x}" y1="${y}" x2="${x}" y2="${y - 1.4}" stroke="#fff" stroke-width="${lw * .8}"/><path d="M${x} ${y - 1.4} l${x ? -1.1 : 1.1} .35 l${x ? 1.1 : -1.1} .35z" fill="#facc15"/>`));
     return s.join('');
   }
 
-  function goal(x, y, o, w, dep, lw) {
-    // o = hacia dónde mira la boca de la portería
-    const h = w / 2; let r;
-    if (o === 'L' || o === 'R') { const dx = o === 'L' ? dep : -dep; r = `M${x + dx} ${y - h} L${x} ${y - h} L${x} ${y + h} L${x + dx} ${y + h}`; return `<path d="${r}" fill="rgba(255,255,255,.25)" stroke="#fff" stroke-width="${lw * 1.6}"/><line x1="${x + dx}" y1="${y - h}" x2="${x + dx}" y2="${y + h}" stroke="#fff" stroke-width="${lw}" stroke-dasharray="${lw * 2}"/>`; }
-    const dy = o === 'U' ? dep : -dep; r = `M${x - h} ${y + dy} L${x - h} ${y} L${x + h} ${y} L${x + h} ${y + dy}`;
-    return `<path d="${r}" fill="rgba(255,255,255,.25)" stroke="#fff" stroke-width="${lw * 1.6}"/><line x1="${x - h}" y1="${y + dy}" x2="${x + h}" y2="${y + dy}" stroke="#fff" stroke-width="${lw}" stroke-dasharray="${lw * 2}"/>`;
-  }
-
-  function arrow(a, k, players, id) {
-    let [type, x1, y1, x2, y2, cv] = a; cv = cv || 0;
-    const r = 0.85 * k;
-    const near = (x, y) => players.some(p => Math.hypot(p[1] - x, p[2] - y) < 0.6);
-    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
-    if (near(x1, y1)) { x1 += ux * r * 1.05; y1 += uy * r * 1.05; }
-    if (near(x2, y2)) { x2 -= ux * r * 1.25; y2 -= uy * r * 1.25; }
-    const mx = (x1 + x2) / 2 - uy * cv, my = (y1 + y2) / 2 + ux * cv;
-    const st = { pase: ['#fff', 0.22, ''], mov: ['#fde047', 0.2, `stroke-dasharray="${0.55 * k} ${0.4 * k}"`], cond: ['#fff', 0.18, ''], tiro: ['#fbbf24', 0.34, ''] }[type] || ['#fff', .2, ''];
-    const w = st[1] * k;
-    let d;
-    if (type === 'cond') {
-      const pts = [], n = Math.max(8, Math.round(len / (0.7 * k)) * 2), amp = 0.35 * k;
-      for (let i = 0; i <= n; i++) {
-        const t = i / n, bx = (1 - t) ** 2 * x1 + 2 * (1 - t) * t * mx + t * t * x2, by = (1 - t) ** 2 * y1 + 2 * (1 - t) * t * my + t * t * y2;
-        const tx = 2 * (1 - t) * (mx - x1) + 2 * t * (x2 - mx), ty = 2 * (1 - t) * (my - y1) + 2 * t * (y2 - my), tl = Math.hypot(tx, ty) || 1;
-        const o = (i === 0 || i >= n - 1) ? 0 : (i % 2 ? amp : -amp);
-        pts.push(`${(bx - ty / tl * o).toFixed(2)} ${(by + tx / tl * o).toFixed(2)}`);
-      }
-      d = 'M' + pts.join(' L');
-    } else d = `M${x1.toFixed(2)} ${y1.toFixed(2)} Q${mx.toFixed(2)} ${my.toFixed(2)} ${x2.toFixed(2)} ${y2.toFixed(2)}`;
-    return `<path d="${d}" fill="none" stroke="${st[0]}" stroke-width="${w}" ${st[2]} stroke-linejoin="round" marker-end="url(#ah-${type}-${id})"/>`;
+  function goal(x, y, o, w, dep, lw, fill) {
+    const h = w / 2;
+    if (o === 'L' || o === 'R') {
+      const dx = o === 'L' ? dep : -dep, x0 = Math.min(x, x + dx);
+      return `<rect x="${x0}" y="${y - h}" width="${dep}" height="${w}" fill="${fill}"/><path d="M${x + dx} ${y - h} L${x} ${y - h} L${x} ${y + h} L${x + dx} ${y + h}" fill="none" stroke="#fff" stroke-width="${lw * 1.7}" stroke-linejoin="round"/>`;
+    }
+    const dy = o === 'U' ? dep : -dep, y0 = Math.min(y, y + dy);
+    return `<rect x="${x - h}" y="${y0}" width="${w}" height="${dep}" fill="${fill}"/><path d="M${x - h} ${y + dy} L${x - h} ${y} L${x + h} ${y} L${x + h} ${y + dy}" fill="none" stroke="#fff" stroke-width="${lw * 1.7}" stroke-linejoin="round"/>`;
   }
 
   window.fieldBBox = bbox;
+  window.fieldSteps = steps;
+
   window.drawField = function (d, opt = {}) {
     d = d || {};
-    const id = ++uid;
+    const id = ++uid, mini = !!opt.mini;
     let [vx, vy, vw, vh] = d.v || bbox(d);
     const AR = 1.5;
     if (vw / vh < AR) { const nw = vh * AR; vx -= (nw - vw) / 2; vw = nw; } else { const nh = vw / AR; vy -= (nh - vh) / 2; vh = nh; }
-    // Mantener la vista dentro del campo (con un pequeño margen) cuando sobra espacio
     const cl = (v, w, max) => w >= max + 8 ? v : Math.min(Math.max(v, -4), max + 4 - w);
     vx = cl(vx, vw, L); vy = cl(vy, vh, W);
-    const k = vw / 40;
-    const lw = Math.max(0.12, k * 0.14);
+    const k = vw / 40, lw = Math.max(0.12, k * 0.14);
     const o = [];
-    o.push(`<svg class="field" viewBox="${vx.toFixed(2)} ${vy.toFixed(2)} ${vw.toFixed(2)} ${vh.toFixed(2)}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${opt.label || 'Diagrama de la tarea'}">`);
-    const mk = (t, c) => `<marker id="ah-${t}-${id}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.6" markerHeight="3.6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${c}"/></marker>`;
-    o.push(`<defs>${mk('pase', '#fff')}${mk('mov', '#fde047')}${mk('cond', '#fff')}${mk('tiro', '#fbbf24')}</defs>`);
-    o.push(`<rect x="${vx - 50}" y="${vy - 50}" width="${vw + 100}" height="${vh + 100}" fill="#166534"/>`);
-    o.push(pitch(lw));
+    o.push(`<svg class="field" viewBox="${vx.toFixed(2)} ${vy.toFixed(2)} ${vw.toFixed(2)} ${vh.toFixed(2)}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${opt.label || 'Diagrama de la tarea'}" data-k="${k.toFixed(4)}">`);
+    const mk = (t, c) => `<marker id="ah-${t}-${id}" viewBox="0 0 10 10" refX="6.5" refY="5" markerWidth="3.4" markerHeight="3.4" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 L2.2 5 z" fill="${c}"/></marker>`;
+    let defs = mk('pase', ARW.pase.c) + mk('mov', ARW.mov.c) + mk('cond', ARW.cond.c) + mk('tiro', ARW.tiro.c);
+    if (!mini) {
+      defs += `<radialGradient id="vg-${id}" cx="50%" cy="50%" r="75%"><stop offset="60%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".22"/></radialGradient>`;
+      defs += `<pattern id="net-${id}" width=".5" height=".5" patternUnits="userSpaceOnUse"><rect width=".5" height=".5" fill="rgba(255,255,255,.12)"/><path d="M0 0 L.5 .5 M.5 0 L0 .5" stroke="rgba(255,255,255,.55)" stroke-width=".05"/></pattern>`;
+      Object.entries(TEAM).forEach(([t, c]) => { defs += `<radialGradient id="pl${t}-${id}" cx="35%" cy="30%" r="75%"><stop offset="0%" stop-color="${c[2]}"/><stop offset="55%" stop-color="${c[0]}"/><stop offset="100%" stop-color="${c[3]}"/></radialGradient>`; });
+      defs += `<radialGradient id="ball-${id}" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#fff"/><stop offset="80%" stop-color="#e5e7eb"/><stop offset="100%" stop-color="#9ca3af"/></radialGradient>`;
+      defs += `<linearGradient id="cone-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff" stop-opacity=".45"/><stop offset="100%" stop-color="#000" stop-opacity=".15"/></linearGradient>`;
+    }
+    o.push(`<defs>${defs}</defs>`);
+    o.push(`<rect x="${vx - 50}" y="${vy - 50}" width="${vw + 100}" height="${vh + 100}" fill="#14632f"/>`);
+    o.push(pitch(lw, id, mini));
     (d.z || []).forEach(z => {
       const [x, y, w, h, col, lab] = z;
-      o.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${col || '#fff'}" fill-opacity="${col ? .28 : .1}" stroke="${col || '#fff'}" stroke-width="${lw * 1.3}" stroke-dasharray="${k * .9} ${k * .5}"/>`);
-      if (lab && !opt.mini) o.push(`<text x="${x + w / 2}" y="${y + h - k * .5}" font-size="${k * 1.1}" text-anchor="middle" fill="#fff" fill-opacity=".85" font-weight="700" font-family="system-ui,sans-serif">${lab}</text>`);
+      o.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${k * .35}" fill="${col || '#fff'}" fill-opacity="${col ? .26 : .09}" stroke="${col || '#fff'}" stroke-opacity=".95" stroke-width="${lw * 1.3}" stroke-dasharray="${k * .9} ${k * .5}" stroke-linecap="round"/>`);
+      if (lab && !mini) o.push(`<text x="${x + w / 2}" y="${y + h - k * .5}" font-size="${k * 1.1}" text-anchor="middle" fill="#fff" fill-opacity=".9" font-weight="800" font-family="system-ui,sans-serif" paint-order="stroke" stroke="rgba(0,0,0,.35)" stroke-width="${k * .18}">${lab}</text>`);
     });
-    (d.l || []).forEach(l => o.push(`<line x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" stroke="#fff" stroke-opacity=".8" stroke-width="${lw * 1.2}" stroke-dasharray="${k * .6} ${k * .5}"/>`));
+    (d.l || []).forEach(l => o.push(`<line x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" stroke="#fff" stroke-opacity=".8" stroke-width="${lw * 1.2}" stroke-dasharray="${k * .6} ${k * .5}" stroke-linecap="round"/>`));
     (d.esc || []).forEach(e => {
-      const [x, y, len, vert] = e, wd = 0.8; const n = Math.round(len / 0.5);
-      let s = `<rect x="${x}" y="${y}" width="${vert ? wd : len}" height="${vert ? len : wd}" fill="none" stroke="#facc15" stroke-width="${lw}"/>`;
+      const [x, y, len, vert] = e, wd = 0.8, n = Math.round(len / 0.5);
+      let s = `<rect x="${x}" y="${y}" width="${vert ? wd : len}" height="${vert ? len : wd}" fill="rgba(250,204,21,.12)" stroke="#facc15" stroke-width="${lw}"/>`;
       for (let i = 1; i < n; i++) s += vert ? `<line x1="${x}" y1="${y + i * .5}" x2="${x + wd}" y2="${y + i * .5}" stroke="#facc15" stroke-width="${lw * .8}"/>` : `<line x1="${x + i * .5}" y1="${y}" x2="${x + i * .5}" y2="${y + wd}" stroke="#facc15" stroke-width="${lw * .8}"/>`;
       o.push(s);
     });
-    (d.g || []).forEach(g => o.push(goal(g[0], g[1], g[2], 7.32, 2, lw)));
-    (d.mg || []).forEach(g => o.push(goal(g[0], g[1], g[2], Math.max(2, 1.2 * k), Math.max(.8, .5 * k), lw)));
-    (d.h || []).forEach(h => { const s = 0.5 * k; o.push(h[2] ? `<rect x="${h[0] - s * .18}" y="${h[1] - s}" width="${s * .36}" height="${s * 2}" fill="#fb923c" stroke="#7c2d12" stroke-width="${lw * .5}"/>` : `<rect x="${h[0] - s}" y="${h[1] - s * .18}" width="${s * 2}" height="${s * .36}" fill="#fb923c" stroke="#7c2d12" stroke-width="${lw * .5}"/>`); });
-    (d.pk || []).forEach(p => o.push(`<circle cx="${p[0]}" cy="${p[1]}" r="${.32 * k}" fill="#fde047" stroke="#713f12" stroke-width="${lw * .6}"/>`));
-    (d.c || []).forEach(c => { const s = 0.42 * k; o.push(`<path d="M${c[0]} ${c[1] - s} L${c[0] + s * .9} ${c[1] + s * .7} L${c[0] - s * .9} ${c[1] + s * .7} z" fill="${c[2] || '#f97316'}" stroke="rgba(0,0,0,.35)" stroke-width="${lw * .5}"/>`); });
+    const netFill = mini ? 'rgba(255,255,255,.25)' : `url(#net-${id})`;
+    (d.g || []).forEach(g => o.push(goal(g[0], g[1], g[2], 7.32, 2, lw, netFill)));
+    (d.mg || []).forEach(g => o.push(goal(g[0], g[1], g[2], Math.max(2, 1.2 * k), Math.max(.8, .5 * k), lw, netFill)));
+    (d.h || []).forEach(h => { const s = 0.5 * k, t = s * .3; o.push(h[2]
+      ? `<g><rect x="${h[0] - t / 2 + k * .08}" y="${h[1] - s + k * .1}" width="${t}" height="${s * 2}" fill="rgba(0,0,0,.25)"/><rect x="${h[0] - t / 2}" y="${h[1] - s}" width="${t}" height="${s * 2}" rx="${t / 3}" fill="#fb923c" stroke="#7c2d12" stroke-width="${lw * .4}"/></g>`
+      : `<g><rect x="${h[0] - s + k * .08}" y="${h[1] - t / 2 + k * .1}" width="${s * 2}" height="${t}" fill="rgba(0,0,0,.25)"/><rect x="${h[0] - s}" y="${h[1] - t / 2}" width="${s * 2}" height="${t}" rx="${t / 3}" fill="#fb923c" stroke="#7c2d12" stroke-width="${lw * .4}"/></g>`); });
+    (d.pk || []).forEach(p => o.push(`<g><circle cx="${p[0] + k * .1}" cy="${p[1] + k * .12}" r="${.34 * k}" fill="rgba(0,0,0,.28)"/><circle cx="${p[0]}" cy="${p[1]}" r="${.34 * k}" fill="#fde047" stroke="#713f12" stroke-width="${lw * .6}"/><circle cx="${p[0]}" cy="${p[1]}" r="${.12 * k}" fill="#713f12"/></g>`));
+    (d.c || []).forEach(c => { const s = 0.44 * k, col = c[2] || '#f97316';
+      o.push(`<g><path d="M${c[0] + k * .1} ${c[1] - s + k * .14} L${c[0] + s * .9 + k * .1} ${c[1] + s * .7 + k * .14} L${c[0] - s * .9 + k * .1} ${c[1] + s * .7 + k * .14} z" fill="rgba(0,0,0,.25)"/><path d="M${c[0]} ${c[1] - s} L${c[0] + s * .9} ${c[1] + s * .7} L${c[0] - s * .9} ${c[1] + s * .7} z" fill="${col}" stroke="rgba(0,0,0,.35)" stroke-width="${lw * .45}" stroke-linejoin="round"/>`
+        + (mini ? '' : `<path d="M${c[0] - s * .45} ${c[1] + s * .05} L${c[0] + s * .45} ${c[1] + s * .05}" stroke="#fff" stroke-opacity=".85" stroke-width="${s * .22}"/><path d="M${c[0]} ${c[1] - s} L${c[0] + s * .9} ${c[1] + s * .7} L${c[0] - s * .9} ${c[1] + s * .7} z" fill="url(#cone-${id})"/>`) + '</g>'); });
     const pl = d.p || [];
-    (d.a || []).forEach((a, i) => o.push(arrow(a, k, pl, id).replace('<path ', `<path data-a="${i}" `)));
+    const st = steps(d), stepOf = {}; st.forEach((g, i) => g.forEach(j => { stepOf[j] = i + 1; }));
+    const badges = [];
+    (d.a || []).forEach((a, i) => {
+      const g = geom(a, k, pl), S = ARW[g.type] || ARW.pase, w = S.w * k;
+      const dash = S.dash ? `stroke-dasharray="${0.6 * k} ${0.42 * k}"` : '';
+      o.push(`<g data-a="${i}">`
+        + (mini ? '' : `<path d="${g.path}" fill="none" stroke="rgba(0,0,0,.38)" stroke-width="${w * 2.1}" ${dash} stroke-linecap="round" stroke-linejoin="round"/>`)
+        + `<path d="${g.path}" fill="none" stroke="${S.c}" stroke-width="${w}" ${dash} stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah-${g.type}-${id})"/></g>`);
+      if (!mini && opt.steps !== false && st.length > 1) {
+        const n = stepOf[i], [bx, by] = g.at(.42), rr = .55 * k;
+        if (!badges.some(b => b.n === n && Math.hypot(b.x - bx, b.y - by) < rr * 2)) badges.push({ n, x: bx, y: by, i });
+      }
+    });
     pl.forEach((p, i) => {
       const [t, x, y, lab] = p, col = TEAM[t] || TEAM.A, r = 0.85 * k;
-      o.push(`<g data-p="${i}"><circle cx="${x}" cy="${y + r * .12}" r="${r}" fill="rgba(0,0,0,.28)"/><circle cx="${x}" cy="${y}" r="${r}" fill="${col[0]}" stroke="${t === 'P' ? '#facc15' : '#fff'}" stroke-width="${lw * 1.2}"/>`
-        + ((lab || t === 'P') && !opt.mini ? `<text x="${x}" y="${y + r * .38}" font-size="${r * (String(lab || 'P').length > 1 ? .85 : 1.1)}" text-anchor="middle" fill="${col[1]}" font-weight="800" font-family="system-ui,sans-serif">${lab || 'P'}</text>` : '') + '</g>');
+      const fill = mini ? col[0] : `url(#pl${TEAM[t] ? t : 'A'}-${id})`;
+      o.push(`<g data-p="${i}"><ellipse cx="${x + r * .18}" cy="${y + r * .32}" rx="${r * 1.02}" ry="${r * .9}" fill="rgba(0,0,0,.3)"/><circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${t === 'P' ? '#facc15' : '#fff'}" stroke-width="${lw * 1.25}"/>`
+        + ((lab || t === 'P') && !mini ? `<text x="${x}" y="${y + r * .38}" font-size="${r * (String(lab || 'P').length > 1 ? .85 : 1.1)}" text-anchor="middle" fill="${col[1]}" font-weight="800" font-family="system-ui,sans-serif">${lab || 'P'}</text>` : '') + '</g>');
     });
-    (d.b || []).forEach((b, i) => o.push(`<g data-b="${i}"><circle cx="${b[0]}" cy="${b[1]}" r="${.36 * k}" fill="#fff" stroke="#111" stroke-width="${lw * .7}"/></g>`));
-    if (!opt.mini) (d.t || []).forEach(t => o.push(`<text x="${t[0]}" y="${t[1]}" font-size="${k * (t[3] || 1.15)}" text-anchor="middle" fill="#fff" font-weight="800" font-family="system-ui,sans-serif" paint-order="stroke" stroke="rgba(0,0,0,.55)" stroke-width="${k * .25}">${t[2]}</text>`));
+    (d.b || []).forEach((b, i) => { const r = .36 * k;
+      o.push(`<g data-b="${i}"><ellipse class="bs" cx="${b[0] + r * .3}" cy="${b[1] + r * .45}" rx="${r}" ry="${r * .8}" fill="rgba(0,0,0,.35)"/><g class="bb"><circle cx="${b[0]}" cy="${b[1]}" r="${r}" fill="${mini ? '#fff' : `url(#ball-${id})`}" stroke="#111" stroke-width="${lw * .6}"/>`
+        + (mini ? '' : `<circle cx="${b[0]}" cy="${b[1]}" r="${r * .32}" fill="#1f2937"/>`) + '</g></g>'); });
+    badges.forEach(b => { const rr = .52 * k; o.push(`<g data-s="${b.n}" class="stepb"><circle cx="${b.x}" cy="${b.y}" r="${rr}" fill="#0f172a" fill-opacity=".85" stroke="#fff" stroke-width="${lw * .7}"/><text x="${b.x}" y="${b.y + rr * .42}" font-size="${rr * 1.15}" text-anchor="middle" fill="#fff" font-weight="800" font-family="system-ui,sans-serif">${b.n}</text></g>`); });
+    if (!mini) (d.t || []).forEach(t => o.push(`<text x="${t[0]}" y="${t[1]}" font-size="${k * (t[3] || 1.15)}" text-anchor="middle" fill="#fff" font-weight="800" font-family="system-ui,sans-serif" paint-order="stroke" stroke="rgba(0,0,0,.55)" stroke-width="${k * .25}">${t[2]}</text>`));
     o.push('</svg>');
     return o.join('');
   };
 
-  // Animación: recorre las flechas en orden moviendo jugadores y balón
-  window.animateField = function (box, d, onEnd) {
-    const svg = box.querySelector('svg'); if (!svg || !(d.a && d.a.length)) { onEnd && onEnd(); return () => { }; }
-    const k = svg.viewBox.baseVal.width / 40;
-    const P = (d.p || []).map(p => [p[1], p[2]]), B = (d.b || []).map(b => [b[0], b[1]]);
-    const P0 = P.map(p => p.slice()), B0 = B.map(b => b.slice());
+  /* Animación por pasos.
+     const ctl = animateField(contenedor, d, { onState(estado) {}, speed: 1, loop: false });
+     ctl.play() · ctl.pause() · ctl.next() · ctl.restart() · ctl.setSpeed(x) · ctl.setLoop(b) · ctl.stop() */
+  window.animateField = function (box, d, opts = {}) {
+    const svg = box.querySelector('svg');
+    const NS = 'http://www.w3.org/2000/svg';
+    const groups = steps(d);
+    const noop = { play() { }, pause() { }, next() { }, restart() { }, setSpeed() { }, setLoop() { }, stop() { }, steps: 0 };
+    if (!svg || !groups.length) { opts.onState && opts.onState({ step: 0, total: 0, playing: false, done: true }); return noop; }
+    const k = +svg.getAttribute('data-k') || svg.viewBox.baseVal.width / 40;
+    const pl = d.p || [];
+    const P0 = pl.map(p => [p[1], p[2]]), B0 = (d.b || []).map(b => [b[0], b[1]]);
+    let P, B, step, playing = false, raf = 0, timer = 0, speed = opts.speed || 1, loop = !!opts.loop, temps = [], trails = null;
     const gp = i => svg.querySelector(`[data-p="${i}"]`), gb = i => svg.querySelector(`[data-b="${i}"]`);
-    const arrows = [...svg.querySelectorAll('[data-a]')];
-    arrows.forEach(a => a.style.opacity = .18);
-    const near = (arr, x, y, max) => { let bi = -1, bd = max; arr.forEach((p, i) => { const dd = Math.hypot(p[0] - x, p[1] - y); if (dd < bd) { bd = dd; bi = i; } }); return bi; };
-    const set = (g, cur, orig) => g && g.setAttribute('transform', `translate(${(cur[0] - orig[0]).toFixed(2)} ${(cur[1] - orig[1]).toFixed(2)})`);
-    let step = 0, raf = 0, stop = false, temp = null;
-    const run = () => {
-      if (stop) return;
-      if (step >= d.a.length) { onEnd && onEnd(); return; }
-      const [type, x1, y1, x2, y2, cv = 0] = d.a[step];
-      const len = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / len, uy = (y2 - y1) / len;
-      const cx = (x1 + x2) / 2 - uy * cv, cy = (y1 + y2) / 2 + ux * cv;
-      const at = t => [(1 - t) ** 2 * x1 + 2 * (1 - t) * t * cx + t * t * x2, (1 - t) ** 2 * y1 + 2 * (1 - t) * t * cy + t * t * y2];
-      const pi = type === 'mov' || type === 'cond' ? near(P, x1, y1, 4) : -1;
-      let bi = type === 'mov' ? -1 : near(B, x1, y1, type === 'cond' ? 3 : 5);
-      if (bi < 0 && type !== 'mov') { // balón temporal
-        temp = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        temp.setAttribute('r', .36 * k); temp.setAttribute('fill', '#fff'); temp.setAttribute('stroke', '#111'); temp.setAttribute('stroke-width', k * .1);
-        svg.appendChild(temp);
-      }
-      const bOff = bi >= 0 && pi >= 0 ? [B[bi][0] - P[pi][0], B[bi][1] - P[pi][1]] : [0, 0];
-      arrows[step] && (arrows[step].style.opacity = 1);
-      const dur = Math.min(1600, Math.max(650, len * 45)), t0 = performance.now();
+    const arrows = [...svg.querySelectorAll('[data-a]')], badges = [...svg.querySelectorAll('[data-s]')];
+    const near = (arr, x, y, max, skip) => { let bi = -1, bd = max; arr.forEach((p, i) => { if (skip && skip.has(i)) return; const dd = Math.hypot(p[0] - x, p[1] - y); if (dd < bd) { bd = dd; bi = i; } }); return bi; };
+    const setT = (g, cur, orig) => g && g.setAttribute('transform', `translate(${(cur[0] - orig[0]).toFixed(2)} ${(cur[1] - orig[1]).toFixed(2)})`);
+    const state = (extra) => opts.onState && opts.onState({ step, total: groups.length, playing, done: step >= groups.length, ...extra });
+    function paint() {
+      arrows.forEach((a, i) => { const s = groups.findIndex(g => g.includes(i)); a.style.transition = 'opacity .25s'; a.style.opacity = s < step ? .5 : .16; });
+      badges.forEach(b => { const n = +b.getAttribute('data-s'); b.style.opacity = n <= step ? .55 : 1; });
+    }
+    function reset() {
+      cancelAnimationFrame(raf); clearTimeout(timer);
+      temps.forEach(t => t.remove()); temps = [];
+      P = P0.map(p => p.slice()); B = B0.map(b => b.slice());
+      P.forEach((p, i) => setT(gp(i), p, P0[i])); B.forEach((b, i) => { setT(gb(i), b, B0[i]); loft(gb(i), 0); });
+      if (trails) trails.remove();
+      trails = document.createElementNS(NS, 'g'); trails.setAttribute('class', 'trails');
+      const firstP = svg.querySelector('[data-p]'); svg.insertBefore(trails, firstP || null);
+      step = 0; paint();
+    }
+    function loft(g, h) { // h: 0..1 altura del balón (pases bombeados)
+      if (!g) return; const bb = g.querySelector('.bb'), bs = g.querySelector('.bs');
+      if (bb) bb.setAttribute('transform', h ? `translate(0 ${(-h * 1.6 * k).toFixed(2)})` : '');
+      if (bs) bs.setAttribute('opacity', (1 - h * .6).toFixed(2));
+    }
+    function tempBall(x, y) {
+      const g = document.createElementNS(NS, 'g'), r = .36 * k;
+      g.innerHTML = `<ellipse class="bs" cx="${x + r * .3}" cy="${y + r * .45}" rx="${r}" ry="${r * .8}" fill="rgba(0,0,0,.35)"/><g class="bb"><circle cx="${x}" cy="${y}" r="${r}" fill="#fff" stroke="#111" stroke-width="${k * .08}"/></g>`;
+      svg.appendChild(g); temps.push(g); return { g, o: [x, y] };
+    }
+    function runStep(done) {
+      const idx = groups[step];
+      arrows.forEach((a, i) => { if (idx.includes(i)) a.style.opacity = 1; });
+      badges.forEach(b => { if (+b.getAttribute('data-s') === step + 1) b.style.opacity = 1; });
+      const usedP = new Set(), usedB = new Set();
+      const moves = idx.map(i => {
+        const a = d.a[i], g = geom(a, k, []), type = a[0];
+        const pi = type === 'mov' || type === 'cond' ? near(P, a[1], a[2], 4.5, usedP) : -1; if (pi >= 0) usedP.add(pi);
+        let bi = type === 'mov' ? -1 : near(B, a[1], a[2], type === 'cond' ? 3.5 : 6, usedB), tb = null;
+        if (bi >= 0) usedB.add(bi); else if (type !== 'mov') tb = tempBall(a[1], a[2]);
+        const off = bi >= 0 && pi >= 0 ? [B[bi][0] - P[pi][0], B[bi][1] - P[pi][1]] : [0, 0];
+        let tr = null;
+        if (pi >= 0) { tr = document.createElementNS(NS, 'polyline'); tr.setAttribute('fill', 'none'); tr.setAttribute('stroke', (TEAM[pl[pi][0]] || TEAM.A)[0]); tr.setAttribute('stroke-width', (.28 * k).toFixed(2)); tr.setAttribute('stroke-opacity', '.45'); tr.setAttribute('stroke-linecap', 'round'); tr.setAttribute('stroke-dasharray', `${(.3 * k).toFixed(2)} ${(.25 * k).toFixed(2)}`); trails.appendChild(tr); }
+        return { type, g, pi, bi, tb, off, tr, pts: [], lofted: type === 'pase' && g.len > 22 };
+      });
+      const len = Math.max(...moves.map(m => m.g.len));
+      const dur = Math.min(1800, Math.max(700, len * 48)) / speed, t0 = performance.now();
       const frame = now => {
-        if (stop) return;
-        const t = Math.min(1, (now - t0) / dur), e = t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2, q = at(e);
-        if (pi >= 0) { P[pi] = q; set(gp(pi), q, P0[pi]); }
-        if (bi >= 0) { B[bi] = type === 'cond' ? [q[0] + bOff[0] * (1 - e), q[1] + bOff[1] * (1 - e)] : q; set(gb(bi), B[bi], B0[bi]); }
-        if (temp) { temp.setAttribute('cx', q[0]); temp.setAttribute('cy', q[1]); }
+        const t = Math.min(1, (now - t0) / dur), e = t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+        moves.forEach(m => {
+          const te = m.type === 'tiro' ? Math.min(1, t * 1.6) : e, q = m.g.at(te);
+          if (m.pi >= 0) { P[m.pi] = q; setT(gp(m.pi), q, P0[m.pi]); if (m.tr && (!m.pts.length || Math.hypot(m.pts[m.pts.length - 1][0] - q[0], m.pts[m.pts.length - 1][1] - q[1]) > .4)) { m.pts.push(q); m.tr.setAttribute('points', m.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' ')); } }
+          const bq = m.type === 'cond' ? [q[0] + m.off[0] * (1 - e) + Math.sin(t * 40) * .15 * k, q[1] + m.off[1] * (1 - e)] : q;
+          const h = m.lofted ? Math.sin(Math.PI * te) : 0;
+          if (m.bi >= 0) { B[m.bi] = bq; setT(gb(m.bi), bq, B0[m.bi]); loft(gb(m.bi), h); }
+          if (m.tb) { setT(m.tb.g, bq, m.tb.o); loft(m.tb.g, h); }
+        });
         if (t < 1) raf = requestAnimationFrame(frame);
-        else { arrows[step] && (arrows[step].style.opacity = .55); if (temp) { temp.remove(); temp = null; } step++; setTimeout(run, 250); }
+        else {
+          moves.forEach(m => { if (m.tb && m.type !== 'tiro') { /* el balón temporal queda donde llega */ } else if (m.tb) { m.tb.g.style.transition = 'opacity .4s'; m.tb.g.style.opacity = 0; } if (m.bi >= 0) loft(gb(m.bi), 0); });
+          step++; paint(); state(); done && done();
+        }
       };
       raf = requestAnimationFrame(frame);
+    }
+    function loopPlay() {
+      if (!playing) return;
+      if (step >= groups.length) {
+        if (loop) { timer = setTimeout(() => { reset(); state(); timer = setTimeout(loopPlay, 400 / speed); }, 1200 / speed); }
+        else { playing = false; state(); }
+        return;
+      }
+      runStep(() => { timer = setTimeout(loopPlay, 350 / speed); });
+    }
+    reset(); state();
+    const ctl = {
+      steps: groups.length,
+      play() { if (playing) return; if (step >= groups.length) reset(); playing = true; state(); timer = setTimeout(loopPlay, 150); },
+      pause() { playing = false; clearTimeout(timer); state(); },
+      next() { if (playing) ctl.pause(); cancelAnimationFrame(raf); if (step >= groups.length) reset(); runStep(); },
+      restart() { const was = playing; playing = false; reset(); state(); if (was) ctl.play(); },
+      setSpeed(x) { speed = x; },
+      setLoop(b) { loop = b; },
+      stop() { playing = false; cancelAnimationFrame(raf); clearTimeout(timer); }
     };
-    setTimeout(run, 300);
-    return () => { stop = true; cancelAnimationFrame(raf); if (temp) temp.remove(); };
+    if (opts.autoplay !== false) ctl.play();
+    return ctl;
   };
 
   window.legendHTML = function () {
     const dot = (c, s) => `<i class="lg-dot" style="background:${c};border-color:${s || '#fff'}"></i>`;
     return `<div class="legend">
-      <span>${dot('#dc2626')}Equipo A</span><span>${dot('#1d4ed8')}Equipo B</span><span>${dot('#facc15')}Comodín</span><span>${dot('#111827', '#facc15')}Portero</span>
+      <span>${dot('#e11d48')}Equipo A</span><span>${dot('#2563eb')}Equipo B</span><span>${dot('#facc15')}Comodín</span><span>${dot('#111827', '#facc15')}Portero</span>
       <span><svg width="26" height="8"><line x1="1" y1="4" x2="20" y2="4" stroke="currentColor" stroke-width="2"/><path d="M19 0 L26 4 L19 8z" fill="currentColor"/></svg>Pase</span>
       <span><svg width="26" height="8"><line x1="1" y1="4" x2="20" y2="4" stroke="#ca8a04" stroke-width="2" stroke-dasharray="4 3"/><path d="M19 0 L26 4 L19 8z" fill="#ca8a04"/></svg>Desplazamiento</span>
       <span><svg width="26" height="8"><path d="M1 4 L4 1 L7 7 L10 1 L13 7 L16 1 L19 4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M19 0 L26 4 L19 8z" fill="currentColor"/></svg>Conducción</span>
-      <span><svg width="26" height="8"><line x1="1" y1="4" x2="20" y2="4" stroke="#f59e0b" stroke-width="3"/><path d="M19 0 L26 4 L19 8z" fill="#f59e0b"/></svg>Tiro</span>
+      <span><svg width="26" height="8"><line x1="1" y1="4" x2="20" y2="4" stroke="#fb923c" stroke-width="3"/><path d="M19 0 L26 4 L19 8z" fill="#fb923c"/></svg>Tiro</span>
       <span><svg width="12" height="12"><path d="M6 1 L11 11 L1 11z" fill="#f97316"/></svg>Cono</span>
+      <span><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="#0f172a"/><text x="7" y="10.5" font-size="9" text-anchor="middle" fill="#fff" font-weight="800">1</text></svg>Orden de las acciones</span>
     </div>`;
   };
 })();

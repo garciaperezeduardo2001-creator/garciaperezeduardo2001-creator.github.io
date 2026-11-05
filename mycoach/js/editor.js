@@ -15,7 +15,7 @@
     ['z', '▭', 'Zona'], ['pase', '➝', 'Pase'], ['mov', '⇢', 'Desplaz.'], ['cond', '〰', 'Conducción'], ['tiro', '➔', 'Tiro'], ['t', 'T', 'Texto'], ['del', '🗑', 'Borrar']
   ];
   const CONE_COL = ['#f97316', '#facc15', '#22c55e', '#3b82f6', '#ef4444'];
-  const CATS = { tt: 'Técnico-táctico', fis: 'Físico condicional', pre: 'Prevención y recuperación', por: 'Porteros' };
+  const CATS = { tt: 'Técnico-táctico', fis: 'Físico condicional', pre: 'Prevención y recuperación', por: 'Porteros', jue: 'Juegos y dinámicas' };
   const MDS = ['MD+1', 'MD+2', 'MD-4', 'MD-3', 'MD-2', 'MD-1'];
   const ED = { A: 'Alevín', I: 'Infantil', C: 'Cadete', J: 'Juvenil', S: 'Sénior' };
   const CARGAS = ['Activación', 'Tensión', 'Duración', 'Velocidad', 'Recuperación', 'Mixta'];

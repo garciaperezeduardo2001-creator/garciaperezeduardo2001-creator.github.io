@@ -7,7 +7,8 @@
     tt: { n: 'Técnico-táctico', s: 'Táctico', c: '#16a34a', i: '⚽' },
     fis: { n: 'Físico condicional', s: 'Físico', c: '#ea580c', i: '⚡' },
     pre: { n: 'Prevención y recuperación', s: 'Prevención', c: '#0891b2', i: '🛡️' },
-    por: { n: 'Porteros', s: 'Porteros', c: '#7c3aed', i: '🧤' }
+    por: { n: 'Porteros', s: 'Porteros', c: '#7c3aed', i: '🧤' },
+    jue: { n: 'Juegos y dinámicas', s: 'Juegos', c: '#db2777', i: '🎲' }
   };
   const INT = { 1: { n: 'Baja', c: '#22c55e' }, 2: { n: 'Media', c: '#eab308' }, 3: { n: 'Alta', c: '#f97316' }, 4: { n: 'Máxima', c: '#dc2626' } };
   const DIF = { 1: 'Básica', 2: 'Media', 3: 'Avanzada' };
@@ -180,7 +181,7 @@
     $('#app').innerHTML = `
       <article class="task">
         <div class="big" id="bigd" title="Toca para ver a pantalla completa">${drawField(t.d, { label: t.n })}<span class="zoom">⤢</span></div>
-        ${(t.d.a || []).length ? '<div class="anim"><button class="btn sm" id="anim">▶ Animar la tarea</button></div>' : ''}
+        ${(t.d.a || []).length ? animBarHTML('ab') : ''}
         ${legendHTML()}
         <div class="ct">${catTag(t)}<span class="tipo">${esc(t.tipo)}</span></div>
         <h1>${esc(t.n)}</h1>
@@ -221,17 +222,11 @@
       </article>`;
     const adn = $('#adn');
     if (adn) { const up = () => { const n = +adn.value, a = adapt(t, n); $('#adout').innerHTML = !a ? '' : a.same ? `<span class="sub">Es el número original: ${esc(t.jug)} en ${t.esp[0]}x${t.esp[1]} m (≈ ${a.m2} m²/jug.).</span>` : `<b>${a.jug ? esc(a.jug) + ' · ' : ''}${a.w} x ${a.h} m</b><span class="sub">Mantiene ≈ ${a.m2} m²/jugador (original: ${esc(t.jug)} en ${t.esp[0]}x${t.esp[1]} m). ${n > t.np * 1.6 ? 'Con tantos jugadores, plantéate hacer dos grupos.' : ''}</span>`; }; adn.oninput = up; up(); }
-    let stopAnim = null;
-    if ($('#anim')) $('#anim').onclick = () => {
-      if (stopAnim) { stopAnim(); stopAnim = null; $('#bigd').innerHTML = drawField(t.d, { label: t.n }) + '<span class="zoom">⤢</span>'; $('#anim').textContent = '▶ Animar la tarea'; return; }
-      $('#bigd').innerHTML = drawField(t.d, { label: t.n }) + '<span class="zoom">⤢</span>';
-      $('#anim').textContent = '⏹ Parar';
-      stopAnim = animateField($('#bigd'), t.d, () => { stopAnim = () => { }; $('#anim').textContent = '↺ Repetir'; });
-    };
+    const stopAnim = bindAnim('ab', $('#bigd'), t.d);
     $('#stars').onclick = e => { const b = e.target.closest('[data-s]'); if (!b) return; const n = notes[t.id] || {}; n.s = n.s === +b.dataset.s ? 0 : +b.dataset.s; notes[t.id] = n; saveNotes(); $('#stars').querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', +x.dataset.s <= n.s)); };
     let nt; $('#note').oninput = e => { clearTimeout(nt); nt = setTimeout(() => { const n = notes[t.id] || {}; n.t = e.target.value; notes[t.id] = n; saveNotes(); }, 400); };
     $('#img').onclick = () => shareImage(taskCanvas(t), t.n);
-    $('#bigd').onclick = () => { if (stopAnim) return; fullField(t); };
+    $('#bigd').onclick = () => fullField(t);
     $('#fav').onclick = () => { favs.has(t.id) ? favs.delete(t.id) : favs.add(t.id); store.set('favs', [...favs]); vTask(id); toast(favs.has(t.id) ? 'Añadida a favoritos' : 'Quitada de favoritos'); };
     $('#add').onclick = () => { ses.items.push({ id: t.id, b: blockOf(t) }); saveSes(); toast('Añadida a la sesión'); };
     $('#share').onclick = async () => {
@@ -311,12 +306,36 @@
     try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } } catch (e) { if (e.name === 'AbortError') return; }
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fn; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); toast('Imagen descargada');
   }
+  // ---------- Controles de animación ----------
+  function animBarHTML(id) {
+    return `<div class="abar" id="${id}" data-noclick>
+      <button class="btn sm pri" data-c="play">▶ Animar</button><button class="btn sm" data-c="next" title="Paso a paso">⏭ Paso</button><button class="btn sm" data-c="restart" title="Volver al inicio" aria-label="Volver al inicio">↺</button>
+      <select data-c="speed" aria-label="Velocidad"><option value="0.5">0,5x</option><option value="1" selected>1x</option><option value="2">2x</option></select>
+      <label class="abl"><input type="checkbox" data-c="loop"> Bucle</label><span class="abs" data-c="lab"></span></div>`;
+  }
+  function bindAnim(id, box, d) {
+    const bar = document.getElementById(id); if (!bar || !box) return () => { };
+    let ctl = null, st = { step: 0, total: fieldSteps(d).length, playing: false };
+    const q = c => bar.querySelector(`[data-c="${c}"]`);
+    const upd = () => { q('play').textContent = st.playing ? '⏸ Pausa' : st.step >= st.total && st.step ? '↺ Repetir' : st.step ? '▶ Seguir' : '▶ Animar'; q('lab').textContent = `Paso ${st.step}/${st.total}`; };
+    const get = () => { if (!ctl) ctl = animateField(box, d, { autoplay: false, speed: +q('speed').value, loop: q('loop').checked, onState: x => { st = x; upd(); } }); return ctl; };
+    q('play').onclick = e => { e.stopPropagation(); const c = get(); st.playing ? c.pause() : c.play(); };
+    q('next').onclick = e => { e.stopPropagation(); get().next(); };
+    q('restart').onclick = e => { e.stopPropagation(); get().restart(); };
+    q('speed').onchange = () => ctl && ctl.setSpeed(+q('speed').value);
+    q('loop').onchange = () => ctl && ctl.setLoop(q('loop').checked);
+    bar.onclick = e => e.stopPropagation();
+    upd();
+    return () => ctl && ctl.stop();
+  }
   function fullField(t) {
     const o = document.createElement('div'); o.className = 'fsov';
-    o.innerHTML = `<div class="fs">${drawField(t.d, { label: t.n })}</div><button class="fsx" aria-label="Cerrar">✕</button><div class="fst">${esc(t.n)}</div>`;
-    const close = () => { o.remove(); document.removeEventListener('keydown', k); };
+    o.innerHTML = `<div class="fs">${drawField(t.d, { label: t.n })}</div><button class="fsx" aria-label="Cerrar">✕</button><div class="fst">${esc(t.n)}${(t.d.a || []).length ? animBarHTML('abfs') : ''}</div>`;
+    let stop = () => { };
+    const close = () => { stop(); o.remove(); document.removeEventListener('keydown', k); };
     const k = e => { if (e.key === 'Escape') close(); };
     o.onclick = close; document.addEventListener('keydown', k); document.body.appendChild(o);
+    stop = bindAnim('abfs', o.querySelector('.fs'), t.d);
   }
   function related(t) {
     const r = TAREAS.filter(x => x.id !== t.id && x.cat === t.cat && x.md.some(m => t.md.includes(m))).slice(0, 4);
@@ -468,6 +487,7 @@
     $('#app').innerHTML = `<section class="campo">
       <div class="cnav"><button class="btn" id="prv" ${RUN.idx ? '' : 'disabled'} aria-label="Tarea anterior">‹</button><div><small>${BLK[x.b]} · ${RUN.idx + 1}/${its.length}</small><h1>${esc(t.n)}</h1></div><button class="btn" id="nxt" ${RUN.idx < its.length - 1 ? '' : 'disabled'} aria-label="Tarea siguiente">›</button></div>
       <div class="big" id="bigd">${drawField(t.d, { label: t.n })}<span class="zoom">⤢</span></div>
+      ${(t.d.a || []).length ? animBarHTML('abc') : ''}
       <p class="pm">${intBadge(t)} RPE ${esc(t.rpe)} · ${esc(t.jug)} · ${t.esp[0]}x${t.esp[1]} m · ${esc(t.ser)} · rec. ${esc(t.rec)}</p>
       <div class="timer" id="timer"><div class="ph" id="tph"></div><div class="tt" id="ttime"></div><div class="tr" id="trep"></div></div>
       <div class="cfg">${cfgHTML}</div>
@@ -519,6 +539,7 @@
     $('#rst').onclick = () => { stopTimer(); readCfg(); upd(); };
     $('#app').querySelectorAll('.cfg input').forEach(i => i.onchange = () => { stopTimer(); readCfg(); upd(); });
     $('#bigd').onclick = () => fullField(t);
+    bindAnim('abc', $('#bigd'), t.d);
     $('#prv').onclick = () => { RUN.idx--; vCampo(); };
     $('#nxt').onclick = () => { RUN.idx++; vCampo(); };
     readCfg(); upd();
@@ -603,6 +624,14 @@
   }
   const acwrTag = v => v == null ? ['—', 'var(--mu)', 'Faltan semanas para calcularlo'] : v < .8 ? [v.toFixed(2), '#0891b2', 'Carga baja respecto a las últimas semanas'] : v <= 1.3 ? [v.toFixed(2), '#16a34a', 'Zona óptima (0,8-1,3)'] : v <= 1.5 ? [v.toFixed(2), '#f59e0b', 'Precaución: subida de carga'] : [v.toFixed(2), '#dc2626', 'Riesgo: pico de carga (> 1,5)'];
   let planT; const rePlan = () => { clearTimeout(planT); planT = setTimeout(vPlan, 0); };
+  // Minutos reales (de My Team / Vestuario) frente a los planificados
+  function realLine(e) {
+    if (!e.realMin && !(e.realEj && e.realEj.length)) return '';
+    const diff = (e.realEj || []).filter(x => x.plan != null && x.dur != null && x.plan !== x.dur);
+    const dm = e.realMin != null && e.min ? e.realMin - e.min : null;
+    return `<span class="rl">Real: <b>${e.realMin ?? '—'}'</b>${dm ? ` <em class="${dm < 0 ? 'neg' : 'pos'}">(${dm > 0 ? '+' : ''}${dm}')</em>` : ''}${e.real != null ? ` · ${e.real} UA` : ''}</span>`
+      + (diff.length ? `<span class="rl sm">${diff.map(x => `${esc(x.n)} ${x.dur}' <s>${x.plan}'</s>`).join(' · ')}</span>` : '');
+  }
   function vPlan() {
     const mon = addDays(monday(new Date()), planWk * 7), today = iso(new Date());
     const st = weekStats(mon), ac = acwrTag(acwr(mon));
@@ -611,7 +640,7 @@
     const rows = [...Array(7)].map((_, i) => {
       const d = addDays(mon, i), f = iso(d), e = plan[f], md = mdOf(f), l = dayLoad(e);
       const body = !e || e.k === 'none' ? '<span class="sub">Sin planificar</span>'
-        : e.k === 'ses' ? `<b>${esc(e.name)}</b><span class="sub">${e.min}' · ${e.ua} UA · ${e.items.length} tareas</span><button class="link" data-open="${f}">Abrir en Sesión</button>`
+        : e.k === 'ses' ? `<b>${esc(e.name)}</b><span class="sub">${e.min}' · ${e.ua} UA · ${e.items.length} tareas</span>${realLine(e)}<button class="link" data-open="${f}">Abrir en Sesión</button>`
         : e.k === 'match' ? `<b>⚽ Partido</b><span class="sub"><input type="number" class="mini" data-mm="${f}" value="${e.min}">' × RPE <input type="number" class="mini" data-mr="${f}" value="${e.rpe}" min="1" max="10"> = ${l} UA</span>`
         : '<b>😴 Descanso</b>';
       return `<div class="pday ${f === today ? 'today' : ''} ${e && e.k === 'match' ? 'match' : ''}">
@@ -685,9 +714,9 @@
   async function mtSync(tid, silent) {
     const r = await MyTeamLink.read(tid); if (!r) return 0;
     let n = 0;
-    Object.entries(r.days).forEach(([f, x]) => { const e = plan[f] = plan[f] || { k: 'none' }; if (e.real !== x.ua) { e.real = x.ua; n++; } e.realSrc = 'myteam'; });
+    Object.entries(r.days).forEach(([f, x]) => { const e = plan[f] = plan[f] || { k: 'none' }; if (e.real !== x.ua || e.realMin !== x.min) { e.real = x.ua; n++; } e.realSrc = 'myteam'; e.realMin = x.min || null; e.realEj = x.ej || null; });
     // los días que ya no tienen sesión en My Team pierden el dato importado
-    Object.entries(plan).forEach(([f, e]) => { if (e.realSrc === 'myteam' && !r.days[f]) { delete e.real; delete e.realSrc; if (e.k === 'none') delete plan[f]; n++; } });
+    Object.entries(plan).forEach(([f, e]) => { if (e.realSrc === 'myteam' && !r.days[f]) { delete e.real; delete e.realSrc; delete e.realMin; delete e.realEj; if (e.k === 'none') delete plan[f]; n++; } });
     r.games.forEach(g => { const e = plan[g.iso]; if (!e || e.k === 'none' || e.k === 'rest') { const real = e && e.real; const x = r.days[g.iso]; plan[g.iso] = { k: 'match', name: g.rival ? 'Partido vs ' + g.rival : 'Partido', min: g.dur, rpe: x ? x.rpe || 8 : 8, src: 'myteam' }; if (real != null) { plan[g.iso].real = real; plan[g.iso].realSrc = 'myteam'; } n++; } });
     savePlan();
     if (!silent) toast(n ? `Datos actualizados (${Object.keys(r.days).length} días con carga, ${r.games.length} partidos)` : 'Ya estaba todo al día');

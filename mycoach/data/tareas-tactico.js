@@ -609,3 +609,112 @@ T({ id: 'tt67', n: 'Rondo 4v2 con apoyos y salida (Rondo "en caja")', cat: 'tt',
   cons: ['Al robar, levantar la cabeza y buscar el apoyo lejano.', 'Los poseedores cierran el pase al apoyo tras perder.'],
   var: ['+ 4v3.', '− Tres apoyos.'],
   d: { z: [[45.5, 27, 14, 14]], c: esq(45.5, 27, 14, 14), p: [A(45.5, 34), A(52.5, 27), A(59.5, 34), A(52.5, 41), B(51, 32.5), B(54.5, 36), N(41, 30), N(64, 38)], b: [[54.5, 36.8]], a: [['pase', 54.5, 36, 64, 38, 0]] } });
+
+// ---------- AMPLIACIÓN 2 ----------
+T({ id: 'tt68', n: 'Rondo itinerante en 3 zonas', cat: 'tt', tipo: 'Rondo', ed: 'CJS', dif: 2, md: ['MD-4', 'MD-3'], int: 3, rpe: '7', carga: 'Tensión', fase: 'pri',
+  jug: '6v3 (+3 en espera)', np: 12, esp: [42, 14], ser: '4 x 3\'', rec: '1\'', dur: 16,
+  obj: 'Conservar y trasladar el rondo de zona con un pase largo y desplazamiento rápido.',
+  desc: 'Tres cuadrados en línea. El rondo 6v3 empieza en el primero. Tras 6 pases, los poseedores envían el balón al cuadrado central y se desplazan todos allí; los defensores persiguen. Lo mismo hacia el tercer cuadrado.',
+  reglas: ['Dos toques.', '6 pases + cambio de zona = punto.', 'Robo: los tres defensores cambian con el trío que falló.'],
+  cons: ['Desplazamiento inmediato tras el pase de cambio.', 'Primer control orientado en la nueva zona.'],
+  var: ['+ Solo 4 pases para cambiar.', '− 7v3.'],
+  d: { z: [[31.5, 27, 14, 14], [45.5, 27, 14, 14, '#f59e0b'], [59.5, 27, 14, 14]], p: [A(31.5, 30), A(38.5, 27), A(45.5, 31), A(45.5, 38), A(38.5, 41), A(31.5, 38), B(36, 32), B(41, 35), B(38, 37)], b: [[44.6, 31.4]], a: [['pase', 45.5, 31, 52.5, 34, 0, 1], ['mov', 45.5, 38, 52, 38, 0, 1], ['mov', 38.5, 27, 50, 28.5, 0, 1], ['mov', 41, 35, 50, 35, 0, 2]] } });
+
+T({ id: 'tt69', n: 'Salida de balón 3 + portero contra 2', cat: 'tt', tipo: 'Juego de posición', ed: 'AIC', dif: 1, md: ['MD-3', 'MD-2'], int: 2, rpe: '5', carga: 'Duración', fase: 'pri',
+  jug: 'P+3 v 2 (+1 apoyo)', np: 7, esp: [30, 40], ser: '4 x 3\'', rec: '1\'', dur: 15,
+  obj: 'Iniciar la construcción: abrir centrales y usar al portero.',
+  desc: 'El portero y tres defensores (dos centrales y un pivote) deben superar a dos presionadores y pasar a un apoyo situado a 30 m. Iniciación a la salida de balón para las categorías base.',
+  reglas: ['El portero siempre saca en corto.', 'Pase al apoyo = punto.', 'Si los presionadores roban, pueden tirar.'],
+  cons: ['Centrales abiertos a los lados del área.', 'El pivote se ofrece entre los presionadores.'],
+  var: ['+ 3v3.', '− Presión pasiva.'],
+  d: { v: [-4, 10, 42, 48], g: [], p: [P(2, 34), A(10, 24), A(10, 44), A(20, 34), B(15, 30), B(15, 38), N(32, 34)], b: [[3, 34.5]], a: [['pase', 2, 34, 10, 44, 0], ['mov', 20, 34, 22, 40, 0], ['pase', 10, 44, 22, 40, 0], ['pase', 22, 40, 32, 34, 0]] } });
+
+T({ id: 'tt70', n: 'Juego de posición por carriles (4+3 v 4+3)', cat: 'tt', tipo: 'Juego de posición', ed: 'JS', dif: 3, md: ['MD-4', 'MD-3'], int: 3, rpe: '7', carga: 'Tensión', fase: 'pri',
+  jug: '7v7', np: 14, esp: [45, 40], ser: '4 x 4\'', rec: '1\'30"', dur: 22,
+  obj: 'Ocupar los cinco carriles y no repetir carril con el compañero cercano.',
+  desc: 'Campo dividido en cinco carriles verticales. En posesión, no puede haber dos jugadores del mismo equipo en el mismo carril y a la misma altura. Punto por superar la línea final controlando el balón.',
+  reglas: ['Tres toques.', 'Dos jugadores juntos en el mismo carril = balón al rival.', 'Conducir y superar la línea final = punto.'],
+  cons: ['Amplitud en los carriles exteriores.', 'Escalonarse en alturas distintas por dentro.'],
+  var: ['+ Dos toques.', '− Sin restricción de carril.'],
+  d: { z: [[30, 14, 45, 40]], l: [[30, 22, 75, 22], [30, 30, 75, 30], [30, 38, 75, 38], [30, 46, 75, 46]], p: [A(36, 18), A(40, 34), A(48, 26), A(50, 42), A(58, 34), A(64, 50), A(66, 18), B(44, 30), B(46, 38), B(54, 26), B(56, 44), B(62, 34), B(68, 26), B(70, 42)], b: [[40.9, 34.5]], a: [['pase', 40, 34, 48, 26, 0], ['pase', 48, 26, 66, 18, 0], ['mov', 64, 50, 72, 50, 0]] } });
+
+T({ id: 'tt71', n: 'Ataque de segunda jugada (rechaces)', cat: 'tt', tipo: 'Finalización', ed: 'ICJS', dif: 2, md: ['MD-2', 'MD-1'], int: 3, rpe: '6', carga: 'Velocidad', fase: 'pri',
+  jug: '3 atacantes v 2 defensores + P', np: 6, esp: [30, 40], ser: '3 x 5 acciones', rec: '1\'', dur: 14,
+  obj: 'Atacar el rechace tras un tiro o un despeje.',
+  desc: 'Un jugador tira desde la frontal; el entrenador lanza inmediatamente un segundo balón como si fuera un rechace del portero o un despeje. Los atacantes deben llegar antes que los defensores y finalizar.',
+  reglas: ['El segundo balón sale nada más tirar.', 'Gol de rechace = 2 puntos.', 'Los defensores despejan fuera del área.'],
+  cons: ['Seguir el tiro, no quedarse mirando.', 'Primer contacto hacia portería.'],
+  var: ['+ Rechace aéreo.', '− Sin defensores.'],
+  d: { z: [[75, 14, 30, 40]], p: [P(103.5, 34), A(84, 34), A(86, 26), A(86, 42), B(93, 30), B(93, 38), E(80, 46)], b: [[84.9, 34.5], [92, 44]], a: [['tiro', 84, 34, 104, 32, 0, 1], ['pase', 80, 46, 92, 41, 0, 2], ['mov', 86, 42, 91.5, 41, 0, 2], ['tiro', 92, 41, 104, 36, 0, 3]] } });
+
+T({ id: 'tt72', n: 'Centro y remate 2v2 en el área', cat: 'tt', tipo: 'Finalización', ed: 'CJS', dif: 2, md: ['MD-2', 'MD-3'], int: 3, rpe: '6-7', carga: 'Velocidad', fase: 'pri',
+  jug: '2v2 en área + 2 centradores + P', np: 7, esp: [30, 68], ser: '3 x 6 centros', rec: '1\'', dur: 15,
+  obj: 'Ganar la posición en el área contra oposición real.',
+  desc: 'Centros alternos desde cada banda. Dos atacantes contra dos defensores en el área. Los atacantes deben cruzarse y atacar primer y segundo palo; los defensores marcan y despejan.',
+  reglas: ['Centro tras conducción de 10 m.', 'Gol = punto para atacantes, despeje fuera del área = punto para defensores.', 'Cambio de roles cada serie.'],
+  cons: ['Movimiento de contramarca antes del centro.', 'Atacar el balón, no esperarlo.'],
+  var: ['+ 3v2.', '− Defensores pasivos.'],
+  d: { v: [74, -2, 34, 72], g: [], p: [P(103, 34), N(90, 4), N(90, 64), A(92, 32), A(91, 37), B(95, 33), B(95, 38)], b: [[90.9, 4.6]], a: [['cond', 90, 4, 99, 6, 0, 1], ['mov', 92, 32, 98, 37, 2, 2], ['mov', 91, 37, 98, 30, -2, 2], ['pase', 99, 6, 98.5, 31, 3, 2]] } });
+
+T({ id: 'tt73', n: 'Defensa en inferioridad 3v4 + portero', cat: 'tt', tipo: 'Defensa', ed: 'CJS', dif: 3, md: ['MD-3', 'MD-2'], int: 3, rpe: '7', carga: 'Duración', fase: 'pri',
+  jug: '3 defensores + P v 4 atacantes', np: 8, esp: [35, 50], ser: '3 x 5 ataques', rec: '1\'30"', dur: 16,
+  obj: 'Temporizar y cerrar el centro defendiendo en inferioridad hasta que llegan ayudas.',
+  desc: 'Cuatro atacantes salen desde 35 m contra tres defensores y portero. Un cuarto defensor sale desde atrás 3" después. Los defensores deben temporizar y cerrar la portería sin lanzarse.',
+  reglas: ['Ataque máximo de 10".', 'El defensor de ayuda sale a la señal.', 'Robo + pase al entrenador en el medio campo = punto defensivo.'],
+  cons: ['Juntarse en el carril central.', 'Defender el pase, no al poseedor, cuando hay inferioridad.'],
+  var: ['+ Sin defensor de ayuda.', '− 3v3.'],
+  d: { z: [[70, 9, 35, 50]], p: [P(103.5, 34), B(92, 28), B(93, 34), B(92, 40), B(72, 52), A(76, 22), A(74, 34), A(76, 46), A(84, 34)], b: [[74.9, 34.5]], a: [['pase', 74, 34, 76, 22, 0, 1], ['mov', 92, 28, 90, 25, 0, 1], ['mov', 93, 34, 91.5, 30.5, 0, 1], ['mov', 72, 52, 86, 44, 0, 2]] } });
+
+T({ id: 'tt74', n: 'Presión por señales (pase atrás y control malo)', cat: 'tt', tipo: 'Defensa', ed: 'JS', dif: 3, md: ['MD-4', 'MD-3'], int: 4, rpe: '8', carga: 'Tensión', fase: 'pri',
+  jug: '6v6 + 2 comodines', np: 14, esp: [45, 40], ser: '4 x 4\'', rec: '2\'', dur: 24,
+  obj: 'Reconocer las señales de presión y saltar todos a la vez.',
+  desc: 'Posesión 6v6 + 2. El equipo sin balón solo puede presionar en bloque cuando aparece una señal: pase atrás, control hacia la banda o mal control. El entrenador valida si la presión fue en el momento correcto.',
+  reglas: ['Robo tras señal correcta = 2 puntos.', 'Presión sin señal = punto para el rival.', 'Tres toques.'],
+  cons: ['Uno salta y los demás cierran líneas de pase.', 'Reconocer la señal antes de que llegue el balón.'],
+  var: ['+ Solo una señal válida (pase atrás).', '− El entrenador grita la señal.'],
+  d: { z: [[30, 14, 45, 40]], p: [A(38, 24), A(38, 44), A(48, 34), A(58, 22), A(60, 46), A(68, 34), B(44, 28), B(44, 40), B(54, 30), B(55, 40), B(64, 28), B(64, 40), N(52.5, 16), N(52.5, 52)], b: [[48.9, 34.5]], a: [['pase', 58, 22, 48, 34, 0, 1], ['mov', 54, 30, 50, 33, 0, 2], ['mov', 44, 28, 40, 26, 0, 2], ['mov', 55, 40, 50.5, 40.5, 0, 2]] } });
+
+T({ id: 'tt75', n: 'Partido 9v9 con fuera de juego en 3/4', cat: 'tt', tipo: 'Juego reducido', ed: 'JS', dif: 3, md: ['MD-3'], int: 3, rpe: '7', carga: 'Duración', fase: 'pri',
+  jug: '9v9 + 2P', np: 20, esp: [75, 55], ser: '3 x 8\'', rec: '2\'', dur: 30,
+  obj: 'Defender adelantado y atacar la espalda con desmarques de ruptura.',
+  desc: 'Partido con líneas de fuera de juego a 25 m de cada portería. Obliga a la defensa a mantenerse alta y a los delanteros a sincronizar el desmarque con el pase.',
+  reglas: ['Fuera de juego solo dentro de los últimos 25 m.', 'Toques libres.', 'Gol tras desmarque de ruptura = 2 puntos.'],
+  cons: ['Línea defensiva coordinada al subir.', 'Desmarque en diagonal y en el momento del pase.'],
+  var: ['+ Línea a 30 m.', '− Sin fuera de juego.'],
+  d: { z: [[15, 6.5, 75, 55]], l: [[40, 6.5, 40, 61.5], [65, 6.5, 65, 61.5]], g: [[15, 34, 'R'], [90, 34, 'L']], p: [P(16.5, 34), P(88.5, 34), A(26, 22), A(26, 46), A(36, 34), A(44, 16), A(44, 52), A(54, 30), A(54, 40), A(62, 24), A(63, 42), B(66, 18), B(66, 30), B(66, 40), B(66, 50), B(56, 34), B(46, 26), B(46, 42), B(36, 22), B(36, 46)], b: [[54.9, 30.5]], a: [['mov', 63, 42, 76, 38, -2, 1], ['pase', 54, 30, 76, 37, 2, 1]] } });
+
+T({ id: 'tt76', n: 'Oleadas 1v1 → 2v1 → 2v2', cat: 'tt', tipo: 'Finalización', ed: 'ICJS', dif: 2, md: ['MD-2', 'MD-3'], int: 4, rpe: '7-8', carga: 'Velocidad', fase: 'pri',
+  jug: 'Grupos de 6-8 + P', np: 9, esp: [35, 35], ser: '3 rondas de cada situación', rec: '1\'', dur: 18,
+  obj: 'Progresión de situaciones de ataque y defensa con finalización.',
+  desc: 'Tres oleadas seguidas: primero 1v1, luego entra un atacante de apoyo (2v1) y por último un segundo defensor (2v2). Cada situación dura máximo 8".',
+  reglas: ['Entradas a la señal del entrenador.', 'Máximo 8" por situación.', 'Rotación de filas tras cada oleada.'],
+  cons: ['En 2v1: fijar al defensor antes de soltar.', 'En 2v2: paredes y cruces.'],
+  var: ['+ Defensores salen antes.', '− Defensor pasivo en el 1v1.'],
+  d: { z: [[70, 16.5, 35, 35]], p: [P(103.5, 34), A(74, 30), A(74, 40), B(90, 34), B(88, 46)], b: [[74.9, 30.5]], a: [['cond', 74, 30, 84, 31, 0, 1], ['mov', 74, 40, 88, 38, 0, 2], ['pase', 84, 31, 88, 38, 0, 2], ['mov', 88, 46, 92, 41, 0, 3], ['tiro', 88, 38, 104, 35, 0, 3]] } });
+
+T({ id: 'tt77', n: 'Juego de posición 6v6 + 4 apoyos', cat: 'tt', tipo: 'Juego de posición', ed: 'CJS', dif: 2, md: ['MD-4', 'MD-3'], int: 3, rpe: '7', carga: 'Tensión', fase: 'pri',
+  jug: '6v6 + 4 apoyos', np: 16, esp: [35, 35], ser: '4 x 4\'', rec: '1\'30"', dur: 22,
+  obj: 'Usar los apoyos exteriores para girar el juego y encontrar al libre.',
+  desc: 'Cuatro apoyos, uno en cada lado del cuadrado, juegan con el poseedor a un toque. Punto cuando el balón pasa de un apoyo a otro distinto a través de un jugador interior que recibe de cara.',
+  reglas: ['Apoyos a un toque, interiores a dos.', 'No vale pasar de un apoyo al de al lado directamente.', 'Robo: el otro equipo busca el mismo objetivo.'],
+  cons: ['Recibir de cara al apoyo opuesto.', 'Atraer hacia un lado y salir por el contrario.'],
+  var: ['+ Apoyos solo en dos lados.', '− Interiores a toques libres.'],
+  d: { z: [[35, 16.5, 35, 35]], p: [N(35, 34), N(70, 34), N(52.5, 16.5), N(52.5, 51.5), A(42, 26), A(44, 42), A(52, 34), A(60, 24), A(62, 44), A(64, 33), B(46, 30), B(48, 38), B(56, 30), B(57, 40), B(40, 34), B(66, 28)], b: [[35.9, 34]], a: [['pase', 35, 34, 52, 34, 0], ['pase', 52, 34, 70, 34, -2], ['mov', 64, 33, 66, 38, 0]] } });
+
+T({ id: 'tt78', n: 'Circuito de paredes con desmarque apoyo-ruptura', cat: 'tt', tipo: 'Circuito de pases', ed: 'ICJS', dif: 2, md: ['MD-2', 'MD-1'], int: 2, rpe: '5', carga: 'Activación', fase: 'pri',
+  jug: 'Grupos de 6 + P', np: 7, esp: [40, 30], ser: '2 x 6\'', rec: '1\'', dur: 14,
+  obj: 'Automatizar el desmarque de apoyo y la ruptura posterior con finalización.',
+  desc: 'El delantero viene al apoyo, descarga de cara al centrocampista y sale en ruptura. El centrocampista le filtra el balón al espacio y el delantero finaliza. Rotación de posiciones.',
+  reglas: ['Descarga a un toque.', 'Pase filtrado al espacio, nunca al pie.', 'Finalizar en dos toques.'],
+  cons: ['Contramovimiento antes de venir al apoyo.', 'Timing: salir cuando el centrocampista levanta la cabeza.'],
+  var: ['+ Defensor pasivo.', '− Sin finalización.'],
+  d: { z: [[65, 19, 40, 30]], c: [[80, 34]], p: [P(103.5, 34), A(70, 34, 'MC'), A(84, 30, 'DC')], b: [[70.9, 34.5]], a: [['mov', 84, 30, 79, 32, 0, 1], ['pase', 70, 34, 78.5, 32.5, 0, 2], ['pase', 79, 32, 73, 35, 1.5, 3], ['mov', 79, 32, 92, 38, -2, 4], ['pase', 73, 35, 92, 38.5, 0, 4], ['tiro', 93, 38, 104, 33, 0, 5]] } });
+
+T({ id: 'tt79', n: 'Ataque al lado débil 7v7', cat: 'tt', tipo: 'Juego reducido', ed: 'CJS', dif: 3, md: ['MD-3'], int: 3, rpe: '7', carga: 'Duración', fase: 'pri',
+  jug: '7v7 + 2P', np: 16, esp: [60, 50], ser: '3 x 7\'', rec: '2\'', dur: 27,
+  obj: 'Atraer al rival en un lado y atacar rápido el lado contrario.',
+  desc: 'Partido 7v7. Gol tras un cambio de orientación (balón que cruza el pasillo central y llega al pasillo contrario en menos de dos pases) vale doble.',
+  reglas: ['Tres toques.', 'Gol tras cambio de orientación = 2 puntos.', 'Fuera de juego en 3/4.'],
+  cons: ['El extremo del lado débil, abierto y alto.', 'Cambio tenso, por bajo o a media altura.'],
+  var: ['+ Solo valen goles tras cambio.', '− Toques libres.'],
+  d: { z: [[22.5, 9, 60, 50]], l: [[22.5, 24, 82.5, 24], [22.5, 44, 82.5, 44]], g: [[22.5, 34, 'R'], [82.5, 34, 'L']], p: [P(24, 34), P(81, 34), A(34, 18), A(40, 30), A(46, 16), A(56, 22), A(54, 34), A(68, 52), A(66, 28), B(42, 20), B(50, 18), B(52, 28), B(60, 22), B(64, 34), B(70, 40), B(46, 40)], b: [[46.9, 16.5]], a: [['pase', 46, 16, 54, 34, 0, 1], ['pase', 54, 34, 68, 52, 0, 2], ['mov', 66, 28, 74, 38, 0, 2], ['cond', 68, 52, 76, 46, 0, 3], ['pase', 76, 46, 75, 38, 0, 4]] } });

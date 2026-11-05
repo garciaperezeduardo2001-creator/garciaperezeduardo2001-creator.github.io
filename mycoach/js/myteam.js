@@ -83,7 +83,7 @@
         Object.entries(d.rpe || {}).forEach(([pid, v]) => { if (v == null || !players[pid]) return; let mins = dur; if (m) { const a = actaMin(m, pid); if (a != null) mins = a; } loads.push(v * mins); rpes.push(v); });
         if (!loads.length) return;
         const iso = isoOf(d.date), x = days[iso] = days[iso] || { ua: 0, n: 0, rpe: [], min: 0, content: [] };
-        x.ua += mean(loads); x.n = Math.max(x.n, loads.length); x.rpe.push(mean(rpes)); x.min += dur; if (d.content) x.content.push(d.content);
+        x.ua += mean(loads); x.n = Math.max(x.n, loads.length); x.rpe.push(mean(rpes)); x.min += dur; if (d.content) x.content.push(d.content); (d.ej || []).forEach(e => (x.ej = x.ej || []).push({ id: e.id, n: e.n, dur: e.dur ?? null, plan: e.plan ?? e.dur ?? null }));
       });
       Object.values(days).forEach(x => { x.ua = Math.round(x.ua); x.rpe = Math.round(mean(x.rpe) * 10) / 10; });
       const games = matches.filter(m => m.date != null).map(m => ({ iso: isoOf(m.date), rival: m.rival || '', dur: m.dur > 0 ? m.dur : cfg.dur, j: m.j }));

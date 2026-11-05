@@ -347,3 +347,76 @@ T({ id: 'f38', n: 'Carreras de alta velocidad en diagonal', cat: 'fis', tipo: 'R
   cons: ['Carrera fluida y relajada.', 'Mantener la técnica hasta el final.'],
   var: ['+ 2 x 5 carreras.', '− Al 75-80 %.'],
   d: { v: [-4, -4, 113, 76], c: [[16.5, 54, '#facc15'], [88.5, 14, '#facc15'], [16.5, 14], [88.5, 54]], p: [A(15, 56), A(15, 58)], a: [['mov', 17, 53, 88, 15, 0], ['mov', 88.5, 18, 88.5, 50, 0], ['mov', 87, 54, 21, 14, 0]], t: [[52.5, 30, '60-70 m al 85 %', 1.1]] } });
+
+// ---------- AMPLIACIÓN 2 ----------
+T({ id: 'f39', n: 'RSA con balón: 6 x 25 m conduciendo', cat: 'fis', tipo: 'RSA', ed: 'CJS', dif: 2, md: ['MD-4'], int: 4, rpe: '8-9', carga: 'Tensión', fase: 'pri',
+  jug: 'Grupos de 4', np: 16, esp: [35, 20], ser: '2 series x 6 sprints', rec: '20" entre sprints, 3\' entre series', dur: 14,
+  obj: 'Repetir sprints conduciendo el balón, como en las transiciones del partido.',
+  desc: 'Sprint de 25 m conduciendo el balón con toques largos, frenada en la zona final y vuelta al trote con el balón en las manos. 20" entre repeticiones.',
+  reglas: ['Toques largos, máximo 5-6 en 25 m.', 'Frenada dentro de la zona marcada.', 'Recuperación activa.'],
+  cons: ['Empujar el balón al espacio y acelerar detrás.', 'Mantener la calidad del primer toque con fatiga.'],
+  var: ['+ Finalizar con pase a miniportería.', '− 4 sprints.'],
+  d: { z: [[37, 26, 31, 16], [62, 26, 4, 16, '#ef4444', 'Frena']], c: conos(39, 29, 39, 39, 3), p: [A(38, 29), A(38, 34), A(38, 39)], b: [[39.8, 29.4], [39.8, 34.4], [39.8, 39.4]], a: [['cond', 39.8, 29.4, 62, 29.4, 0], ['cond', 39.8, 34.4, 62, 34.4, 0]] } });
+
+T({ id: 'f40', n: 'Saltos laterales de patinador + cambio de dirección', cat: 'fis', tipo: 'Fuerza', ed: 'CJS', dif: 2, md: ['MD-4'], int: 3, rpe: '7', carga: 'Tensión', fase: 'pri',
+  jug: 'Grupos de 4', np: 16, esp: [20, 15], ser: '3 series x 6 saltos por lado + sprint', rec: '1\'30"', dur: 12,
+  obj: 'Potencia lateral y estabilidad de rodilla para los desplazamientos laterales.',
+  desc: 'Saltos laterales de una pierna a la otra (patinador) entre dos conos a 1,5 m, con aterrizaje estable. Tras 6 saltos por lado, sprint de 8 m en diagonal.',
+  reglas: ['Aterrizaje controlado de 1" en cada salto.', 'Rodilla alineada con el pie.', 'Sprint al 100 %.'],
+  cons: ['Impulso desde la cadera.', 'Tronco ligeramente adelantado.'],
+  var: ['+ Saltos sin pausa (reactivos).', '− Distancia de 1 m.'],
+  d: { z: [[44, 27, 18, 14]], c: [[47, 31], [49, 31], [47, 37], [49, 37], [58, 28, '#facc15'], [58, 40, '#facc15']], p: [A(46, 31), A(46, 37)], a: [['mov', 47, 31, 49, 31, -1.2], ['mov', 49, 31, 47, 31, -1.2], ['mov', 49, 31, 57.5, 28.5, 0], ['mov', 49, 37, 57.5, 39.5, 0]] } });
+
+T({ id: 'f41', n: 'Salida de espaldas a la señal', cat: 'fis', tipo: 'Velocidad', ed: 'AICJS', dif: 1, md: ['MD-2', 'MD-1'], int: 3, rpe: '6', carga: 'Velocidad', fase: 'pri',
+  jug: 'Parejas', np: 16, esp: [20, 15], ser: '2 series x 5 salidas', rec: '40"', dur: 10,
+  obj: 'Giro y aceleración tras un estímulo, como al reaccionar a un balón a la espalda.',
+  desc: 'El jugador de espaldas a la dirección de carrera. A la señal (palmada o color), gira y sprinta 10 m. Por parejas, compitiendo.',
+  reglas: ['Giro por el lado que indique el color.', 'Sprint de 10 m.', 'Recuperación caminando.'],
+  cons: ['Giro corto con los pies, no con el cuerpo.', 'Primeros pasos potentes.'],
+  var: ['+ Con balón que lanza el entrenador.', '− Salida de frente.'],
+  d: { z: [[44, 27, 18, 14]], c: [[47, 30], [47, 38], [57, 30, '#facc15'], [57, 38, '#facc15']], p: [A(47.5, 31), B(47.5, 37), E(45, 34)], a: [['mov', 47.5, 31, 56.5, 30.5, 0], ['mov', 47.5, 37, 56.5, 37.5, 0]], t: [[47.5, 28.5, '↺', 1.3]] } });
+
+T({ id: 'f42', n: 'Test 505 de agilidad (evaluación)', cat: 'fis', tipo: 'Evaluación', ed: 'CJS', dif: 1, md: ['MD-3', 'MD-4'], int: 4, rpe: '7', carga: 'Velocidad', fase: 'pri',
+  jug: 'Todo el grupo', np: 20, esp: [20, 10], ser: '2 intentos por pierna', rec: '2\'', dur: 15,
+  obj: 'Medir la capacidad de cambio de dirección de 180° con cada pierna.',
+  desc: 'Carrera lanzada de 10 m hasta una línea, desde allí se cronometran 5 m hasta la línea de giro y 5 m de vuelta (los "5-0-5"). Se registra el mejor tiempo con cada pierna de giro.',
+  reglas: ['Fotocélulas o cronómetro manual en la línea de 5 m.', 'Pisar la línea de giro.', 'Comparar pierna derecha e izquierda (asimetría).'],
+  cons: ['Calentamiento completo antes.', 'Repetir cada 6-8 semanas.'],
+  var: ['Alternativa: test de Illinois.', 'Categorías base: 505 con un solo intento por pierna.'],
+  d: { z: [[40, 29, 22, 10]], c: [[42, 31], [42, 37], [52, 31, '#22c55e'], [52, 37, '#22c55e'], [57, 31, '#ef4444'], [57, 37, '#ef4444']], p: [A(41, 34)], a: [['mov', 42, 33, 56.5, 33, 0], ['mov', 56.5, 35, 52.5, 35, 0]], t: [[47, 30, '10 m', .8], [54.5, 30, '5 m', .8]] } });
+
+T({ id: 'f43', n: 'Test de salto vertical CMJ (evaluación)', cat: 'fis', tipo: 'Evaluación', ed: 'CJS', dif: 1, md: ['MD-3', 'MD-4', 'MD-2'], int: 2, rpe: '4', carga: 'Activación', fase: 'pri',
+  jug: 'Todo el grupo', np: 20, esp: [15, 10], ser: '3 intentos', rec: '30"', dur: 12,
+  obj: 'Medir la potencia de piernas y controlar la fatiga neuromuscular.',
+  desc: 'Salto con contramovimiento con las manos en la cintura, medido con una app de móvil o una plataforma de contacto. Se registra el mejor de tres. Repetirlo cada semana en el mismo día MD permite detectar fatiga (caída > 5-8 %).',
+  reglas: ['Manos en la cintura todo el salto.', 'Mismo calentamiento y mismo día de la semana.', 'Guardar los registros por jugador.'],
+  cons: ['Bajada rápida y salto máximo.', 'Aterrizar con las piernas extendidas al tocar el suelo.'],
+  var: ['+ Salto a una pierna (asimetrías).', '− Solo como control de fatiga en pretemporada.'],
+  d: { z: [[45, 29, 15, 10]], p: [A(48, 34), A(52.5, 34), A(57, 34), E(52.5, 38)], t: [[52.5, 31, 'CMJ · mejor de 3', .8]] } });
+
+T({ id: 'f44', n: 'Persecución por parejas con sprint final', cat: 'fis', tipo: 'Velocidad', ed: 'AICJS', dif: 1, md: ['MD-2', 'MD-4'], int: 4, rpe: '7', carga: 'Velocidad', fase: 'pri',
+  jug: 'Parejas', np: 16, esp: [25, 15], ser: '2 series x 5 persecuciones', rec: '40"', dur: 12,
+  obj: 'Sprints máximos motivados por la competición.',
+  desc: 'Un jugador sale con 2 m de ventaja y el otro le persigue durante 15 m. Si lo toca antes de la línea, gana el perseguidor. Se alternan los papeles.',
+  reglas: ['Salidas desde distintas posiciones.', 'Distancia fija de 15 m.', 'Cambiar de pareja cada serie.'],
+  cons: ['Correr hasta pasar la línea, sin frenar antes.', 'Brazos activos.'],
+  var: ['+ Ventaja de 1 m.', '− Ventaja de 3 m.'],
+  d: { z: [[40, 27, 25, 14]], c: [[43, 30], [43, 38], [60, 30, '#facc15'], [60, 38, '#facc15']], p: [A(45, 32), B(43, 32), A(45, 36), B(43, 36)], a: [['mov', 45, 32, 59.5, 32, 0, 1], ['mov', 43, 32, 57, 32.6, 0, 1], ['mov', 45, 36, 59.5, 36, 0, 2], ['mov', 43, 36, 57, 36.6, 0, 2]] } });
+
+T({ id: 'f45', n: 'Intermitente 10"-20" con balón', cat: 'fis', tipo: 'Resistencia', ed: 'CJS', dif: 2, md: ['MD-3'], int: 4, rpe: '8', carga: 'Duración', fase: 'pri',
+  jug: 'Parejas', np: 16, esp: [50, 30], ser: '2 series x 6\' (10" rápido / 20" suave)', rec: '3\'', dur: 18,
+  obj: 'Potencia aeróbica con acciones de alta intensidad muy cortas y balón.',
+  desc: 'Las parejas se pasan el balón a la carrera por el campo. A la señal, 10" de pared y sprint con conducción al cono más cercano; luego 20" de pases suaves al trote.',
+  reglas: ['Cambio de ritmo con el silbato.', 'El balón no se para nunca.', 'Mismo número de acciones rápidas para ambos.'],
+  cons: ['Intensidad máxima en los 10".', 'Recuperar respirando sin parar.'],
+  var: ['+ 3 series.', '− 10"-30".'],
+  d: { z: [[27.5, 19, 50, 30]], c: [[30, 22], [52.5, 22], [75, 22], [30, 46], [52.5, 46], [75, 46]], p: [A(40, 30), A(46, 36), B(60, 28), B(66, 38)], b: [[40.9, 30.5]], a: [['pase', 40, 30, 46, 36, 0], ['cond', 46, 36, 52.5, 44, 0], ['pase', 60, 28, 66, 38, 0]] } });
+
+T({ id: 'f46', n: 'Circuito RSA con cambios de dirección y finalización', cat: 'fis', tipo: 'RSA', ed: 'JS', dif: 3, md: ['MD-4'], int: 4, rpe: '9', carga: 'Tensión', fase: 'pri',
+  jug: 'Grupos de 3 + P', np: 7, esp: [35, 30], ser: '2 series x 5 repeticiones', rec: '25" entre reps, 4\' entre series', dur: 16,
+  obj: 'Repetir esfuerzos máximos con cambio de dirección y acabar con tiro.',
+  desc: 'Sprint de 10 m, giro de 180°, sprint de 5 m, recibir un pase del entrenador y finalizar a portería. Recuperación de 25" caminando hasta la salida.',
+  reglas: ['Cada repetición al máximo.', 'Tiro en máximo dos toques.', 'Anotar goles y tiempos.'],
+  cons: ['Frenada en 2-3 apoyos.', 'Calidad técnica con fatiga.'],
+  var: ['+ 6 repeticiones.', '− Sin giro.'],
+  d: { z: [[70, 19, 35, 30]], c: [[74, 26], [84, 26, '#facc15']], p: [P(103.5, 34), A(73, 26), E(86, 42)], b: [[87, 41.5]], a: [['mov', 74, 25.5, 83.5, 25.5, 0, 1], ['mov', 83.5, 27, 79, 31, 0, 2], ['pase', 86, 42, 80, 32, 0, 3], ['tiro', 80, 32, 104, 33, 0, 4]] } });
