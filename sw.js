@@ -1,11 +1,16 @@
-const CACHE = 'mycoach-v6';
-const FILES = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'js/diagram.js', 'js/editor.js', 'js/myteam.js', 'js/app.js',
-  'data/helpers.js', 'data/tareas-tactico.js', 'data/tareas-fisico.js', 'data/tareas-prevencion.js', 'data/tareas-porteros.js',
-  'icons/icon-192.png', 'icons/icon-512.png'];
-self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
-self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x))))); self.clients.claim(); });
-// Red primero (para recibir actualizaciones) y caché si no hay conexión
+const CACHE = 'vestuario-v2';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
+self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(fetch(e.request).then(r => { const c = r.clone(); caches.open(CACHE).then(x => x.put(e.request, c)); return r; }).catch(() => caches.match(e.request).then(r => r || caches.match('index.html'))));
+  const req = e.request; if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin === location.origin && url.pathname.startsWith('/myteam/')) return; // otra app
+  if (url.origin === location.origin && (req.mode === 'navigate' || url.pathname.endsWith('/index.html'))) {
+    // red primero para recibir actualizaciones; sin conexión, la copia guardada
+    e.respondWith(fetch(req).then(r => { const cp = r.clone(); caches.open(CACHE).then(c => c.put('./index.html', cp)); return r; }).catch(() => caches.match('./index.html')));
+    return;
+  }
+  // resto (librerías, fuentes, iconos): caché primero
+  e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(r => { if (r && (r.ok || r.type === 'opaque')) { const cp = r.clone(); caches.open(CACHE).then(c => c.put(req, cp)); } return r; })));
 });
