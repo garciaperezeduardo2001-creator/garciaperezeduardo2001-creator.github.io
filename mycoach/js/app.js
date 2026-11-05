@@ -311,19 +311,20 @@
     return `<div class="abar" id="${id}" data-noclick>
       <button class="btn sm pri" data-c="play">▶ Animar</button><button class="btn sm" data-c="next" title="Paso a paso">⏭ Paso</button><button class="btn sm" data-c="restart" title="Volver al inicio" aria-label="Volver al inicio">↺</button>
       <select data-c="speed" aria-label="Velocidad"><option value="0.5">0,5x</option><option value="1" selected>1x</option><option value="2">2x</option></select>
-      <label class="abl"><input type="checkbox" data-c="loop"> Bucle</label><span class="abs" data-c="lab"></span></div>`;
+      <label class="abl"><input type="checkbox" data-c="loop"> Bucle</label><label class="abl" title="Los defensores y el portero se mueven hacia el balón"><input type="checkbox" data-c="react" checked> Defensas reactivas</label><span class="abs" data-c="lab"></span></div>`;
   }
   function bindAnim(id, box, d) {
     const bar = document.getElementById(id); if (!bar || !box) return () => { };
     let ctl = null, st = { step: 0, total: fieldSteps(d).length, playing: false };
     const q = c => bar.querySelector(`[data-c="${c}"]`);
-    const upd = () => { q('play').textContent = st.playing ? '⏸ Pausa' : st.step >= st.total && st.step ? '↺ Repetir' : st.step ? '▶ Seguir' : '▶ Animar'; q('lab').textContent = `Paso ${st.step}/${st.total}`; };
-    const get = () => { if (!ctl) ctl = animateField(box, d, { autoplay: false, speed: +q('speed').value, loop: q('loop').checked, onState: x => { st = x; upd(); } }); return ctl; };
+    const upd = () => { q('play').textContent = st.playing ? '⏸ Pausa' : st.step >= st.total && st.step ? '↺ Repetir' : st.step ? '▶ Seguir' : '▶ Animar'; q('lab').textContent = `Paso ${st.step}/${st.total}` + (st.caption ? ' · ' + st.caption : ''); };
+    const get = () => { if (!ctl) ctl = animateField(box, d, { autoplay: false, speed: +q('speed').value, loop: q('loop').checked, react: q('react').checked, onState: x => { st = x; upd(); } }); return ctl; };
     q('play').onclick = e => { e.stopPropagation(); const c = get(); st.playing ? c.pause() : c.play(); };
     q('next').onclick = e => { e.stopPropagation(); get().next(); };
     q('restart').onclick = e => { e.stopPropagation(); get().restart(); };
     q('speed').onchange = () => ctl && ctl.setSpeed(+q('speed').value);
     q('loop').onchange = () => ctl && ctl.setLoop(q('loop').checked);
+    q('react').onchange = () => ctl && ctl.setReact(q('react').checked);
     bar.onclick = e => e.stopPropagation();
     upd();
     return () => ctl && ctl.stop();

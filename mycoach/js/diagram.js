@@ -192,71 +192,134 @@
     const svg = box.querySelector('svg');
     const NS = 'http://www.w3.org/2000/svg';
     const groups = steps(d);
-    const noop = { play() { }, pause() { }, next() { }, restart() { }, setSpeed() { }, setLoop() { }, stop() { }, steps: 0 };
-    if (!svg || !groups.length) { opts.onState && opts.onState({ step: 0, total: 0, playing: false, done: true }); return noop; }
+    const noop = { play() { }, pause() { }, next() { }, restart() { }, setSpeed() { }, setLoop() { }, setReact() { }, stop() { }, steps: 0 };
+    if (!svg || !groups.length) { opts.onState && opts.onState({ step: 0, total: 0, playing: false, done: true, caption: '' }); return noop; }
     const k = +svg.getAttribute('data-k') || svg.viewBox.baseVal.width / 40;
     const pl = d.p || [];
     const P0 = pl.map(p => [p[1], p[2]]), B0 = (d.b || []).map(b => [b[0], b[1]]);
-    let P, B, step, playing = false, raf = 0, timer = 0, speed = opts.speed || 1, loop = !!opts.loop, temps = [], trails = null;
+    let P, B, step, playing = false, raf = 0, timer = 0, speed = opts.speed || 1, loop = !!opts.loop, react = opts.react !== false, temps = [], trails = null, fx = null;
     const gp = i => svg.querySelector(`[data-p="${i}"]`), gb = i => svg.querySelector(`[data-b="${i}"]`);
     const arrows = [...svg.querySelectorAll('[data-a]')], badges = [...svg.querySelectorAll('[data-s]')];
+    const NAMES = { pase: 'pase', mov: 'desmarque', cond: 'conducción', tiro: 'tiro' };
+    const caption = i => { if (i < 0 || i >= groups.length) return ''; const n = [...new Set(groups[i].map(j => NAMES[d.a[j][0]] || ''))].filter(Boolean); const s = n.join(' + '); return s.charAt(0).toUpperCase() + s.slice(1); };
     const near = (arr, x, y, max, skip) => { let bi = -1, bd = max; arr.forEach((p, i) => { if (skip && skip.has(i)) return; const dd = Math.hypot(p[0] - x, p[1] - y); if (dd < bd) { bd = dd; bi = i; } }); return bi; };
-    const setT = (g, cur, orig) => g && g.setAttribute('transform', `translate(${(cur[0] - orig[0]).toFixed(2)} ${(cur[1] - orig[1]).toFixed(2)})`);
-    const state = (extra) => opts.onState && opts.onState({ step, total: groups.length, playing, done: step >= groups.length, ...extra });
+    const setP = (i, cur, s = 1) => { const g = gp(i); if (!g) return; const o = P0[i]; g.setAttribute('transform', s === 1 ? `translate(${(cur[0] - o[0]).toFixed(2)} ${(cur[1] - o[1]).toFixed(2)})` : `translate(${cur[0].toFixed(2)} ${cur[1].toFixed(2)}) scale(${s.toFixed(3)}) translate(${(-o[0]).toFixed(2)} ${(-o[1]).toFixed(2)})`); };
+    const setB = (g, cur, orig) => g && g.setAttribute('transform', `translate(${(cur[0] - orig[0]).toFixed(2)} ${(cur[1] - orig[1]).toFixed(2)})`);
+    const state = (extra) => opts.onState && opts.onState({ step, total: groups.length, playing, done: step >= groups.length, caption: caption(Math.min(step, groups.length) - 1), ...extra });
+    const colPath = g => { const ps = g.querySelectorAll('path'); return ps[ps.length - 1]; };
     function paint() {
-      arrows.forEach((a, i) => { const s = groups.findIndex(g => g.includes(i)); a.style.transition = 'opacity .25s'; a.style.opacity = s < step ? .5 : .16; });
-      badges.forEach(b => { const n = +b.getAttribute('data-s'); b.style.opacity = n <= step ? .55 : 1; });
+      arrows.forEach((a, i) => { const s = groups.findIndex(g => g.includes(i)); a.style.transition = 'opacity .3s'; a.style.opacity = s < step ? .45 : .14; });
+      badges.forEach(b => { const n = +b.getAttribute('data-s'); b.style.transition = 'opacity .3s'; b.style.opacity = n <= step ? .5 : .9; });
+    }
+    function loft(g, h, spin) {
+      if (!g) return; const bb = g.querySelector('.bb'), bs = g.querySelector('.bs');
+      if (bb) bb.setAttribute('transform', h ? `translate(0 ${(-h * 1.6 * k).toFixed(2)})` : '');
+      if (bs) bs.setAttribute('opacity', (1 - h * .6).toFixed(2));
+      if (spin != null && bb) { const dot = bb.querySelectorAll('circle')[1]; if (dot) { const r = .36 * k * .42; dot.setAttribute('transform', `translate(${(Math.cos(spin) * r).toFixed(3)} ${(Math.sin(spin) * r).toFixed(3)})`); } }
     }
     function reset() {
       cancelAnimationFrame(raf); clearTimeout(timer);
       temps.forEach(t => t.remove()); temps = [];
       P = P0.map(p => p.slice()); B = B0.map(b => b.slice());
-      P.forEach((p, i) => setT(gp(i), p, P0[i])); B.forEach((b, i) => { setT(gb(i), b, B0[i]); loft(gb(i), 0); });
-      if (trails) trails.remove();
+      P.forEach((p, i) => setP(i, p)); B.forEach((b, i) => { setB(gb(i), b, B0[i]); loft(gb(i), 0, 0); });
+      arrows.forEach(a => { const p = colPath(a); a.querySelectorAll('path').forEach(x => { x.style.strokeDasharray = ''; x.style.strokeDashoffset = ''; }); if (p && p.dataset.mk) { p.setAttribute('marker-end', p.dataset.mk); } });
+      if (trails) trails.remove(); if (fx) fx.remove();
       trails = document.createElementNS(NS, 'g'); trails.setAttribute('class', 'trails');
       const firstP = svg.querySelector('[data-p]'); svg.insertBefore(trails, firstP || null);
+      fx = document.createElementNS(NS, 'g'); svg.appendChild(fx);
       step = 0; paint();
-    }
-    function loft(g, h) { // h: 0..1 altura del balón (pases bombeados)
-      if (!g) return; const bb = g.querySelector('.bb'), bs = g.querySelector('.bs');
-      if (bb) bb.setAttribute('transform', h ? `translate(0 ${(-h * 1.6 * k).toFixed(2)})` : '');
-      if (bs) bs.setAttribute('opacity', (1 - h * .6).toFixed(2));
     }
     function tempBall(x, y) {
       const g = document.createElementNS(NS, 'g'), r = .36 * k;
-      g.innerHTML = `<ellipse class="bs" cx="${x + r * .3}" cy="${y + r * .45}" rx="${r}" ry="${r * .8}" fill="rgba(0,0,0,.35)"/><g class="bb"><circle cx="${x}" cy="${y}" r="${r}" fill="#fff" stroke="#111" stroke-width="${k * .08}"/></g>`;
-      svg.appendChild(g); temps.push(g); return { g, o: [x, y] };
+      g.innerHTML = `<ellipse class="bs" cx="${x + r * .3}" cy="${y + r * .45}" rx="${r}" ry="${r * .8}" fill="rgba(0,0,0,.35)"/><g class="bb"><circle cx="${x}" cy="${y}" r="${r}" fill="#fff" stroke="#111" stroke-width="${k * .08}"/><circle cx="${x}" cy="${y}" r="${r * .32}" fill="#1f2937"/></g>`;
+      svg.insertBefore(g, fx); temps.push(g); return { g, o: [x, y] };
+    }
+    // ¿El tiro termina en una portería?
+    function goalAt(x, y) {
+      const goals = [[0, 34, 4], [105, 34, 4], ...(d.g || []).map(g => [g[0], g[1], 4]), ...(d.mg || []).map(g => [g[0], g[1], Math.max(1.6, k)])];
+      return goals.find(g => Math.abs(g[0] - x) < 2.5 + (g[2] > 3 ? 0 : 1) && Math.abs(g[1] - y) < g[2] + 1);
+    }
+    function celebrate(x, y) {
+      const g = document.createElementNS(NS, 'g');
+      g.innerHTML = `<circle cx="${x}" cy="${y}" r="${k * .8}" fill="none" stroke="#fde047" stroke-width="${k * .25}"><animate attributeName="r" from="${k * .6}" to="${k * 4}" dur=".9s" fill="freeze"/><animate attributeName="opacity" from="1" to="0" dur=".9s" fill="freeze"/></circle>`
+        + `<text x="${x + (x > 52 ? -k * 3 : k * 3)}" y="${y - k * 1.6}" text-anchor="middle" font-size="${k * 1.9}" font-weight="900" font-family="system-ui,sans-serif" fill="#fde047" stroke="rgba(0,0,0,.6)" stroke-width="${k * .3}" paint-order="stroke">¡GOL!<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.7;1" dur="1.4s" fill="freeze"/></text>`;
+      fx.appendChild(g); setTimeout(() => g.remove(), 1500);
     }
     function runStep(done) {
       const idx = groups[step];
-      arrows.forEach((a, i) => { if (idx.includes(i)) a.style.opacity = 1; });
-      badges.forEach(b => { if (+b.getAttribute('data-s') === step + 1) b.style.opacity = 1; });
       const usedP = new Set(), usedB = new Set();
       const moves = idx.map(i => {
-        const a = d.a[i], g = geom(a, k, []), type = a[0];
+        const a = d.a[i], g = geom(a, k, []), type = a[0], ag = arrows[i];
         const pi = type === 'mov' || type === 'cond' ? near(P, a[1], a[2], 4.5, usedP) : -1; if (pi >= 0) usedP.add(pi);
+        const passer = type !== 'mov' ? near(P, a[1], a[2], 4.5) : -1;
         let bi = type === 'mov' ? -1 : near(B, a[1], a[2], type === 'cond' ? 3.5 : 6, usedB), tb = null;
         if (bi >= 0) usedB.add(bi); else if (type !== 'mov') tb = tempBall(a[1], a[2]);
         const off = bi >= 0 && pi >= 0 ? [B[bi][0] - P[pi][0], B[bi][1] - P[pi][1]] : [0, 0];
-        let tr = null;
-        if (pi >= 0) { tr = document.createElementNS(NS, 'polyline'); tr.setAttribute('fill', 'none'); tr.setAttribute('stroke', (TEAM[pl[pi][0]] || TEAM.A)[0]); tr.setAttribute('stroke-width', (.28 * k).toFixed(2)); tr.setAttribute('stroke-opacity', '.45'); tr.setAttribute('stroke-linecap', 'round'); tr.setAttribute('stroke-dasharray', `${(.3 * k).toFixed(2)} ${(.25 * k).toFixed(2)}`); trails.appendChild(tr); }
-        return { type, g, pi, bi, tb, off, tr, pts: [], lofted: type === 'pase' && g.len > 22 };
+        let tr = null, ring = null;
+        if (pi >= 0) {
+          tr = document.createElementNS(NS, 'polyline'); tr.setAttribute('fill', 'none'); tr.setAttribute('stroke', (TEAM[pl[pi][0]] || TEAM.A)[0]); tr.setAttribute('stroke-width', (.28 * k).toFixed(2)); tr.setAttribute('stroke-opacity', '.45'); tr.setAttribute('stroke-linecap', 'round'); tr.setAttribute('stroke-dasharray', `${(.3 * k).toFixed(2)} ${(.25 * k).toFixed(2)}`); trails.appendChild(tr);
+        }
+        const actor = pi >= 0 ? pi : passer;
+        if (actor >= 0) { ring = document.createElementNS(NS, 'circle'); ring.setAttribute('r', (1.35 * k).toFixed(2)); ring.setAttribute('fill', 'none'); ring.setAttribute('stroke', '#fde047'); ring.setAttribute('stroke-width', (.18 * k).toFixed(2)); ring.setAttribute('cx', P[actor][0]); ring.setAttribute('cy', P[actor][1]); trails.appendChild(ring); }
+        // la flecha se dibuja mientras ocurre la acción
+        let rev = null;
+        if (ag) {
+          ag.style.opacity = 1;
+          const cp = colPath(ag);
+          if (type !== 'mov' && cp && cp.getTotalLength) {
+            const L = cp.getTotalLength(); rev = { L, ps: [...ag.querySelectorAll('path')] };
+            if (!cp.dataset.mk) cp.dataset.mk = cp.getAttribute('marker-end') || '';
+            cp.removeAttribute('marker-end'); rev.cp = cp;
+            rev.ps.forEach(x => { x.style.strokeDasharray = L; x.style.strokeDashoffset = L; });
+          }
+        }
+        return { type, g, pi, bi, tb, off, tr, ring, actor, rev, pts: [], lofted: type === 'pase' && g.len > 22, team: (passer >= 0 ? pl[passer][0] : actor >= 0 ? pl[actor][0] : null), end: [a[3], a[4]] };
       });
+      badges.forEach(b => { if (+b.getAttribute('data-s') === step + 1) b.style.opacity = 1; });
+      // defensas reactivas: el equipo sin balón se desplaza hacia donde va el balón
+      const reacts = [];
+      if (react) {
+        const bm = [...moves].reverse().find(m => m.type !== 'mov');
+        const att = bm && bm.team, defT = att === 'A' ? 'B' : att === 'B' ? 'A' : null;
+        if (bm) {
+          const [tx, ty] = bm.end;
+          P.forEach((p, i) => {
+            if (usedP.has(i)) return; const t = pl[i][0];
+            if (t === 'P') { if ((p[0] < 22 || p[0] > 83) && Math.hypot(p[0] - tx, p[1] - ty) < 40) { const ny = 34 + Math.max(-2.6, Math.min(2.6, (ty - 34) * .22)); if (Math.abs(ny - p[1]) > .15 && Math.abs(p[1] - 34) < 6) reacts.push({ i, from: p.slice(), to: [p[0], ny] }); } return; }
+            if (!defT || t !== defT) return;
+            const dd = Math.hypot(tx - p[0], ty - p[1]); if (dd > 16 || dd < 2) return;
+            const mv = Math.min(dd * .3, 3, dd - 1.6 * k); if (mv <= .2) return;
+            reacts.push({ i, from: p.slice(), to: [p[0] + (tx - p[0]) / dd * mv, p[1] + (ty - p[1]) / dd * mv] });
+          });
+        }
+      }
       const len = Math.max(...moves.map(m => m.g.len));
-      const dur = Math.min(1800, Math.max(700, len * 48)) / speed, t0 = performance.now();
+      const dur = Math.min(1900, Math.max(750, len * 50)) / speed, t0 = performance.now();
       const frame = now => {
         const t = Math.min(1, (now - t0) / dur), e = t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
         moves.forEach(m => {
           const te = m.type === 'tiro' ? Math.min(1, t * 1.6) : e, q = m.g.at(te);
-          if (m.pi >= 0) { P[m.pi] = q; setT(gp(m.pi), q, P0[m.pi]); if (m.tr && (!m.pts.length || Math.hypot(m.pts[m.pts.length - 1][0] - q[0], m.pts[m.pts.length - 1][1] - q[1]) > .4)) { m.pts.push(q); m.tr.setAttribute('points', m.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' ')); } }
+          if (m.pi >= 0) {
+            P[m.pi] = q; setP(m.pi, q, 1 + .07 * Math.abs(Math.sin(t * Math.PI * 7)) * Math.sin(Math.PI * t));
+            if (m.tr && (!m.pts.length || Math.hypot(m.pts[m.pts.length - 1][0] - q[0], m.pts[m.pts.length - 1][1] - q[1]) > .4)) { m.pts.push(q); m.tr.setAttribute('points', m.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' ')); }
+          }
+          if (m.ring && m.actor >= 0) { m.ring.setAttribute('cx', P[m.actor][0].toFixed(2)); m.ring.setAttribute('cy', P[m.actor][1].toFixed(2)); m.ring.setAttribute('opacity', (1 - t * .7).toFixed(2)); }
           const bq = m.type === 'cond' ? [q[0] + m.off[0] * (1 - e) + Math.sin(t * 40) * .15 * k, q[1] + m.off[1] * (1 - e)] : q;
-          const h = m.lofted ? Math.sin(Math.PI * te) : 0;
-          if (m.bi >= 0) { B[m.bi] = bq; setT(gb(m.bi), bq, B0[m.bi]); loft(gb(m.bi), h); }
-          if (m.tb) { setT(m.tb.g, bq, m.tb.o); loft(m.tb.g, h); }
+          const h = m.lofted ? Math.sin(Math.PI * te) : 0, spin = te * m.g.len * 1.4;
+          if (m.bi >= 0) { B[m.bi] = bq; setB(gb(m.bi), bq, B0[m.bi]); loft(gb(m.bi), h, spin); }
+          if (m.tb) { setB(m.tb.g, bq, m.tb.o); loft(m.tb.g, h, spin); }
+          if (m.rev) { const off = m.rev.L * (1 - te); m.rev.ps.forEach(x => { x.style.strokeDashoffset = off; }); if (te > .92 && m.rev.cp.dataset.mk) m.rev.cp.setAttribute('marker-end', m.rev.cp.dataset.mk); }
         });
+        reacts.forEach(r => { const q = [r.from[0] + (r.to[0] - r.from[0]) * e, r.from[1] + (r.to[1] - r.from[1]) * e]; P[r.i] = q; setP(r.i, q); });
         if (t < 1) raf = requestAnimationFrame(frame);
         else {
-          moves.forEach(m => { if (m.tb && m.type !== 'tiro') { /* el balón temporal queda donde llega */ } else if (m.tb) { m.tb.g.style.transition = 'opacity .4s'; m.tb.g.style.opacity = 0; } if (m.bi >= 0) loft(gb(m.bi), 0); });
+          moves.forEach(m => {
+            if (m.pi >= 0) setP(m.pi, P[m.pi]);
+            if (m.ring) { m.ring.style.transition = 'opacity .4s'; m.ring.style.opacity = 0; setTimeout(() => m.ring.remove(), 450); }
+            if (m.rev) m.rev.ps.forEach(x => { x.style.strokeDasharray = ''; x.style.strokeDashoffset = ''; });
+            if (m.type === 'tiro') { const gl = goalAt(m.end[0], m.end[1]); if (gl) celebrate(m.end[0], m.end[1]); if (m.tb) { m.tb.g.style.transition = 'opacity .6s'; m.tb.g.style.opacity = 0; } }
+            if (m.bi >= 0) loft(gb(m.bi), 0);
+          });
           step++; paint(); state(); done && done();
         }
       };
@@ -265,11 +328,11 @@
     function loopPlay() {
       if (!playing) return;
       if (step >= groups.length) {
-        if (loop) { timer = setTimeout(() => { reset(); state(); timer = setTimeout(loopPlay, 400 / speed); }, 1200 / speed); }
+        if (loop) { timer = setTimeout(() => { reset(); state(); timer = setTimeout(loopPlay, 400 / speed); }, 1400 / speed); }
         else { playing = false; state(); }
         return;
       }
-      runStep(() => { timer = setTimeout(loopPlay, 350 / speed); });
+      runStep(() => { timer = setTimeout(loopPlay, 380 / speed); });
     }
     reset(); state();
     const ctl = {
@@ -280,6 +343,7 @@
       restart() { const was = playing; playing = false; reset(); state(); if (was) ctl.play(); },
       setSpeed(x) { speed = x; },
       setLoop(b) { loop = b; },
+      setReact(b) { react = b; },
       stop() { playing = false; cancelAnimationFrame(raf); clearTimeout(timer); }
     };
     if (opts.autoplay !== false) ctl.play();

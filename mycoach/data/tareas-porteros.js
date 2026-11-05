@@ -252,3 +252,94 @@ T({ id: 'gk28', n: 'Caídas desde rodillas (iniciación)', cat: 'por', tipo: 'Po
   cons: ['Ir hacia delante a por el balón.', 'Mirar el balón hasta tenerlo blocado.'],
   var: ['+ Desde de pie.', '− Balón rodando más lento.'],
   d: { z: [[47.5, 29, 10, 10]], p: [P(50, 34), P(55.5, 34)], b: [[54.5, 33.6]], a: [['pase', 55.5, 33.5, 50, 31.5, 0], ['mov', 50, 34, 50, 32, 0]] } });
+
+// ---------- AMPLIACIÓN 3 ----------
+T({ id: 'gk29', n: 'Paradas a media altura con desplazamiento', cat: 'por', tipo: 'Portero · Técnica', ed: 'ICJS', dif: 2, md: ['MD-3', 'MD-2'], int: 3, rpe: '6', carga: 'Duración', fase: 'pri',
+  jug: 'Portero + entrenador', np: 2, esp: [16.5, 20], ser: '3 x 6 tiros', rec: '45"', dur: 12,
+  obj: 'Desplazarse lateralmente y blocar balones a la altura de la cadera.',
+  desc: 'El portero toca un cono a un lado, vuelve a la posición básica y bloca un balón a media altura en el lado contrario.',
+  reglas: ['Desplazamiento lateral sin cruzar los pies.', 'Alternar lados.', 'Tiros a media potencia al principio.'],
+  cons: ['Llegar equilibrado antes del tiro.', 'Manos por delante del cuerpo.'],
+  var: ['+ Dos conos y tiros más fuertes.', '− Tiro sin desplazamiento.'],
+  d: { v: [82, 20, 26, 28], c: [[102.5, 30], [102.5, 38]], p: [P(102.5, 34), E(93, 34)], b: [[94, 34]], a: [['mov', 102.5, 34, 102.5, 31, 0, 1], ['mov', 102.5, 31, 102.5, 34, 0, 2], ['tiro', 93, 34, 104, 37, 0, 3]] } });
+
+T({ id: 'gk30', n: 'Salida al balón dividido (choque)', cat: 'por', tipo: 'Portero · Táctica', ed: 'CJS', dif: 3, md: ['MD-3', 'MD-2'], int: 4, rpe: '8', carga: 'Velocidad', fase: 'pri',
+  jug: 'Portero + atacante + lanzador', np: 3, esp: [30, 30], ser: '3 x 4 acciones', rec: '1\'', dur: 12,
+  obj: 'Ganar balones divididos al borde del área con decisión y sin riesgo.',
+  desc: 'El entrenador envía un balón raso a la frontal; portero y atacante salen a la vez. El portero debe llegar antes y blocar o despejar con el pie.',
+  reglas: ['Salida a la vez.', 'Prohibido tirarse con los pies por delante.', 'Protecciones para el contacto.'],
+  cons: ['Decidir pronto y salir con convicción.', 'Cuerpo de lado si hay contacto.'],
+  var: ['+ Atacante con ventaja.', '− Atacante pasivo.'],
+  d: { v: [74, 14, 34, 40], p: [P(102, 34), A(80, 30), E(84, 44)], b: [[84, 43]], a: [['pase', 84, 44, 92, 36, 0, 1], ['mov', 102, 34, 93, 36, 0, 1], ['mov', 80, 30, 90, 34, 0, 1]] } });
+
+T({ id: 'gk31', n: 'Juego de pies: control y pase largo bajo presión', cat: 'por', tipo: 'Portero · Juego de pies', ed: 'CJS', dif: 2, md: ['MD-2', 'MD-3'], int: 2, rpe: '5', carga: 'Activación', fase: 'pri',
+  jug: 'Portero + presionador + 2 receptores', np: 4, esp: [60, 50], ser: '3 x 6 acciones', rec: '1\'', dur: 12,
+  obj: 'Mejorar el envío largo al lado contrario cuando hay presión cercana.',
+  desc: 'Un defensor pasa atrás al portero y un delantero sale a presionar. El portero controla orientado lejos de la presión y envía en largo al receptor del lado contrario.',
+  reglas: ['Máximo dos toques.', 'El envío debe caer en la zona del receptor.', 'Alternar ambos pies.'],
+  cons: ['Primer control hacia el lado libre.', 'Golpeo con el empeine interior.'],
+  var: ['+ Un toque.', '− Sin presionador.'],
+  d: { v: [50, 6, 58, 56], g: [], z: [[56, 8, 12, 12, '#60a5fa'], [56, 48, 12, 12, '#60a5fa']], p: [P(102, 34), B(94, 24), A(88, 30), N(62, 14), N(62, 54)], b: [[94.9, 24.5]], a: [['pase', 94, 24, 101, 33, 0, 1], ['mov', 88, 30, 97, 31, 0, 2], ['pase', 102, 35, 62, 54, -4, 3]] } });
+
+T({ id: 'gk32', n: 'Tiros desde fuera del área con rechace', cat: 'por', tipo: 'Portero · Técnica', ed: 'ICJS', dif: 2, md: ['MD-3', 'MD-4'], int: 3, rpe: '7', carga: 'Tensión', fase: 'pri',
+  jug: 'Portero + 2 tiradores + rematador', np: 4, esp: [25, 30], ser: '3 x 5 acciones', rec: '1\'', dur: 12,
+  obj: 'Blocar los tiros lejanos o desviarlos fuera del alcance del rematador.',
+  desc: 'Tiro potente desde 20 m. Si el portero no bloca, un rematador intenta aprovechar el rechace. El portero debe dirigir los desvíos hacia las bandas.',
+  reglas: ['Rematador sale con el tiro.', 'Rechace hacia el centro = error.', 'Alternar tiradores.'],
+  cons: ['Blocar si es posible; si no, desviar fuera.', 'Levantarse rápido.'],
+  var: ['+ Dos rematadores.', '− Sin rematador.'],
+  d: { v: [78, 14, 30, 40], p: [P(103.5, 34), A(84, 30), A(92, 42)], b: [[84.9, 30.5]], a: [['tiro', 84, 30, 103.5, 33, 0, 1], ['mov', 92, 42, 98, 38, 0, 1], ['pase', 103.5, 33.5, 100, 26, 0, 2]] } });
+
+T({ id: 'gk33', n: 'Velocidad de reacción con dos balones', cat: 'por', tipo: 'Portero · Técnica', ed: 'CJS', dif: 3, md: ['MD-2', 'MD-1'], int: 3, rpe: '6', carga: 'Velocidad', fase: 'pri',
+  jug: 'Portero + 2 entrenadores', np: 3, esp: [16.5, 20], ser: '4 x 5 acciones', rec: '45"', dur: 12,
+  obj: 'Reaccionar al balón que realmente se lanza entre dos opciones.',
+  desc: 'Dos lanzadores con balón a 8 m. Solo uno lanza, sin aviso. El portero debe reaccionar al correcto y blocar o desviar.',
+  reglas: ['Los dos hacen el gesto de lanzar.', 'Lanzamientos a distintas alturas.', 'Recolocarse tras cada acción.'],
+  cons: ['Mirar las manos y el balón, no el cuerpo.', 'Peso delante y pasos cortos.'],
+  var: ['+ Tres lanzadores.', '− Lanzador anunciado.'],
+  d: { v: [84, 22, 24, 24], p: [P(103, 34), E(95, 30), E(95, 38)], b: [[96, 30.3], [96, 38.3]], a: [['pase', 95, 38, 103.8, 36.5, 0, 1], ['mov', 103, 34, 103, 36, 0, 1]] } });
+
+T({ id: 'gk34', n: 'Defensa del primer palo en centros rasos', cat: 'por', tipo: 'Portero · Táctica', ed: 'CJS', dif: 2, md: ['MD-2', 'MD-3'], int: 3, rpe: '6', carga: 'Velocidad', fase: 'pri',
+  jug: 'Portero + extremo + 2 rematadores', np: 4, esp: [30, 40], ser: '3 x 6 centros', rec: '1\'', dur: 14,
+  obj: 'Cortar centros rasos al primer palo y colocarse para el pase atrás.',
+  desc: 'El extremo llega a línea de fondo y centra raso. El portero decide si corta el centro en el primer palo o se coloca para el remate del segundo rematador.',
+  reglas: ['Centros rasos y tensos.', 'Alternar bandas.', 'Rematadores atacan primer palo y punto de penalti.'],
+  cons: ['Posición cerca del primer palo cuando el balón está en línea de fondo.', 'Manos bajas.'],
+  var: ['+ Un rematador más.', '− Sin rematadores.'],
+  d: { v: [78, 4, 30, 52], g: [], p: [P(103, 32), A(96, 10), A(92, 28), A(90, 36)], b: [[96.9, 10.6]], a: [['cond', 96, 10, 103, 20, 0, 1], ['mov', 92, 28, 100, 30, 0, 2], ['pase', 103, 20, 101, 30, 0, 2], ['mov', 103, 32, 102, 29.5, 0, 2]] } });
+
+T({ id: 'gk35', n: 'Circuito de agilidad específica de portero', cat: 'por', tipo: 'Portero · Físico', ed: 'ICJS', dif: 2, md: ['MD-4', 'MD-3'], int: 4, rpe: '8', carga: 'Tensión', fase: 'pri',
+  jug: 'Portero + entrenador', np: 2, esp: [20, 20], ser: '4 vueltas', rec: '1\'30"', dur: 14,
+  obj: 'Encadenar desplazamientos, caídas y levantadas a máxima velocidad.',
+  desc: 'Escalera lateral, salto de una valla, caída lateral blocando un balón raso, levantarse y salir a blocar un balón alto.',
+  reglas: ['Máxima intensidad.', 'Alternar el lado de caída.', 'Recuperación completa.'],
+  cons: ['Recuperar la posición básica entre acciones.', 'Calidad del blocaje con fatiga.'],
+  var: ['+ 5 vueltas.', '− Sin escalera.'],
+  d: { v: [80, 18, 28, 32], esc: [[97, 22, 4, 1]], h: [[99.5, 28, 0]], p: [P(97.5, 21), E(91, 36)], b: [[92, 35.5]], a: [['mov', 97.5, 22, 97.5, 26, 0, 1], ['mov', 98, 27, 101, 30, 0, 2], ['pase', 91, 36, 101, 32, 0, 3], ['mov', 101, 31, 102, 37, 0, 4]] } });
+
+T({ id: 'gk36', n: 'Mano a mano en carrera lateral', cat: 'por', tipo: 'Portero · Técnica', ed: 'CJS', dif: 3, md: ['MD-2', 'MD-3'], int: 3, rpe: '7', carga: 'Velocidad', fase: 'pri',
+  jug: 'Portero + 3 atacantes', np: 4, esp: [30, 30], ser: '3 x 5 duelos', rec: '1\'', dur: 12,
+  obj: 'Achicar cuando el atacante encara en diagonal y no de frente.',
+  desc: 'El atacante recibe en la banda del área y conduce en diagonal hacia el centro. El portero ajusta su posición y achica en el momento en que el atacante toca el balón largo.',
+  reglas: ['Atacante con 6" para finalizar.', 'Entradas por ambos lados.', 'El portero no puede salir antes del primer toque.'],
+  cons: ['Achicar cerrando el palo corto.', 'Salir con el cuerpo grande.'],
+  var: ['+ Atacante con apoyo.', '− Conducción frontal.'],
+  d: { v: [76, 14, 32, 40], p: [P(102, 34), A(88, 18)], b: [[88.9, 18.6]], a: [['cond', 88, 18, 95, 30, 0, 1], ['mov', 102, 34, 98, 31, 0, 1], ['tiro', 95, 30, 104.5, 37, 0, 2]] } });
+
+T({ id: 'gk37', n: 'Saques de puerta: corto, medio y largo', cat: 'por', tipo: 'Portero · Juego de pies', ed: 'AICJS', dif: 1, md: ['MD-1', 'MD-2'], int: 1, rpe: '3', carga: 'Activación', fase: 'pri',
+  jug: 'Portero + 3 receptores', np: 4, esp: [70, 68], ser: '3 x 9 saques', rec: '1\'', dur: 12,
+  obj: 'Dominar los tres tipos de saque de puerta según la presión rival.',
+  desc: 'Tres zonas de recepción: central abierto (corto), lateral a media distancia (medio) y delantero en el centro del campo (largo). El entrenador grita la zona en el momento del saque.',
+  reglas: ['Puntos según precisión.', 'Saque en menos de 5".', 'Alternar pie si es posible.'],
+  cons: ['Corto: raso y tenso.', 'Largo: golpeo por debajo del balón y trayectoria tensa.'],
+  var: ['+ Zonas más pequeñas.', '− Sin aviso de zona.'],
+  d: { v: [30, -2, 80, 72], z: [[88, 42, 10, 10, '#60a5fa', 'Corto'], [70, 52, 12, 12, '#f59e0b', 'Medio'], [44, 28, 14, 12, '#a855f7', 'Largo']], g: [], p: [P(99, 39), A(93, 47), A(76, 58), A(51, 34)], b: [[100, 39.5]], a: [['pase', 99, 39, 93, 47, 0, 1], ['pase', 99, 39, 76, 58, 0, 2], ['pase', 99, 39, 51, 34, 5, 3]] } });
+
+T({ id: 'gk38', n: 'Partido de porteros (fútbol-portería)', cat: 'por', tipo: 'Portero · Calentamiento', ed: 'AICJS', dif: 1, md: ['MD-1', 'MD-2', 'MD+1'], int: 2, rpe: '4', carga: 'Activación', fase: 'cal',
+  jug: '2 porteros', np: 2, esp: [20, 10], ser: '3 x 3\'', rec: '45"', dur: 10,
+  obj: 'Activación lúdica: lanzar, blocar y reaccionar en competición.',
+  desc: 'Dos porterías enfrentadas a 15-20 m. Cada portero intenta marcar al otro lanzando con la mano o golpeando con el pie desde su línea. Bloca y lanza rápido.',
+  reglas: ['Lanzamiento desde la línea de tu portería.', 'Alternar mano y pie.', 'Partidos a 5 goles.'],
+  cons: ['Posición básica antes de cada lanzamiento rival.', 'Contraatacar rápido tras blocar.'],
+  var: ['+ Volea obligatoria.', '− Solo con la mano.'],
+  d: { z: [[43.5, 29, 18, 10]], g: [[43.5, 34, 'R'], [61.5, 34, 'L']], p: [P(45, 34), P(60, 34)], b: [[46, 34.5]], a: [['tiro', 45, 34, 61, 32, 0, 1], ['mov', 60, 34, 60, 32.3, 0, 1]] } });

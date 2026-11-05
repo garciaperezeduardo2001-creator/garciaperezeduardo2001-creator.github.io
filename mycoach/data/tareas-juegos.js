@@ -178,3 +178,94 @@ T({ id: 'j20', n: 'Partido "todos tocan"', cat: 'jue', tipo: 'Dinámica de grupo
   cons: ['Comunicación: "¡falto yo!".', 'Ocupar espacios para que todos puedan recibir.'],
   var: ['+ Todos tocan y máximo 3 toques.', '− Solo 4 jugadores distintos.'],
   d: { z: [[27.5, 16.5, 50, 35]], g: [[27.5, 34, 'R'], [77.5, 34, 'L']], p: [P(29, 34), P(76, 34), A(36, 26), A(36, 42), A(46, 34), A(54, 22), A(58, 44), A(66, 32), B(42, 30), B(44, 42), B(52, 30), B(60, 36), B(68, 26), B(70, 40)], b: [[36.9, 26.5]], a: [['pase', 36, 26, 46, 34, 0], ['pase', 46, 34, 36, 42, 0], ['pase', 36, 42, 58, 44, 0], ['pase', 58, 44, 54, 22, 3], ['pase', 54, 22, 66, 32, 0], ['tiro', 66, 32, 76.5, 35, 0]] } });
+
+// ---------- AMPLIACIÓN 2 ----------
+T({ id: 'j21', n: 'Rondo con penalización divertida', cat: 'jue', tipo: 'Juego lúdico', ed: 'AICJS', dif: 1, md: ['MD-1', 'MD-2', 'MD+1'], int: 2, rpe: '4', carga: 'Activación', fase: 'cal',
+  jug: '6v2', np: 8, esp: [12, 12], ser: '4 x 2\'', rec: '30"', dur: 10,
+  obj: 'Activación con buen ambiente y concentración en el pase.',
+  desc: 'Rondo 6v2 en el que el jugador que pierde el balón, además de entrar en el medio, recibe una prenda divertida acordada por el grupo (llevar un peto en la cabeza, cantar el himno del club…).',
+  reglas: ['Dos toques.', 'La prenda se cumple en el momento.', 'Penalizaciones elegidas por el grupo al empezar.'],
+  cons: ['Disfrutar sin perder la calidad del pase.', 'Comunicación constante.'],
+  var: ['+ Un toque.', '− Tres toques.'],
+  d: { z: [[46.5, 28, 12, 12]], c: esq(46.5, 28, 12, 12), p: [...ring(52.5, 34, 6, 6, 'A'), B(51, 33), B(54, 35.5)], b: [[52.5, 28.9]], a: [['pase', 52.5, 28, 57.7, 31, 0, 1], ['pase', 57.7, 31, 47.3, 37, 0, 2], ['mov', 51, 33, 49, 35, 0, 2]] } });
+
+T({ id: 'j22', n: 'El pañuelo con balón', cat: 'jue', tipo: 'Juego de activación', ed: 'AICJ', dif: 1, md: ['MD-1', 'MD-2'], int: 3, rpe: '6', carga: 'Velocidad', fase: 'cal',
+  jug: '2 equipos numerados', np: 12, esp: [30, 15], ser: '10-12 salidas', rec: '30"', dur: 10,
+  obj: 'Reacción, aceleración y duelo 1v1 en forma de juego tradicional.',
+  desc: 'Versión del juego del pañuelo: el entrenador en el centro con un balón dice un número. Los dos jugadores con ese número salen; el que coge el balón debe conducir hasta su línea sin que el rival le toque o le robe.',
+  reglas: ['Si el rival roba, puede marcar en la línea contraria.', 'Punto por llegar a tu línea con el balón.', 'Números cambiados en cada ronda.'],
+  cons: ['Amagar antes de coger el balón.', 'Protegerlo con el cuerpo al salir.'],
+  var: ['+ Dos números a la vez (2v2).', '− Sin robo, solo carrera.'],
+  d: { z: [[37.5, 26.5, 30, 15]], p: [...[30, 33, 36, 39].map((y, i) => A(38, y, String(i + 1))), ...[30, 33, 36, 39].map((y, i) => B(67, y, String(i + 1))), E(52.5, 30)], b: [[52.5, 34]], a: [['mov', 38, 36, 51.5, 34.3, 0, 1], ['mov', 67, 36, 53.5, 34.5, 0, 1], ['cond', 52, 34, 39, 34, 0, 2]] } });
+
+T({ id: 'j23', n: 'Fútbol con 4 balones a la vez', cat: 'jue', tipo: 'Juego lúdico', ed: 'AIC', dif: 1, md: ['MD-3', 'MD-4'], int: 3, rpe: '7', carga: 'Duración', fase: 'pri',
+  jug: '6v6', np: 12, esp: [40, 30], ser: '3 x 4\'', rec: '1\'30"', dur: 16,
+  obj: 'Muchos contactos con balón, percepción y transiciones constantes.',
+  desc: 'Partido 6v6 sin porteros con cuatro balones en juego a la vez y porterías grandes de conos. Cada gol se cuenta y el balón vuelve a entrar por el entrenador.',
+  reglas: ['Cuatro balones siempre en juego.', 'Gol solo desde campo rival.', 'Cuenta de goles en voz alta.'],
+  cons: ['Levantar la cabeza para ver todos los balones.', 'Organizarse: unos atacan, otros defienden.'],
+  var: ['+ Cinco balones.', '− Dos balones.'],
+  d: { z: [[32.5, 19, 40, 30]], c: [[32.5, 29], [32.5, 39], [72.5, 29], [72.5, 39]], p: [A(40, 26), A(42, 40), A(52, 30), A(58, 44), A(62, 24), A(66, 36), B(38, 34), B(46, 24), B(50, 42), B(56, 34), B(64, 30), B(68, 42)], b: [[40.9, 26.5], [52.9, 30.5], [58.9, 44.5], [56.9, 34.5]], a: [['cond', 62, 24, 70, 30, 0, 1], ['pase', 52, 30, 66, 36, 0, 1], ['tiro', 66, 36, 72.5, 34, 0, 2]] } });
+
+T({ id: 'j24', n: 'Pases a ciegas por parejas (confianza)', cat: 'jue', tipo: 'Dinámica de grupo', ed: 'ICJS', dif: 1, md: ['MD+1', 'MD-1'], int: 1, rpe: '2', carga: 'Recuperación', fase: 'cal',
+  jug: 'Parejas', np: 16, esp: [20, 20], ser: '3 x 2\'', rec: '30"', dur: 8,
+  obj: 'Comunicación y confianza entre compañeros de forma distendida.',
+  desc: 'Un jugador con los ojos cerrados (o con un peto tapando) conduce el balón guiado solo por la voz de su compañero entre conos. Después intercambian.',
+  reglas: ['Solo instrucciones de voz.', 'Ritmo lento.', 'El guía es responsable de la seguridad.'],
+  cons: ['Instrucciones cortas y claras.', 'Confianza en el compañero.'],
+  var: ['+ Recorrido con más conos.', '− Ojos abiertos y guía con palmas.'],
+  d: { z: [[42.5, 24, 20, 20]], c: [[47, 28], [55, 30], [50, 36], [58, 40], [46, 41]], p: [A(45, 26), B(43, 27), A(56, 36), B(58, 35)], b: [[45.9, 26.5], [56.9, 36.5]], a: [['cond', 45, 26, 51, 31, 2, 1], ['mov', 43, 27, 48, 30, 0, 1], ['cond', 56, 36, 54, 42, 0, 2]] } });
+
+T({ id: 'j25', n: 'Partido de goles de cabeza', cat: 'jue', tipo: 'Juego lúdico', ed: 'ICJS', dif: 2, md: ['MD-1', 'MD-2'], int: 2, rpe: '5', carga: 'Activación', fase: 'pri',
+  jug: '4v4 + 2P', np: 10, esp: [25, 20], ser: '3 x 4\'', rec: '1\'', dur: 14,
+  obj: 'Juego aéreo: control con el pecho, pases de cabeza y remate.',
+  desc: 'El balón se juega con las manos (lanzamiento al compañero), pero solo se puede marcar de cabeza. Si el balón cae al suelo, pasa al rival.',
+  reglas: ['Máximo 3" con el balón en las manos.', 'No se puede andar con el balón.', 'Gol solo de cabeza.'],
+  cons: ['Lanzar a la altura de la cabeza del compañero.', 'Atacar el balón con la frente.'],
+  var: ['+ Gol de volea también vale.', '− Gol con la mano en el área pequeña.'],
+  d: { z: [[40, 24, 25, 20]], g: [[40, 34, 'R'], [65, 34, 'L']], p: [P(41.5, 34), P(63.5, 34), A(48, 30), A(52, 38), A(56, 30), A(59, 35), B(46, 36), B(53, 33), B(58, 40), B(57, 27)], b: [[48.8, 30.5]], a: [['pase', 48, 30, 56, 30, -2, 1], ['pase', 56, 30, 59, 35, -1.5, 2], ['tiro', 59, 35, 64, 34, 0, 3]] } });
+
+T({ id: 'j26', n: 'Supervivientes 1v1 en cuadrados', cat: 'jue', tipo: 'Competición', ed: 'AICJS', dif: 1, md: ['MD-4'], int: 4, rpe: '8', carga: 'Tensión', fase: 'pri',
+  jug: 'Todo el grupo por parejas', np: 16, esp: [10, 10], ser: '6 rondas de 40"', rec: '40"', dur: 10,
+  obj: 'Proteger el balón en 1v1 durante 40" bajo presión continua.',
+  desc: 'Parejas en cuadrados de 10 x 10. Uno protege el balón y el otro intenta sacarlo del cuadrado. Si lo consigue, cambian los roles. Al final de los 40" gana quien tenga el balón.',
+  reglas: ['Balón fuera = cambio de rol.', 'Contacto permitido dentro del reglamento.', 'Ganadores contra ganadores en la siguiente ronda.'],
+  cons: ['Cuerpo entre rival y balón.', 'Brazos para sentir al rival, sin agarrar.'],
+  var: ['+ Cuadrados de 8 x 8.', '− Rondas de 30".'],
+  d: { z: [[36, 24, 10, 10], [48, 24, 10, 10], [60, 24, 10, 10], [36, 36, 10, 10], [48, 36, 10, 10], [60, 36, 10, 10]], p: [A(40, 29), B(42, 30), A(53, 28), B(54, 30), A(65, 29), B(63, 30), A(41, 41), B(43, 42)], b: [[39.5, 29.6], [52.5, 28.6], [65.5, 29.6], [40.5, 41.6]], a: [['cond', 53, 28, 55, 26, 0, 1], ['mov', 54, 30, 55.5, 28, 0, 1]] } });
+
+T({ id: 'j27', n: 'Gymkana técnica por relevos', cat: 'jue', tipo: 'Competición', ed: 'AI', dif: 1, md: ['MD-2', 'MD-1', 'MD-3'], int: 3, rpe: '5-6', carga: 'Velocidad', fase: 'pri',
+  jug: 'Equipos de 4', np: 16, esp: [35, 20], ser: '4 relevos', rec: '1\'', dur: 12,
+  obj: 'Coordinación y técnica variada en formato de carrera por equipos.',
+  desc: 'Recorrido: conducción en slalom, pase por una puerta de conos a un compañero, recoger el balón, 5 toques de habilidad (o 2 en categorías pequeñas) y tiro a una miniportería.',
+  reglas: ['Si se falla la puerta, se repite el pase.', 'Relevo al chocar la mano.', 'Gana el equipo que acaba primero.'],
+  cons: ['Calidad antes que prisa.', 'Animar a los compañeros.'],
+  var: ['+ Toques con ambas piernas.', '− Sin toques de habilidad.'],
+  d: { z: [[35, 24, 35, 20]], pk: [[41, 28], [44, 31], [47, 28], [50, 31]], c: [[56, 29], [56, 33]], mg: [[70, 34, 'R']], p: [A(37, 28), A(35, 28), B(37, 40), B(35, 40)], b: [[37.9, 28.5], [37.9, 40.5]], a: [['cond', 37, 28, 52, 30, 0, 1], ['pase', 52, 30, 60, 31, 0, 2], ['mov', 52, 30, 59, 32, 0, 2], ['tiro', 64, 33, 69.8, 34, 0, 3]] } });
+
+T({ id: 'j28', n: 'Fútbol en parejas de la mano', cat: 'jue', tipo: 'Dinámica de grupo', ed: 'AICJS', dif: 1, md: ['MD+1', 'MD-1'], int: 2, rpe: '4', carga: 'Recuperación', fase: 'pri',
+  jug: '4 parejas v 4 parejas', np: 16, esp: [35, 25], ser: '3 x 4\'', rec: '1\'', dur: 14,
+  obj: 'Cooperación, comunicación y diversión con poca carga física.',
+  desc: 'Partido en el que cada pareja va de la mano (o unida por un peto) y no puede soltarse. Solo puede jugar el balón uno de los dos en cada acción.',
+  reglas: ['Si la pareja se suelta, balón para el rival.', 'Sin porteros, porterías pequeñas.', 'Ritmo tranquilo.'],
+  cons: ['Coordinarse antes de cada acción.', 'Hablar constantemente.'],
+  var: ['+ Tríos.', '− Sin restricción de quién toca.'],
+  d: { z: [[35, 21.5, 35, 25]], mg: [[35, 34, 'L'], [70, 34, 'R']], p: [A(44, 28), A(45.5, 29), A(52, 38), A(53.5, 39), B(56, 30), B(57.5, 31), B(46, 40), B(47.5, 41)], b: [[45.5, 30.3]], a: [['pase', 45.5, 29, 52, 38, 0, 1], ['cond', 53.5, 39, 64, 36, 0, 2]] } });
+
+T({ id: 'j29', n: 'Torneo de penaltis con portero rotativo', cat: 'jue', tipo: 'Competición', ed: 'AICJS', dif: 1, md: ['MD-1', 'MD+1'], int: 1, rpe: '3', carga: 'Activación', fase: 'vc',
+  jug: 'Todo el grupo', np: 16, esp: [20, 20], ser: 'Eliminatoria', rec: '—', dur: 12,
+  obj: 'Cierre lúdico de sesión trabajando la concentración en el lanzamiento.',
+  desc: 'Cada jugador lanza un penalti; si marca, sigue en el torneo; si falla, pasa a ser portero (rotativo) para los siguientes. Gana el último en pie.',
+  reglas: ['Portero rotativo entre los eliminados.', 'Carrera máxima de 5 pasos.', 'Final a muerte súbita.'],
+  cons: ['Decidir el lado antes de la carrera.', 'Golpeo firme.'],
+  var: ['+ Solo con la pierna menos hábil.', '− Desde 8 m.'],
+  d: { v: [82, 20, 26, 28], p: [P(104.5, 34), A(91, 34), A(88, 36), A(88, 32)], b: [[94, 34]], a: [['mov', 91, 34, 93.3, 34, 0, 1], ['tiro', 94, 34, 104.6, 31, 0, 2]] } });
+
+T({ id: 'j30', n: 'Reto del equipo: 100 pases sin que caiga', cat: 'jue', tipo: 'Dinámica de grupo', ed: 'ICJS', dif: 2, md: ['MD-1', 'MD+1', 'MD-2'], int: 1, rpe: '3', carga: 'Recuperación', fase: 'vc',
+  jug: 'Todo el grupo en círculo', np: 12, esp: [15, 15], ser: '3 intentos', rec: '—', dur: 10,
+  obj: 'Cohesión y técnica de golpeo aéreo con un objetivo común.',
+  desc: 'Todo el equipo en un círculo grande se pasa el balón en el aire (pie, muslo, pecho, cabeza) sin que toque el suelo. El objetivo es llegar a 100 toques entre todos. Se anota el récord del equipo.',
+  reglas: ['Nadie puede dar dos toques seguidos más de dos veces.', 'Cuenta en voz alta todo el grupo.', 'Récord en la pizarra del vestuario.'],
+  cons: ['Toques suaves y altos.', 'Avisar antes de recibir.'],
+  var: ['+ Solo de cabeza y pecho.', '− Se permite un bote.'],
+  d: { z: [[45, 26.5, 15, 15]], p: [...ring(52.5, 34, 7, 12, 'A')], b: [[52.5, 28]], a: [['pase', 52.5, 27, 58.6, 30.5, -2, 1], ['pase', 58.6, 30.5, 56, 40, -2, 2], ['pase', 56, 40, 46.4, 37.5, -2, 3]] } });

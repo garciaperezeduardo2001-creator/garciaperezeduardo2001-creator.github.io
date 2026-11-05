@@ -420,3 +420,94 @@ T({ id: 'f46', n: 'Circuito RSA con cambios de dirección y finalización', cat:
   cons: ['Frenada en 2-3 apoyos.', 'Calidad técnica con fatiga.'],
   var: ['+ 6 repeticiones.', '− Sin giro.'],
   d: { z: [[70, 19, 35, 30]], c: [[74, 26], [84, 26, '#facc15']], p: [P(103.5, 34), A(73, 26), E(86, 42)], b: [[87, 41.5]], a: [['mov', 74, 25.5, 83.5, 25.5, 0, 1], ['mov', 83.5, 27, 79, 31, 0, 2], ['pase', 86, 42, 80, 32, 0, 3], ['tiro', 80, 32, 104, 33, 0, 4]] } });
+
+// ---------- AMPLIACIÓN 3 ----------
+T({ id: 'f47', n: 'Fuerza con bandas: sentadilla y zancada lateral', cat: 'fis', tipo: 'Fuerza', ed: 'ICJS', dif: 1, md: ['MD-4', 'MD-3'], int: 3, rpe: '6', carga: 'Tensión', fase: 'pri',
+  jug: 'Todo el grupo', np: 20, esp: [20, 15], ser: '3 x 12 de cada ejercicio', rec: '45"', dur: 12,
+  obj: 'Fuerza de piernas y cadera en el campo, sin material pesado.',
+  desc: 'Con minibanda sobre las rodillas: sentadilla con pausa, zancada lateral alternando lados y sentadilla a una pierna asistida con el compañero.',
+  reglas: ['Bajada lenta de 2-3".', 'Rodillas empujando la banda hacia fuera.', 'Técnica antes que número.'],
+  cons: ['Peso en los talones.', 'Tronco erguido.'],
+  var: ['+ Banda más dura o chaleco.', '− Sin banda.'],
+  d: { z: [[42.5, 26.5, 20, 15]], p: [A(45, 30), B(48, 30), A(52, 30), B(55, 30), A(59, 30), A(45, 38), A(52, 38), A(59, 38)], a: [['mov', 45, 38, 48, 38, 0], ['mov', 52, 38, 55, 38, 0]], t: [[52.5, 34.5, 'Sentadilla · zancada lateral · unilateral', .75]] } });
+
+T({ id: 'f48', n: 'Sprints con frenada y salida lateral', cat: 'fis', tipo: 'Velocidad', ed: 'CJS', dif: 2, md: ['MD-2', 'MD-4'], int: 4, rpe: '7', carga: 'Velocidad', fase: 'pri',
+  jug: 'Grupos de 4', np: 16, esp: [25, 20], ser: '2 series x 5 reps', rec: '45" entre reps, 2\' entre series', dur: 12,
+  obj: 'Acelerar, frenar y volver a acelerar hacia un lado, como al cambiar de marca.',
+  desc: 'Sprint de 10 m, frenada en 3 apoyos y salida lateral de 5 m hacia el cono que señale el entrenador (izquierda o derecha).',
+  reglas: ['Señal en el momento de la frenada.', 'Máxima intensidad.', 'Recuperación completa.'],
+  cons: ['Bajar la cadera para frenar.', 'Primer paso lateral cruzado o de apertura.'],
+  var: ['+ Señal visual (color).', '− Lado conocido.'],
+  d: { z: [[42, 25, 22, 18]], c: [[44, 34], [54, 34, '#facc15'], [57, 28, '#ef4444'], [57, 40, '#3b82f6']], p: [A(43, 34), E(60, 34)], a: [['mov', 44, 34, 53.5, 34, 0, 1], ['mov', 54, 34, 56.5, 28.5, 0, 2]] } });
+
+T({ id: 'f49', n: 'Arrastres por parejas con toalla o goma', cat: 'fis', tipo: 'Fuerza', ed: 'CJS', dif: 2, md: ['MD-4'], int: 4, rpe: '8', carga: 'Tensión', fase: 'pri',
+  jug: 'Parejas', np: 16, esp: [25, 15], ser: '3 series x 4 x 10 m', rec: '1\' entre reps, 2\'30" entre series', dur: 14,
+  obj: 'Fuerza en la aceleración con resistencia del compañero.',
+  desc: 'Un jugador acelera 10 m mientras el compañero le frena sujetando una toalla o goma por la cintura. Al terminar, sprint libre de 5 m.',
+  reglas: ['Resistencia constante, no tirones.', 'Cambio de roles.', 'Técnica de carrera correcta.'],
+  cons: ['Inclinación desde los tobillos.', 'Empuje completo de cada paso.'],
+  var: ['+ Más resistencia.', '− Solo 3 repeticiones.'],
+  d: { z: [[40, 27, 25, 14]], c: [[42, 31], [42, 37], [52, 31, '#facc15'], [52, 37, '#facc15'], [57, 31, '#22c55e'], [57, 37, '#22c55e']], p: [A(43, 31), B(41, 31), A(43, 37), B(41, 37)], a: [['mov', 43, 31, 51.5, 31, 0, 1], ['mov', 41, 31, 49.5, 31, 0, 1], ['mov', 52, 31, 56.5, 31, 0, 2]] } });
+
+T({ id: 'f50', n: 'Circuito de agilidad en estrella', cat: 'fis', tipo: 'Velocidad', ed: 'AICJS', dif: 1, md: ['MD-2', 'MD-1'], int: 3, rpe: '6', carga: 'Velocidad', fase: 'pri',
+  jug: 'Grupos de 3', np: 12, esp: [12, 12], ser: '2 series x 4 pasadas', rec: '40"', dur: 10,
+  obj: 'Desplazamientos multidireccionales cortos: frontal, lateral y de espaldas.',
+  desc: 'Cono central y cuatro conos a 5 m. Del centro al cono 1 de frente, vuelta de espaldas, al 2 en lateral, vuelta en lateral, al 3 en diagonal… en el orden que diga el entrenador.',
+  reglas: ['Tocar cada cono con la mano.', 'Cambiar el orden en cada pasada.', 'Máxima velocidad con control.'],
+  cons: ['Centro de gravedad bajo en los cambios.', 'Pasos cortos.'],
+  var: ['+ Con balón en las manos.', '− Orden fijo.'],
+  d: { z: [[46.5, 28, 12, 12]], c: [[52.5, 34, '#facc15'], [52.5, 29], [57.5, 34], [52.5, 39], [47.5, 34]], p: [A(51.5, 34)], a: [['mov', 52.5, 33.5, 52.5, 29.6, 0, 1], ['mov', 52.5, 30, 52.5, 33.5, 0, 2], ['mov', 53, 34, 57, 34, 0, 3], ['mov', 57, 34.5, 53, 34.5, 0, 4]] } });
+
+T({ id: 'f51', n: 'Juego reducido 2v2 a máxima intensidad', cat: 'fis', tipo: 'Integrado', ed: 'CJS', dif: 2, md: ['MD-4'], int: 4, rpe: '9', carga: 'Tensión', fase: 'pri',
+  jug: '2v2 + 2 apoyos + 2P', np: 8, esp: [20, 15], ser: '6 x 1\'', rec: '1\'30"', dur: 15,
+  obj: 'Trabajo de máxima intensidad específica (aceleraciones, duelos, tiros).',
+  desc: 'Partido 2v2 con porteros y dos apoyos laterales que juegan a un toque con el poseedor. Series de 1\' con reposición inmediata del balón.',
+  reglas: ['Apoyos a un toque y sin marcar.', 'Reposición inmediata.', 'Cambio de parejas cada 2 series.'],
+  cons: ['Intensidad máxima durante todo el minuto.', 'Usar los apoyos para desmarcarse.'],
+  var: ['+ Sin apoyos.', '− Series de 45".'],
+  d: { z: [[42.5, 26.5, 20, 15]], g: [[42.5, 34, 'R'], [62.5, 34, 'L']], p: [P(44, 34), P(61, 34), A(50, 31), A(55, 37), B(52, 34), B(56, 31), N(52.5, 25.5), N(52.5, 42.5)], b: [[50.8, 31.5]], a: [['pase', 50, 31, 52.5, 25.5, 0, 1], ['mov', 55, 37, 57, 33, 0, 1], ['pase', 52.5, 25.5, 57, 33, 0, 2], ['tiro', 57, 33, 62, 34, 0, 3]] } });
+
+T({ id: 'f52', n: 'Escalera de velocidad + finalización', cat: 'fis', tipo: 'Velocidad', ed: 'AICJS', dif: 1, md: ['MD-2', 'MD-1'], int: 3, rpe: '6', carga: 'Velocidad', fase: 'pri',
+  jug: 'Grupos de 4 + P', np: 9, esp: [30, 25], ser: '2 series x 4 pasadas', rec: '40"', dur: 12,
+  obj: 'Coordinación de apoyos rápidos seguida de una acción técnica.',
+  desc: 'Escalera con distintos patrones (dentro-dentro, lateral, salto), recepción de un pase del entrenador y tiro a portería.',
+  reglas: ['Patrón distinto en cada pasada.', 'Tiro en dos toques.', 'Recuperación caminando.'],
+  cons: ['Calidad de apoyos antes que velocidad.', 'Cabeza arriba al salir de la escalera.'],
+  var: ['+ Defensor pasivo antes del tiro.', '− Sin tiro.'],
+  d: { z: [[75, 21.5, 30, 25]], esc: [[78, 33.6, 5]], p: [P(103.5, 34), A(77, 34), E(90, 44)], b: [[89, 43.5]], a: [['mov', 77.5, 34, 83.5, 34, 0, 1], ['pase', 90, 44, 87, 35, 0, 2], ['mov', 83.5, 34, 86.5, 34.5, 0, 2], ['tiro', 87, 35, 104, 33, 0, 3]] } });
+
+T({ id: 'f53', n: 'Resistencia: carrera continua variable 20\'', cat: 'fis', tipo: 'Resistencia', ed: 'ICJS', dif: 1, md: ['MD+2', 'MD-3'], int: 2, rpe: '5', carga: 'Duración', fase: 'pri',
+  jug: 'Todo el grupo', np: 20, esp: [105, 68], ser: '1 x 20\'', rec: '—', dur: 20,
+  obj: 'Base aeróbica en pretemporada o compensación para quienes no juegan.',
+  desc: 'Carrera continua alrededor del campo: 3\' a ritmo cómodo y 1\' a ritmo más rápido, cinco veces. Ideal para pretemporada o para jugadores con pocos minutos.',
+  reglas: ['Se debe poder hablar en el tramo cómodo.', 'Ritmo rápido sin llegar a sprint.', 'Grupos por nivel.'],
+  cons: ['Respiración regular.', 'Postura relajada.'],
+  var: ['+ 25\'.', '− 15\'.'],
+  d: { v: [-5, -5, 115, 78], c: [[3, 3], [102, 3], [3, 65], [102, 65]], p: [A(30, 3), A(34, 3), A(102, 40), A(60, 65)], a: [['mov', 36, 3, 96, 3, 0], ['mov', 102, 8, 102, 58, 0], ['mov', 96, 65, 10, 65, 0]], t: [[52.5, 34, '3\' cómodo + 1\' rápido · x5', 1.1]] } });
+
+T({ id: 'f54', n: 'Pliometría unipodal: saltos en zigzag', cat: 'fis', tipo: 'Fuerza', ed: 'JS', dif: 3, md: ['MD-4'], int: 3, rpe: '7', carga: 'Tensión', fase: 'pri',
+  jug: 'Grupos de 4', np: 12, esp: [20, 12], ser: '3 series x 2 pasadas por pierna', rec: '1\'30"', dur: 12,
+  obj: 'Potencia unipodal y estabilidad de tobillo y rodilla.',
+  desc: 'Saltos a una pierna en zigzag entre seis conos separados 1 m, con contacto corto, y aceleración de 5 m al terminar.',
+  reglas: ['Solo con buena técnica bipodal previa.', 'Volumen bajo.', 'Ambas piernas por igual.'],
+  cons: ['Aterrizaje con rodilla alineada.', 'Contacto corto y elástico.'],
+  var: ['+ Saltos más largos.', '− Saltos bipodales en zigzag.'],
+  d: { z: [[42, 28, 22, 12]], c: [[45, 32], [47, 36], [49, 32], [51, 36], [53, 32], [55, 36], [61, 34, '#facc15']], p: [A(43, 34)], a: [['mov', 43.5, 34, 45, 32.5, 0, 1], ['mov', 45, 32.5, 47, 35.5, 0, 2], ['mov', 47, 35.5, 49, 32.5, 0, 3], ['mov', 49, 32.5, 51, 35.5, 0, 4], ['mov', 55.5, 35.5, 60.5, 34, 0, 5]] } });
+
+T({ id: 'f55', n: 'Test Yo-Yo IR1 (evaluación)', cat: 'fis', tipo: 'Evaluación', ed: 'CJS', dif: 2, md: ['MD-3'], int: 4, rpe: '10', carga: 'Duración', fase: 'pri',
+  jug: 'Todo el grupo', np: 20, esp: [25, 30], ser: '1 test hasta el agotamiento', rec: '—', dur: 25,
+  obj: 'Evaluar la capacidad de repetir esfuerzos intensos con recuperaciones cortas.',
+  desc: 'Carreras de ida y vuelta de 2 x 20 m al ritmo de la grabación, con 10" de recuperación activa en una zona de 5 m. La velocidad aumenta por niveles hasta que el jugador falla dos veces.',
+  reglas: ['Usar el audio oficial del test.', 'Primer aviso al no llegar; segundo fallo, fin.', 'Registrar la distancia total.'],
+  cons: ['Calentamiento completo.', 'Repetir cada 6-8 semanas en el mismo día MD.'],
+  var: ['Alternativa: 30-15 IFT.', 'Categorías base: Course-Navette.'],
+  d: { z: [[40, 19, 25, 30], [35, 19, 5, 30, '#22c55e', 'Recup.']], c: [...conos(40, 22, 40, 46, 5), ...conos(60, 22, 60, 46, 5, '#facc15')], p: [A(41, 25), A(41, 31), A(41, 37), A(41, 43)], a: [['mov', 41, 28, 59.5, 28, 0, 1], ['mov', 59.5, 40, 41.5, 40, 0, 2]], t: [[50, 18, '2 x 20 m · 10" recuperación', .85]] } });
+
+T({ id: 'f56', n: 'Compensatorio de alta velocidad (no convocados)', cat: 'fis', tipo: 'Compensatorio', ed: 'CJS', dif: 2, md: ['MD+1', 'MD-1'], int: 4, rpe: '7', carga: 'Velocidad', fase: 'pri',
+  jug: 'Jugadores sin minutos', np: 6, esp: [60, 20], ser: '6 carreras de 40 m al 90 % + 4 sprints de 20 m', rec: '1\' y 2\'', dur: 15,
+  obj: 'Dar a los no convocados el estímulo de velocidad que no tuvieron en el partido.',
+  desc: 'Carreras progresivas de 40 m alcanzando el 90 % en los últimos 15 m, seguidas de sprints máximos de 20 m. Se hace el día del partido después o en MD+1.',
+  reglas: ['Solo jugadores con menos de 30\' jugados.', 'Recuperación completa entre sprints.', 'Calentamiento previo completo.'],
+  cons: ['Correr relajado a alta velocidad.', 'Controlar molestias en isquios.'],
+  var: ['+ Con balón en la última parte.', '− Solo carreras al 85 %.'],
+  d: { z: [[22.5, 26, 60, 16]], c: [...conos(24, 29, 24, 39, 3), ...conos(49, 29, 49, 39, 3, '#facc15'), ...conos(64, 29, 64, 39, 3, '#22c55e')], p: [A(23, 31), A(23, 37)], a: [['mov', 24, 31, 63.5, 31, 0, 1], ['mov', 24, 37, 44, 37, 0, 2]], t: [[44, 27.5, '40 m progresivo · 20 m sprint', .85]] } });

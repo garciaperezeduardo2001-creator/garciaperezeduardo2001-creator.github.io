@@ -243,3 +243,94 @@ T({ id: 'p27', n: 'Saltos con giro de 90° y aterrizaje estable', cat: 'pre', ti
   cons: ['Mirar al frente al aterrizar.', 'Cadera y rodillas flexionadas.'],
   var: ['+ Aterrizaje a una pierna.', '− Sin giro.'],
   d: { z: [[42.5, 26.5, 20, 15]], c: [[46, 30], [52, 30], [58, 30], [46, 38], [52, 38], [58, 38]], p: [A(46, 32), A(52, 32), A(46, 36)], t: [[55, 34.5, '↻ 90°', 1.2]] } });
+
+// ---------- AMPLIACIÓN 3 ----------
+T({ id: 'p28', n: 'Puente lateral con abducción de cadera', cat: 'pre', tipo: 'Prevención', ed: 'CJS', dif: 2, md: ['MD-4', 'MD-3', 'MD-2'], int: 2, rpe: '5', carga: 'Tensión', fase: 'vc',
+  jug: 'Todo el grupo', np: 20, esp: [20, 10], ser: '2 x 8-10 por lado', rec: '30"', dur: 6,
+  obj: 'Glúteo medio y core lateral para estabilizar la pelvis en carrera.',
+  desc: 'En plancha lateral sobre el codo, elevar la pierna de arriba sin rotar la cadera y bajar controlado.',
+  reglas: ['Cuerpo alineado.', 'Pierna ligeramente por detrás del cuerpo.', 'Ambos lados.'],
+  cons: ['No rotar la pelvis hacia arriba.', 'Movimiento lento.'],
+  var: ['+ Con minibanda en los tobillos.', '− Rodillas apoyadas.'],
+  d: { z: [[42.5, 29, 20, 10]], p: [A(45, 34), A(50, 34), A(55, 34), A(60, 34)], t: [[52.5, 31, 'Plancha lateral + abducción', .8]] } });
+
+T({ id: 'p29', n: 'Isquios en posición larga: peso muerto con goma', cat: 'pre', tipo: 'Prevención', ed: 'CJS', dif: 1, md: ['MD-4', 'MD-3'], int: 2, rpe: '5', carga: 'Tensión', fase: 'vc',
+  jug: 'Todo el grupo', np: 20, esp: [20, 10], ser: '3 x 10', rec: '45"', dur: 8,
+  obj: 'Fortalecer los isquiotibiales en posición alargada, donde suelen lesionarse.',
+  desc: 'Peso muerto rumano con una goma pisada bajo los pies: bajar con la espalda recta hasta notar estiramiento en los isquios y subir apretando glúteos.',
+  reglas: ['Rodillas ligeramente flexionadas y fijas.', 'Bajada de 3".', 'Espalda neutra.'],
+  cons: ['Cadera hacia atrás, no hacia abajo.', 'Goma tensa todo el recorrido.'],
+  var: ['+ A una pierna.', '− Sin goma.'],
+  d: { z: [[42.5, 29, 20, 10]], p: [A(45, 34), A(49, 34), A(53, 34), A(57, 34), A(61, 34)], t: [[52.5, 31, 'Peso muerto rumano con goma', .8]] } });
+
+T({ id: 'p30', n: 'Equilibrio con perturbaciones del compañero', cat: 'pre', tipo: 'Prevención', ed: 'ICJS', dif: 1, md: ['MD-2', 'MD-1'], int: 1, rpe: '3', carga: 'Activación', fase: 'cal',
+  jug: 'Parejas', np: 16, esp: [20, 15], ser: '3 x 20" por pierna', rec: '15"', dur: 6,
+  obj: 'Reacción neuromuscular de tobillo y rodilla ante empujones inesperados.',
+  desc: 'Apoyo a una pierna. El compañero da pequeños empujones en hombros y cadera desde distintas direcciones; el jugador mantiene el equilibrio sin apoyar el otro pie.',
+  reglas: ['Empujones suaves y aleatorios.', 'Rodilla ligeramente flexionada.', 'Cambio de roles.'],
+  cons: ['Abdomen activo.', 'Mirada al frente.'],
+  var: ['+ Ojos cerrados o pase de balón a la vez.', '− Apoyo a dos pies.'],
+  d: { z: [[42.5, 26.5, 20, 15]], p: [A(46, 31), B(47.5, 29.5), A(53, 31), B(54.5, 29.5), A(60, 31), B(61.5, 29.5), A(46, 38), A(53, 38), A(60, 38)], a: [['mov', 47.5, 29.5, 46.6, 30.4, 0]] } });
+
+T({ id: 'p31', n: 'Rutina de pies y arco plantar', cat: 'pre', tipo: 'Prevención', ed: 'AICJS', dif: 1, md: ['MD-2', 'MD-1', 'MD+1'], int: 1, rpe: '2', carga: 'Activación', fase: 'vc',
+  jug: 'Todo el grupo', np: 20, esp: [20, 10], ser: '1 x 6\'', rec: '—', dur: 6,
+  obj: 'Fortalecer la musculatura del pie para prevenir fascitis y sobrecargas.',
+  desc: 'Descalzos: "pie corto" (acortar el arco sin mover los dedos), recoger una toalla con los dedos, caminar de puntillas y de talones, y equilibrio sobre la punta.',
+  reglas: ['Sobre césped o esterilla.', 'Movimientos controlados.', 'Ambos pies.'],
+  cons: ['Activar el arco sin encoger los dedos.', 'Postura erguida.'],
+  var: ['+ Sobre superficie inestable.', '− Sentado.'],
+  d: { z: [[42.5, 29, 20, 10]], p: [A(45, 34), A(50, 34), A(55, 34), A(60, 34)], t: [[52.5, 31, 'Pie corto · toalla · puntillas · talones', .75]] } });
+
+T({ id: 'p32', n: 'Movilidad dinámica post-sesión con balón', cat: 'pre', tipo: 'Movilidad', ed: 'AICJS', dif: 1, md: ['MD+1', 'MD-4', 'MD-3', 'MD-2', 'MD-1'], int: 1, rpe: '2', carga: 'Recuperación', fase: 'vc',
+  jug: 'Parejas', np: 16, esp: [20, 15], ser: '1 x 8\'', rec: '—', dur: 8,
+  obj: 'Vuelta a la calma activa con movilidad y toques suaves de balón.',
+  desc: 'Por parejas a 5 m: pases suaves mientras se realizan movilidades (zancada con giro, rotación de cadera, sentadilla profunda) entre cada recepción.',
+  reglas: ['Ritmo lento.', 'Una movilidad distinta cada minuto.', 'Sin carreras.'],
+  cons: ['Respiración profunda.', 'Amplitud máxima sin dolor.'],
+  var: ['+ Pase con la pierna menos hábil.', '− Sin balón.'],
+  d: { z: [[42.5, 26.5, 20, 15]], p: [A(45, 30), B(50, 30), A(55, 30), B(60, 30), A(45, 38), B(50, 38), A(55, 38), B(60, 38)], b: [[46, 30.5], [56, 38.5]], a: [['pase', 45, 30, 50, 30, 1], ['pase', 55, 38, 60, 38, 1]] } });
+
+T({ id: 'p33', n: 'Fuerza de cuello y tronco (juego aéreo)', cat: 'pre', tipo: 'Prevención', ed: 'JS', dif: 1, md: ['MD-4', 'MD-3'], int: 2, rpe: '4', carga: 'Tensión', fase: 'vc',
+  jug: 'Parejas', np: 16, esp: [20, 10], ser: '2 x 10" por dirección', rec: '20"', dur: 6,
+  obj: 'Proteger el cuello en los duelos aéreos y los golpes de cabeza.',
+  desc: 'Isométricos de cuello: el compañero aplica una presión suave con la mano en la frente, nuca y laterales, y el jugador mantiene la cabeza en posición neutra.',
+  reglas: ['Presión progresiva y suave.', 'Sin movimiento del cuello.', 'Respiración continua.'],
+  cons: ['Barbilla ligeramente recogida.', 'Hombros abajo.'],
+  var: ['+ 15" por dirección.', '− Con la propia mano.'],
+  d: { z: [[42.5, 29, 20, 10]], p: [A(46, 33), B(46, 35.5), A(52.5, 33), B(52.5, 35.5), A(59, 33), B(59, 35.5)], t: [[52.5, 31, 'Isométricos de cuello por parejas', .8]] } });
+
+T({ id: 'p34', n: 'Recuperación MD+1 en piscina o bicicleta', cat: 'pre', tipo: 'Recuperación', ed: 'CJS', dif: 1, md: ['MD+1'], int: 1, rpe: '2', carga: 'Recuperación', fase: 'pri',
+  jug: 'Titulares', np: 11, esp: [20, 10], ser: '1 x 20-25\'', rec: '—', dur: 25,
+  obj: 'Recuperar sin impacto tras el partido.',
+  desc: 'Bicicleta estática suave o trabajo en piscina (caminar, carrera en agua profunda, movilidad) a baja intensidad, terminando con estiramientos suaves.',
+  reglas: ['Frecuencia cardiaca baja (60-65 % FCmáx).', 'Sin impacto.', 'Hidratación.'],
+  cons: ['Disfrutar y charlar.', 'Avisar de molestias.'],
+  var: ['+ Contraste de agua fría y caliente si hay instalación.', '− Solo 15\'.'],
+  d: { z: [[42.5, 29, 20, 10, '#38bdf8', 'Piscina / bici']], p: [A(46, 33), A(50, 35), A(54, 33), A(58, 35)] } });
+
+T({ id: 'p35', n: 'Activación pre-partido (MD)', cat: 'pre', tipo: 'Prevención', ed: 'ICJS', dif: 1, md: ['MD-1'], int: 2, rpe: '4', carga: 'Activación', fase: 'cal',
+  jug: 'Todo el equipo', np: 20, esp: [30, 20], ser: '1 x 15\'', rec: '—', dur: 15,
+  obj: 'Calentamiento de partido con prevención integrada (también para el MD-1).',
+  desc: 'Movilidad (3\'), activación de glúteo y core (3\'), técnica de carrera y cambios de dirección (4\'), rondo (3\') y dos sprints de 15 m (2\').',
+  reglas: ['Bloques cortos y seguidos.', 'Terminar 10-15\' antes del inicio.', 'Igual en todos los partidos (rutina).'],
+  cons: ['Activar sin fatigar.', 'Concentración progresiva.'],
+  var: ['+ Añadir pases largos.', '− Sin sprints en categorías base.'],
+  d: { z: [[37.5, 24, 30, 20]], c: [...conos(40, 27, 64, 27, 5), ...conos(40, 41, 64, 41, 5, '#facc15')], p: [A(40, 29), A(40, 39), A(52, 34), A(48, 34), A(56, 34)], b: [[52.9, 34.5]], a: [['mov', 40, 29, 64, 29, 0], ['mov', 40, 39, 64, 39, 0], ['pase', 48, 34, 56, 34, 1.5]] } });
+
+T({ id: 'p36', n: 'Prevención de pubalgia: circuito de aductores y abdominales', cat: 'pre', tipo: 'Prevención', ed: 'JS', dif: 2, md: ['MD-4', 'MD-3'], int: 2, rpe: '5', carga: 'Tensión', fase: 'vc',
+  jug: 'Todo el grupo', np: 20, esp: [20, 15], ser: '2 vueltas x 4 ejercicios (30")', rec: '15"', dur: 8,
+  obj: 'Equilibrar la fuerza entre aductores y abdominales.',
+  desc: 'Copenhague corta (rodilla), apretón de balón con elevación de cadera, dead bug con balón y plancha con alcance alterno.',
+  reglas: ['Sin dolor en el pubis.', '30" por ejercicio.', 'Calidad del movimiento.'],
+  cons: ['Lumbar apoyada en el dead bug.', 'Cadera estable.'],
+  var: ['+ Copenhague larga (tobillo).', '− 20" por ejercicio.'],
+  d: { z: [[42.5, 26.5, 20, 15]], p: [A(45, 30), B(45, 32.5), A(52, 30), A(59, 30), A(45, 38), A(52, 38), A(59, 38)], b: [[52, 31], [52, 39]], t: [[52.5, 34.5, 'Copenhague · apretón · dead bug · plancha', .75]] } });
+
+T({ id: 'p37', n: 'Readaptación de isquios: fases de vuelta al sprint', cat: 'pre', tipo: 'Readaptación', ed: 'CJS', dif: 3, md: ['MD-4', 'MD-3', 'MD-2'], int: 3, rpe: '5-8', carga: 'Mixta', fase: 'pri',
+  jug: 'Jugador lesionado + preparador', np: 2, esp: [60, 20], ser: 'Según fase', rec: 'Completa', dur: 25,
+  obj: 'Volver a correr a velocidad máxima tras una lesión de isquiotibiales.',
+  desc: 'Fase 1: carreras al 60-70 % de 60 m. Fase 2: progresivos al 80 %. Fase 3: aceleraciones y desaceleraciones. Fase 4: sprints al 90-100 % y acciones de partido (desmarque de ruptura, carrera hacia atrás y giro).',
+  reglas: ['Avanzar solo sin dolor ni molestia al día siguiente.', 'Fuerza excéntrica (nórdicos) en paralelo.', 'Coordinación con el fisioterapeuta.'],
+  cons: ['La velocidad máxima es la última fase.', 'Registrar sensaciones de cada sesión.'],
+  var: ['+ Con balón y oposición.', '− Mantener la fase anterior.'],
+  d: { z: [[22.5, 26, 60, 16]], c: [...conos(24, 29, 24, 39, 3), ...conos(44, 29, 44, 39, 3, '#22c55e'), ...conos(64, 29, 64, 39, 3, '#facc15'), ...conos(81, 29, 81, 39, 3, '#ef4444')], p: [A(23, 34), E(50, 41)], a: [['mov', 24, 34, 80.5, 34, 0]], t: [[34, 27.5, '60-70 %', .8], [54, 27.5, '80 %', .8], [72.5, 27.5, '90-100 %', .8]] } });
