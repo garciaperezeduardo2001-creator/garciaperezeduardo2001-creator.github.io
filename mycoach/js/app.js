@@ -43,16 +43,17 @@
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
   const monday = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const w = (x.getDay() + 6) % 7; return addDays(x, -w); };
   let plan = store.get('plan', {});
+  // La carga real se controla en My Team: se quitan los datos de carga real antiguos
+  Object.keys(plan).forEach(f => { const e = plan[f]; if (e && 'real' in e) { delete e.real; if (e.k === 'none' && !e.realSrc) delete plan[f]; } });
   // Puente con My Team: misma web (github.io) → mismo almacenamiento. My Team puede leer esta clave.
   function bridge() {
     try {
-      const dias = Object.keys(plan).sort().map(f => { const e = plan[f]; const l = dayLoad(e); return { fecha: f, md: mdOf(f), tipo: e.k, nombre: e.name || (e.k === 'match' ? 'Partido' : e.k === 'rest' ? 'Descanso' : ''), minutos: e.min || 0, rpe: e.min ? Math.round(l / e.min * 10) / 10 : 0, ua: l, ua_real: e.real ?? null, md_sesion: e.md || '', tareas: e.k === 'ses' && Array.isArray(e.items) ? e.items.map(x => byId[x.id] ? { id: x.id, n: byId[x.id].n, tipo: byId[x.id].tipo, dur: byId[x.id].dur, int: byId[x.id].int, bloque: x.b } : null).filter(Boolean) : [] }; });
+      const dias = Object.keys(plan).sort().map(f => { const e = plan[f]; const l = dayLoad(e); return { fecha: f, md: mdOf(f), tipo: e.k, nombre: e.name || (e.k === 'match' ? 'Partido' : e.k === 'rest' ? 'Descanso' : ''), minutos: e.min || 0, rpe: e.min ? Math.round(l / e.min * 10) / 10 : 0, ua: l, md_sesion: e.md || '', tareas: e.k === 'ses' && Array.isArray(e.items) ? e.items.map(x => byId[x.id] ? { id: x.id, n: byId[x.id].n, tipo: byId[x.id].tipo, dur: byId[x.id].dur, int: byId[x.id].int, bloque: x.b } : null).filter(Boolean) : [] }; });
       localStorage.setItem('mycoach.planificado', JSON.stringify({ app: 'My Coach', version: 1, actualizado: new Date().toISOString(), dias }));
     } catch (e) { }
   }
   const savePlan = () => { store.set('plan', plan); bridge(); };
   const dayLoad = e => !e ? 0 : e.k === 'ses' ? (e.ua || 0) : e.k === 'match' ? Math.round((e.min || 0) * (e.rpe || 0)) : 0;
-  const effLoad = e => e && e.real != null && e.real !== '' ? +e.real : dayLoad(e);
   function mdOf(f) {
     if (plan[f] && plan[f].k === 'match') return 'MD';
     const d = parseISO(f); let next = 0, prev = 0;
@@ -93,7 +94,88 @@
     }
     return { jug, w, h, m2, same: N === t.np };
   }
-  const F = { q: '', own: false, tipo: '', sort: 'rec', mat: new Set(), nj: 0, cat: new Set(), md: '', int: new Set(), dif: new Set(), ed: new Set(), open: false };
+  // ---------- Principios de juego (contenidos) ----------
+  const nz = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const PRIN = {
+    sal: { n: 'Salida de balón', i: '🧱', re: /salida de balon|salida\b|construcc|inicio del juego|primera linea|desde atras/ },
+    pos: { n: 'Posesión y progresión', i: '🔁', re: /rondo|posesion|juego de posicion|tercer hombre|conserv|pasar la linea|progres|circuito de pases|rombo de pases|apoyos|comodin/ },
+    ban: { n: 'Juego por bandas', i: '↔️', re: /banda|carril|lateral|extremo|amplitud|desdoble|cambio de juego|cambio de orientacion|lado debil/ },
+    fin: { n: 'Finalización', i: '🎯', re: /finaliz|remat|tiro|centros?\b|cut-back|al portero|llegada|segunda jugada|rechace|penalti/ },
+    tra: { n: 'Transiciones', i: '⚡', re: /tras perdida|presion tras|repliegue|5 segundos|transicion|contraataque|contragolpe|tras recuperacion|tras robo|oleada|reinicio rapido/ },
+    pre: { n: 'Presión', i: '🔥', re: /presion|pressing|senales|presionar/ },
+    def: { n: 'Defensa organizada', i: '🛡', re: /defensa|defensiv|bascula|linea de 4|bloque|marcaje|inferioridad|vigilancia/ },
+    abp: { n: 'Balón parado', i: '🚩', re: /corner|falta|saque de banda|abp|balon parado|barrera/ },
+    tec: { n: 'Técnica individual', i: '🎓', re: /control orientado|conduccion|regate|tecnica|pase por parejas|habilidad|golpeo/ }
+  };
+  const FIS = { 'Tensión': 'Físico · fuerza y tensión', 'Duración': 'Físico · resistencia', 'Velocidad': 'Físico · velocidad', 'Recuperación': 'Recuperación' };
+  const prCache = {};
+  function prinOf(t) {
+    if (prCache[t.id] && prCache[t.id].v === t) return prCache[t.id].p;
+    let p = [];
+    if (t.cat === 'tt' || t.cat === 'jue') {
+      const a = nz(t.n + ' ' + t.tipo + ' ' + t.obj); p = Object.keys(PRIN).filter(k => PRIN[k].re.test(a));
+      if (!p.length) { const b = nz(t.desc); p = Object.keys(PRIN).filter(k => PRIN[k].re.test(b)).slice(0, 2); }
+    }
+    prCache[t.id] = { v: t, p }; return p;
+  }
+  const prinChips = t => prinOf(t).map(k => `<span class="prc">${PRIN[k].i} ${PRIN[k].n}</span>`).join('');
+  // Progresión: la misma idea en fácil / media / difícil
+  const ladCache = {};
+  function ladder(t) {
+    if (ladCache[t.id] && ladCache[t.id].v === t && ladCache[t.id].n === TAREAS.length) return ladCache[t.id].l;
+    const pr = prinOf(t), out = [null, null, null]; out[t.dif - 1] = t;
+    [1, 2, 3].forEach(d => {
+      if (d === t.dif) return; let best = null, bs = 2.5;
+      TAREAS.forEach(x => {
+        if (x.id === t.id || x.cat !== t.cat || x.dif !== d) return;
+        const xp = prinOf(x), s = pr.filter(k => xp.includes(k)).length * 2 + (x.tipo === t.tipo ? 3 : 0) + (x.fase === t.fase ? 1 : 0) + (x.md.some(m => t.md.includes(m)) ? 1 : 0) + (x.carga === t.carga ? 1 : 0);
+        if (s > bs) { bs = s; best = x; }
+      });
+      out[d - 1] = best;
+    });
+    ladCache[t.id] = { v: t, l: out, n: TAREAS.length }; return out;
+  }
+  // ---------- Adaptación por categoría (edad) ----------
+  const EDF = { S: { k: 1, d: 1 }, J: { k: .95, d: 1 }, C: { k: .88, d: .9 }, I: { k: .78, d: .8 }, A: { k: .65, d: .7 } };
+  function catAdapt(t, ed) {
+    if (!ed || ed === 'S' || !EDF[ed]) return null;
+    const f = EDF[ed], notes = [], tx = nz(t.n + ' ' + t.tipo + ' ' + t.desc + ' ' + (t.reglas || []).join(' '));
+    const k = t.cat === 'pre' ? 1 : f.k, kid = ed === 'A' || ed === 'I';
+    const w = t.esp && t.esp[0] ? Math.round(t.esp[0] * k) : null, h = t.esp && t.esp[1] ? Math.round(t.esp[1] * k) : null;
+    const dur = t.fase === 'pri' ? Math.max(5, Math.round(t.dur * f.d)) : t.dur;
+    const fit = t.ed.includes(ed);
+    if (!fit) notes.push(`No está pensada para ${ED[ed].toLowerCase()}: mejor usa una alternativa.`);
+    if (k < 1 && w) notes.push(`Espacio reducido al ${Math.round(k * 100)} % de cada lado: ${w} x ${h} m.`);
+    if (dur < t.dur) notes.push(`Menos volumen: ${dur}' en lugar de ${t.dur}'${t.int >= 3 ? ', con pausas un poco más largas' : ''}.`);
+    if (kid && t.cat === 'fis' && /fuerza|pliometr|nordic|sentadilla|lastre|trineo|medicinal|copenhag|zancada/.test(tx)) notes.push('Fuerza con autocargas y buena técnica: sin lastres, trineo ni excéntricos máximos.');
+    else if ((ed === 'C' || ed === 'J') && t.cat === 'fis' && t.carga === 'Tensión') notes.push('Asegura la técnica antes de añadir carga externa.');
+    if (kid && t.cat === 'fis' && t.int >= 3 && !/balon/.test(tx)) notes.push('A estas edades funciona mejor en forma jugada (con balón) que corriendo sin él.');
+    if (kid && /toque/.test(tx) && (t.cat === 'tt' || t.cat === 'jue')) notes.push('Toques libres o máximo 3: prioriza el control y la decisión.');
+    if (kid && /rondo|posesion|juego de posicion/.test(nz(t.tipo))) notes.push('Añade un comodín más para que la posesión tenga éxito.');
+    if (ed === 'A' && /fuera de juego/.test(tx)) notes.push('Sin fuera de juego.');
+    if (ed === 'A' && (t.cat === 'tt' || t.cat === 'jue' || t.cat === 'por')) notes.push('Balón del n.º 4.');
+    let alt = null;
+    if (!fit) { const pr = prinOf(t); alt = TAREAS.filter(x => x.id !== t.id && x.cat === t.cat && x.fase === t.fase && x.ed.includes(ed)).map(x => [(x.tipo === t.tipo ? 3 : 0) + prinOf(x).filter(p => pr.includes(p)).length * 2 + (x.md.some(m => t.md.includes(m)) ? 1 : 0) + (x.carga === t.carga ? 1 : 0), x]).sort((a, b) => b[0] - a[0]).map(x => x[1])[0] || null; }
+    return { k, w, h, dur, fit, notes, alt };
+  }
+  const adjDur = (t, ed) => { const c = catAdapt(t, ed); return c ? c.dur : t.dur; };
+  // Jugadores + categoría → estructura y espacio para hoy
+  function fitInfo(t, nj, ed) {
+    if (!t.esp || !t.esp[0]) return null;
+    let w = t.esp[0], h = t.esp[1], jug = t.jug, ch = false;
+    if (nj && t.cat !== 'por' && !flexible(t) && t.np && nj !== t.np) {
+      const g = nj >= t.np * 1.6 ? Math.round(nj / t.np) : 1, a = adapt(t, Math.floor(nj / g));
+      if (a) { w = a.w; h = a.h; jug = g > 1 ? `${g} grupos de ${a.jug || Math.floor(nj / g)}` : a.jug || jug; ch = true; }
+    }
+    const c = catAdapt(t, ed); if (c && c.k < 1) { w = Math.round(w * c.k); h = Math.round(h * c.k); ch = true; }
+    return ch ? { w, h, jug } : null;
+  }
+  // Contenidos por semana: { 'yyyy-mm-dd' (lunes): { p, s, niv, nota } }
+  let cont = store.get('cont', {});
+  const saveCont = () => store.set('cont', cont);
+  const contOf = d => cont[iso(monday(typeof d === 'string' ? parseISO(d) : d))] || null;
+  const weekPf = d => { const c = contOf(d); return c && c.p ? { p: c.p, s: c.s, niv: c.niv } : null; };
+  const F = { q: '', own: false, tipo: '', sort: 'rec', mat: new Set(), prin: '', nj: 0, cat: new Set(), md: '', int: new Set(), dif: new Set(), ed: new Set(), open: false };
   const fromHash = () => { const m = location.hash.match(/[?&]md=([^&]+)/); if (m) F.md = decodeURIComponent(m[1]); };
 
   const saveSes = () => store.set('ses', ses);
@@ -121,6 +203,7 @@
       if (F.mat.size && ![...mats(t)].every(x => F.mat.has(x))) return false;
       if (F.nj && !flexible(t) && t.np > F.nj) return false;
       if (F.md && !t.md.includes(F.md)) return false;
+      if (F.prin && !prinOf(t).includes(F.prin)) return false;
       if (F.int.size && !F.int.has(t.int)) return false;
       if (F.dif.size && !F.dif.has(t.dif)) return false;
       if (F.ed.size && ![...F.ed].some(e => t.ed.includes(e))) return false;
@@ -137,7 +220,7 @@
 
   // ---------- Vistas ----------
   function vLib() {
-    const nf = F.int.size + F.dif.size + F.ed.size + F.mat.size + (F.nj ? 1 : 0);
+    const nf = F.int.size + F.dif.size + F.ed.size + F.mat.size + (F.nj ? 1 : 0) + (F.prin ? 1 : 0);
     const chip = (grp, v, lab, on) => `<button class="chip ${on ? 'on' : ''}" data-f="${grp}" data-v="${v}">${lab}</button>`;
     $('#app').innerHTML = `<div id="lib">
       <div class="search"><input id="q" type="search" placeholder="Buscar: rondo, RSA, centros, nórdicos…" value="${esc(F.q)}" autocomplete="off"></div>
@@ -146,6 +229,7 @@
       <div class="row scroll"><span class="lbl">Día</span>${chip('md', '', 'Todos', !F.md)}${MDS.map(m => chip('md', m, m, F.md === m)).join('')}</div>
       <div class="row between"><button class="more" id="more">${F.open ? '▴' : '▾'} Más filtros${nf ? ` (${nf})` : ''}</button><select id="sort" class="sort" aria-label="Ordenar">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${F.sort === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
       <div class="fpanel" ${F.open ? '' : 'hidden'}>
+        <div class="row wrap"><span class="lbl">Principio de juego</span>${chip('prin', '', 'Todos', !F.prin)}${Object.entries(PRIN).map(([k, p]) => chip('prin', k, p.i + ' ' + p.n, F.prin === k)).join('')}</div>
         <div class="row wrap"><span class="lbl">Intensidad</span>${[1, 2, 3, 4].map(i => chip('int', i, INT[i].n, F.int.has(i))).join('')}</div>
         <div class="row wrap"><span class="lbl">Dificultad</span>${[1, 2, 3].map(i => chip('dif', i, DIF[i], F.dif.has(i))).join('')}</div>
         <div class="row wrap"><span class="lbl">Categoría</span>${Object.entries(ED).map(([k, v]) => chip('ed', k, v, F.ed.has(k))).join('')}</div>
@@ -165,11 +249,12 @@
         if (g === 'own') F.own = !F.own;
         else if (g === 'md') F.md = v;
         else if (g === 'tipo') F.tipo = v;
+        else if (g === 'prin') F.prin = v;
         else { const val = g === 'cat' || g === 'ed' || g === 'mat' ? v : +v; F[g].has(val) ? F[g].delete(val) : F[g].add(val); if (g === 'cat') F.tipo = ''; }
         vLib(); return;
       }
       if (e.target.id === 'more') { F.open = !F.open; vLib(); }
-      if (e.target.id === 'clr') { F.q = ''; F.md = ''; F.own = false; F.tipo = ''; ['cat', 'int', 'dif', 'ed', 'mat'].forEach(k => F[k].clear()); F.nj = 0; vLib(); }
+      if (e.target.id === 'clr') { F.q = ''; F.md = ''; F.own = false; F.tipo = ''; F.prin = ''; ['cat', 'int', 'dif', 'ed', 'mat'].forEach(k => F[k].clear()); F.nj = 0; vLib(); }
     });
   }
 
@@ -183,7 +268,7 @@
         <div class="big" id="bigd" title="Toca para ver a pantalla completa">${drawField(t.d, { label: t.n })}<span class="zoom">⤢</span></div>
         ${(t.d.a || []).length ? animBarHTML('ab') : ''}
         ${legendHTML()}
-        <div class="ct">${catTag(t)}<span class="tipo">${esc(t.tipo)}</span></div>
+        <div class="ct">${catTag(t)}<span class="tipo">${esc(t.tipo)}</span>${prinChips(t)}</div>
         <h1>${esc(t.n)}</h1>
         ${t.obj ? `<p class="objt">🎯 ${esc(t.obj)}</p>` : ''}
         <div class="acts">
@@ -191,6 +276,7 @@
           <button class="btn pri" id="add">+ Añadir a sesión</button>
           <button class="btn" id="share">Compartir texto</button>
           <button class="btn" id="img">🖼 Imagen para WhatsApp</button>
+          ${(t.d.a || []).length ? '<button class="btn" id="vid">🎬 Vídeo de la animación</button>' : ''}
           ${t.own ? '<a class="btn" href="#/editar/' + t.id + '">✏️ Editar</a><button class="btn ghost" id="rm">🗑 Borrar</button>' : ''}
           <a class="btn" href="#/duplicar/${t.id}">⧉ ${t.own ? 'Duplicar' : 'Duplicar y editar'}</a>
         </div>
@@ -211,6 +297,8 @@
           </div>
         </section>
         ${t.np && t.esp && t.esp[0] ? `<section class="adapt"><h2>Adaptar a mis jugadores</h2><div class="adrow"><label>Tengo <input id="adn" type="number" min="2" max="40" inputmode="numeric" value="${F.nj || t.np}"> jugadores</label><div id="adout"></div></div></section>` : ''}
+        <section class="adapt"><h2>Adaptar a la categoría</h2><div class="adrow"><label>Categoría <select id="ced">${Object.entries(ED).reverse().map(([k, v]) => `<option value="${k}" ${(ses.ed || 'S') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label><div id="cedout"></div></div></section>
+        ${progHTML(t)}
         ${t.desc ? `<section><h2>Descripción</h2><p>${esc(t.desc).replace(/\n/g, '<br>')}</p></section>` : ''}
         ${t.reglas && t.reglas.length ? `<section><h2>Reglas</h2><ul>${li(t.reglas)}</ul></section>` : ''}
         ${t.cons && t.cons.length ? `<section><h2>Consignas</h2><ul>${li(t.cons)}</ul></section>` : ''}
@@ -223,6 +311,9 @@
     const adn = $('#adn');
     if (adn) { const up = () => { const n = +adn.value, a = adapt(t, n); $('#adout').innerHTML = !a ? '' : a.same ? `<span class="sub">Es el número original: ${esc(t.jug)} en ${t.esp[0]}x${t.esp[1]} m (≈ ${a.m2} m²/jug.).</span>` : `<b>${a.jug ? esc(a.jug) + ' · ' : ''}${a.w} x ${a.h} m</b><span class="sub">Mantiene ≈ ${a.m2} m²/jugador (original: ${esc(t.jug)} en ${t.esp[0]}x${t.esp[1]} m). ${n > t.np * 1.6 ? 'Con tantos jugadores, plantéate hacer dos grupos.' : ''}</span>`; }; adn.oninput = up; up(); }
     const stopAnim = bindAnim('ab', $('#bigd'), t.d);
+    const ced = $('#ced'), cup = () => { const c = catAdapt(t, ced.value); $('#cedout').innerHTML = !c ? `<span class="sub">Tarea tal cual: ${t.esp && t.esp[0] ? `${t.esp[0]}x${t.esp[1]} m · ` : ''}${t.dur}' · ${esc(t.ser)}.</span>` : `<ul class="cad">${c.notes.map(n => `<li>${esc(n)}</li>`).join('') || '<li>Se puede hacer igual que en sénior.</li>'}</ul>${c.alt ? `<a class="btn sm" href="#/t/${c.alt.id}">Alternativa: ${esc(c.alt.n)}</a>` : ''}`; };
+    ced.onchange = cup; cup();
+    if ($('#vid')) $('#vid').onclick = () => recordVideo(t);
     $('#stars').onclick = e => { const b = e.target.closest('[data-s]'); if (!b) return; const n = notes[t.id] || {}; n.s = n.s === +b.dataset.s ? 0 : +b.dataset.s; notes[t.id] = n; saveNotes(); $('#stars').querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', +x.dataset.s <= n.s)); };
     let nt; $('#note').oninput = e => { clearTimeout(nt); nt = setTimeout(() => { const n = notes[t.id] || {}; n.t = e.target.value; notes[t.id] = n; saveNotes(); }, 400); };
     $('#img').onclick = () => shareImage(taskCanvas(t), t.n);
@@ -338,6 +429,10 @@
     o.onclick = close; document.addEventListener('keydown', k); document.body.appendChild(o);
     stop = bindAnim('abfs', o.querySelector('.fs'), t.d);
   }
+  function progHTML(t) {
+    const l = ladder(t); if (l.filter(Boolean).length < 2) return '';
+    return `<section class="prog"><h2>Progresión</h2><p class="sub">La misma idea con más o menos exigencia. Sube de nivel cuando el equipo domine la tarea.</p><div class="ladder">${l.map((x, i) => x ? `<a href="#/t/${x.id}" class="lad ${x.id === t.id ? 'on' : ''}"><small>${['1 · Fácil', '2 · Media', '3 · Difícil'][i]}</small><b>${esc(x.n)}</b>${x.id === t.id ? '<em>Estás aquí</em>' : ''}</a>` : `<div class="lad off"><small>${['1 · Fácil', '2 · Media', '3 · Difícil'][i]}</small><b>—</b></div>`).join('<span class="lar">›</span>')}</div></section>`;
+  }
   function related(t) {
     const r = TAREAS.filter(x => x.id !== t.id && x.cat === t.cat && x.md.some(m => t.md.includes(m))).slice(0, 4);
     return r.length ? `<section><h2>Tareas parecidas</h2><div class="grid">${r.map(card).join('')}</div></section>` : '';
@@ -347,45 +442,74 @@
   const BLK = { cal: 'Calentamiento / activación', pri: 'Parte principal', vc: 'Prevención y vuelta a la calma', por: 'Porteros (en paralelo)' };
   const blockOf = t => t.cat === 'por' ? 'por' : t.fase;
   const pick = (pool, used, maxDur) => { const p = pool.filter(t => !used.has(t.id) && (!maxDur || t.dur <= maxDur)); return p.length ? p[Math.floor(Math.random() * p.length)] : null; };
-
-  function generar() {
-    const md = ses.md, ok = t => t.md.includes(md), used = new Set(), items = [];
-    const add = (t, b) => { if (t) { used.add(t.id); items.push({ id: t.id, b }); return t.dur; } return 0; };
-    const field = TAREAS.filter(t => ok(t) && t.cat !== 'por');
-    let left = ses.min;
-    left -= add(pick(field.filter(t => t.fase === 'cal'), used, 15), 'cal');
-    const vcT = pick(field.filter(t => t.fase === 'vc'), used, 12);
-    left -= vcT ? vcT.dur : 0;
-    const main = field.filter(t => t.fase === 'pri' && (t.tipo !== 'Compensatorio' || md === 'MD+2'));
-    const order = md === 'MD+1' ? ['pre', 'tt', 'fis'] : md === 'MD-1' ? ['tt', 'tt', 'tt'] : md === 'MD-4' || md === 'MD-2' ? ['fis', 'tt', 'tt'] : ['tt', 'fis', 'tt'];
+  // Elige la mejor tarea según el contenido de la semana (principio, nivel) o la carga física buscada
+  function pickP(pool, used, maxDur, pf, D) {
+    D = D || (t => t.dur);
+    const p = pool.filter(t => !used.has(t.id) && (!maxDur || D(t) <= maxDur)); if (!p.length) return null;
+    if (!pf) return p[Math.floor(Math.random() * p.length)];
+    const sc = t => { const pr = prinOf(t); return (pf.p && pr.includes(pf.p) ? 3 : 0) + (pf.s && pr.includes(pf.s) ? 1.5 : 0) + (pf.niv ? (t.dif === pf.niv ? 1 : Math.abs(t.dif - pf.niv) > 1 ? -1.5 : 0) : 0) + (pf.carga && t.carga === pf.carga ? 3 : 0) + Math.random() * 1.6; };
+    return p.map(t => [sc(t), t]).sort((a, b) => b[0] - a[0])[0][1];
+  }
+  // o = { md, min, gk (n.º porteros), ed, nj, mat (Set|null), pf, order }
+  function genSession(o) {
+    const md = o.md, D = t => adjDur(t, o.ed), used = new Set(), items = [];
+    const can = t => (!o.mat || [...mats(t)].every(x => o.mat.has(x))) && (!o.nj || flexible(t) || t.np <= o.nj + 1);
+    const base = TAREAS.filter(t => t.md.includes(md) && can(t)), strict = base.filter(t => !o.ed || t.ed.includes(o.ed));
+    const P = (f, maxDur, pf) => pickP(strict.filter(f), used, maxDur, pf, D) || pickP(base.filter(f), used, maxDur, pf, D);
+    const add = (t, b) => { if (t) { used.add(t.id); items.push({ id: t.id, b }); return D(t); } return 0; };
+    let left = o.min;
+    left -= add(P(t => t.cat !== 'por' && t.fase === 'cal', 15, o.pf && o.pf.carga ? null : o.pf), 'cal');
+    const vcT = P(t => t.cat !== 'por' && t.fase === 'vc', 12);
+    left -= vcT ? D(vcT) : 0;
+    const main = t => t.cat !== 'por' && t.fase === 'pri' && (t.tipo !== 'Compensatorio' || md === 'MD+2');
+    const order = o.order || (md === 'MD+1' ? ['pre', 'tt', 'fis'] : md === 'MD-1' ? ['tt', 'tt', 'tt'] : md === 'MD-4' || md === 'MD-2' ? ['fis', 'tt', 'tt'] : ['tt', 'fis', 'tt']);
     for (let i = 0; left >= 10 && i < 6; i++) {
-      const want = order[i % order.length];
-      const t = pick(main.filter(x => x.cat === want), used, left + 3) || pick(main, used, left + 3);
+      const want = order[i % order.length], pf = want === 'tt' || want === 'jue' ? o.pf : o.pf && o.pf.carga ? o.pf : null;
+      const t = P(x => main(x) && x.cat === want, left + 3, pf) || P(main, left + 3, o.pf);
       if (!t) break; left -= add(t, 'pri');
     }
     if (vcT) add(vcT, 'vc');
-    if (ses.gk) { let g = ses.min - 15; const gp = TAREAS.filter(t => t.cat === 'por' && ok(t)); add(pick(gp.filter(t => t.fase === 'cal'), used), 'por'); for (let i = 0; i < 3 && g > 10; i++) { const t = pick(gp.filter(t => t.fase === 'pri'), used, g); if (!t) break; g -= add(t, 'por'); } }
-    ses.items = items; saveSes();
-    if (!items.length) toast('No hay tareas para ' + md + ' (suele ser día de descanso)');
+    if (o.gk) { let g = o.min - 15; add(P(t => t.cat === 'por' && t.fase === 'cal'), 'por'); for (let i = 0; i < 3 && g > 10; i++) { const t = P(t => t.cat === 'por' && t.fase === 'pri', g); if (!t) break; g -= add(t, 'por'); } }
+    return items;
+  }
+  function generar() {
+    ses.items = genSession({ md: ses.md, min: ses.min, gk: ses.gk, ed: ses.ed, nj: ses.nj, pf: weekPf(new Date()) }); saveSes();
+    if (!ses.items.length) toast('No hay tareas para ' + ses.md + ' (suele ser día de descanso)');
+  }
+  // Sube o baja un nivel cada tarea de la parte principal usando sus progresiones
+  function shiftLevel(dir) {
+    let n = 0; const used = new Set(ses.items.map(x => x.id));
+    ses.items.forEach(x => { const t = byId[x.id]; if (!t || x.b !== 'pri') return; const l = ladder(t), nx = l[t.dif - 1 + dir]; if (nx && !used.has(nx.id)) { used.add(nx.id); x.id = nx.id; n++; } });
+    saveSes(); return n;
   }
 
+  function itemFit(t, i) {
+    const f = fitInfo(t, ses.nj, ses.ed), c = catAdapt(t, ses.ed);
+    let h = f ? `<div class="adh">${ses.nj && f.jug !== t.jug ? `<b>${esc(f.jug)}</b> en ` : ''}${f.w}x${f.h} m${ses.ed && ses.ed !== 'S' ? ' · ' + ED[ses.ed] : ''}</div>` : '';
+    if (c && !c.fit) h += `<div class="adw">⚠ No indicada para ${ED[ses.ed].toLowerCase()}${c.alt ? ` · <button class="link" data-alt="${i}|${c.alt.id}">Cambiar por «${esc(c.alt.n)}»</button>` : ''}</div>`;
+    return h;
+  }
   function vSes() {
     const its = ses.items.map((x, i) => ({ ...x, i, t: byId[x.id] })).filter(x => x.t);
     const field = its.filter(x => x.b !== 'por');
-    const tot = field.reduce((a, x) => a + x.t.dur, 0);
-    const ua = Math.round(field.reduce((a, x) => a + x.t.dur * rpeMid(x.t.rpe), 0));
-    const byInt = [1, 2, 3, 4].map(n => field.filter(x => x.t.int === n).reduce((a, x) => a + x.t.dur, 0));
-    const info = MDINFO[ses.md];
+    const D = t => adjDur(t, ses.ed);
+    const tot = field.reduce((a, x) => a + D(x.t), 0);
+    const ua = Math.round(field.reduce((a, x) => a + D(x.t) * rpeMid(x.t.rpe), 0));
+    const byInt = [1, 2, 3, 4].map(n => field.filter(x => x.t.int === n).reduce((a, x) => a + D(x.t), 0));
+    const info = MDINFO[ses.md], wc = contOf(new Date());
     const opt = (arr, cur) => arr.map(v => `<option ${v == cur ? 'selected' : ''} value="${v}">${v}${typeof v === 'number' ? ' min' : ''}</option>`).join('');
     $('#app').innerHTML = `
       <section class="gen">
-        <h1>Generador de sesión</h1>
+        <div class="ghd"><h1>Generador de sesión</h1><a class="btn pri sm" href="#/asistente">✨ ¿Qué entreno hoy?</a></div>
         <div class="form">
           <label>Día<select id="smd">${opt(MDS, ses.md)}</select></label>
           <label>Duración<select id="smin">${opt([45, 60, 75, 90, 105], ses.min)}</select></label>
+          <label>Categoría<select id="sed">${Object.entries(ED).reverse().map(([k, v]) => `<option value="${k}" ${(ses.ed || 'S') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+          <label>Jugadores<input id="snj" type="number" min="4" max="40" inputmode="numeric" placeholder="—" value="${ses.nj || ''}"></label>
           <label class="chk"><input type="checkbox" id="sgk" ${ses.gk ? 'checked' : ''}> Porteros</label>
         </div>
         <p class="hint"><b>${ses.md} · ${info.t}.</b> ${info.obj}</p>
+        ${wc && wc.p ? `<p class="hint cw">🎯 Contenido de la semana: <b>${PRIN[wc.p].n}</b>${wc.s ? ' + ' + PRIN[wc.s].n : ''} · nivel ${wc.niv || 1}. El generador lo prioriza.</p>` : ''}
         <div class="acts"><button class="btn pri" id="gen">⚡ Generar sesión</button>${its.length ? '<button class="btn" id="clear">Vaciar</button>' : ''}</div>
       </section>
       ${its.length ? `<section class="sum">
@@ -397,14 +521,20 @@
       </section>` : '<div class="empty">Elige el día y la duración y pulsa <b>Generar sesión</b>, o añade tareas desde la biblioteca.</div>'}
       ${Object.entries(BLK).map(([b, n]) => { const l = its.filter(x => x.b === b); return l.length ? `<section class="blk"><h2>${n}</h2>${l.map(x => `
         <div class="sit"><a href="#/t/${x.t.id}" class="thumb s">${drawField(x.t.d, { mini: true })}</a>
-          <div class="ci"><a href="#/t/${x.t.id}"><h3>${esc(x.t.n)}</h3></a><div class="meta">${intBadge(x.t)}<span>⏱ ${x.t.dur}'</span><span>${esc(x.t.ser)}</span></div></div>
+          <div class="ci"><a href="#/t/${x.t.id}"><h3>${esc(x.t.n)}</h3></a><div class="meta">${intBadge(x.t)}<span>⏱ ${D(x.t)}'${D(x.t) !== x.t.dur ? ` <s>${x.t.dur}'</s>` : ''}</span><span>${esc(x.t.ser)}</span><span class="dif d${x.t.dif}">${DIF[x.t.dif]}</span></div>${itemFit(x.t, x.i)}</div>
           <div class="ops"><button data-op="up" data-i="${x.i}" aria-label="Subir">↑</button><button data-op="down" data-i="${x.i}" aria-label="Bajar">↓</button><button data-op="swap" data-i="${x.i}" aria-label="Cambiar">⟳</button><button data-op="del" data-i="${x.i}" aria-label="Quitar">✕</button></div>
         </div>`).join('')}</section>` : ''; }).join('')}
-      ${its.length ? '<div class="acts"><a class="btn pri" href="#/campo">▶ Modo campo</a><button class="btn" id="save">Guardar sesión</button><a class="btn" href="#/plan">📅 Llevar al plan</a><button class="btn" id="simg">🖼 Imagen</button><button class="btn" id="print">Imprimir / PDF</button></div>' : ''}
+      ${its.length ? '<div class="acts lvl"><button class="btn" id="lvd">⬇ Más sencilla</button><button class="btn" id="lvu">⬆ Más exigente</button><small class="sub">Cambia cada tarea principal por su progresión.</small></div>' : ''}
+      ${its.length ? '<div class="acts"><a class="btn pri" href="#/campo">▶ Modo campo</a><a class="btn pri" href="#/pizarra">📺 Modo vestuario</a><button class="btn" id="save">Guardar sesión</button><a class="btn" href="#/plan">📅 Llevar al plan</a><button class="btn" id="simg">🖼 Imagen</button><button class="btn" id="print">Imprimir / PDF</button></div>' : ''}
       ${saved.length ? `<section class="blk"><h2>Sesiones guardadas</h2>${saved.map((s, i) => `<div class="saved"><div><b>${esc(s.name)}</b><small>${s.md} · ${s.items.length} tareas · ${s.date}</small></div><button class="btn" data-load="${i}">Abrir</button><button class="btn ghost" data-rm="${i}">✕</button></div>`).join('')}</section>` : ''}`;
     $('#smd').onchange = e => { ses.md = e.target.value; saveSes(); vSes(); };
     $('#smin').onchange = e => { ses.min = +e.target.value; saveSes(); };
     $('#sgk').onchange = e => { ses.gk = e.target.checked; saveSes(); };
+    $('#sed').onchange = e => { ses.ed = e.target.value; saveSes(); setTimeout(vSes, 0); };
+    $('#snj').onchange = e => { ses.nj = Math.max(0, +e.target.value || 0) || null; saveSes(); setTimeout(vSes, 0); };
+    if ($('#lvu')) $('#lvu').onclick = () => { const n = shiftLevel(1); vSes(); toast(n ? `${n} tareas más exigentes` : 'No hay un nivel más difícil para estas tareas'); };
+    if ($('#lvd')) $('#lvd').onclick = () => { const n = shiftLevel(-1); vSes(); toast(n ? `${n} tareas más sencillas` : 'No hay un nivel más fácil para estas tareas'); };
+    $('#app').querySelectorAll('[data-alt]').forEach(b => b.onclick = () => { const [i, id] = b.dataset.alt.split('|'); ses.items[+i].id = id; saveSes(); vSes(); });
     $('#gen').onclick = () => { generar(); vSes(); };
     if ($('#clear')) $('#clear').onclick = () => { ses.items = []; saveSes(); vSes(); };
     if ($('#print')) $('#print').onclick = () => printSes(its);
@@ -611,103 +741,102 @@
   let planWk = 0;
   const DN = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   const MN = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  const sesTot = items => { const f = items.map(x => byId[x.id] ? { ...x, t: byId[x.id] } : null).filter(x => x && x.b !== 'por'); return { min: f.reduce((a, x) => a + x.t.dur, 0), ua: Math.round(f.reduce((a, x) => a + x.t.dur * rpeMid(x.t.rpe), 0)) }; };
-  function weekStats(mon) {
-    const days = [...Array(7)].map((_, i) => plan[iso(addDays(mon, i))]);
-    const pl = days.reduce((a, e) => a + dayLoad(e), 0), hasReal = days.some(e => e && e.real != null && e.real !== '');
-    const rl = days.reduce((a, e) => a + (e && e.real != null && e.real !== '' ? +e.real : 0), 0);
-    const eff = days.map(effLoad), tot = eff.reduce((a, b) => a + b, 0), mean = tot / 7, sd = Math.sqrt(eff.reduce((a, b) => a + (b - mean) ** 2, 0) / 7);
-    return { pl, rl, hasReal, tot, mono: sd ? mean / sd : null, strain: sd ? Math.round(tot * mean / sd) : null };
-  }
-  function acwr(mon) {
-    const a = weekStats(mon).tot, ch = [1, 2, 3, 4].map(i => weekStats(addDays(mon, -7 * i)).tot).filter(x => x > 0);
-    return ch.length >= 2 && a ? a / (ch.reduce((x, y) => x + y, 0) / ch.length) : null;
-  }
-  const acwrTag = v => v == null ? ['—', 'var(--mu)', 'Faltan semanas para calcularlo'] : v < .8 ? [v.toFixed(2), '#0891b2', 'Carga baja respecto a las últimas semanas'] : v <= 1.3 ? [v.toFixed(2), '#16a34a', 'Zona óptima (0,8-1,3)'] : v <= 1.5 ? [v.toFixed(2), '#f59e0b', 'Precaución: subida de carga'] : [v.toFixed(2), '#dc2626', 'Riesgo: pico de carga (> 1,5)'];
+  const sesTot = (items, ed) => { const f = items.map(x => byId[x.id] ? { ...x, t: byId[x.id] } : null).filter(x => x && x.b !== 'por'), D = t => adjDur(t, ed); return { min: f.reduce((a, x) => a + D(x.t), 0), ua: Math.round(f.reduce((a, x) => a + D(x.t) * rpeMid(x.t.rpe), 0)) }; };
   let planT; const rePlan = () => { clearTimeout(planT); planT = setTimeout(vPlan, 0); };
-  // Minutos reales (de My Team / Vestuario) frente a los planificados
+  // Lo que se hizo de verdad (minutos y ejercicios que se acortaron), leído de My Team / Vestuario
   function realLine(e) {
     if (!e.realMin && !(e.realEj && e.realEj.length)) return '';
     const diff = (e.realEj || []).filter(x => x.plan != null && x.dur != null && x.plan !== x.dur);
     const dm = e.realMin != null && e.min ? e.realMin - e.min : null;
-    return `<span class="rl">Real: <b>${e.realMin ?? '—'}'</b>${dm ? ` <em class="${dm < 0 ? 'neg' : 'pos'}">(${dm > 0 ? '+' : ''}${dm}')</em>` : ''}${e.real != null ? ` · ${e.real} UA` : ''}</span>`
+    return `<span class="rl">Hecho: <b>${e.realMin ?? '—'}'</b>${dm ? ` <em class="${dm < 0 ? 'neg' : 'pos'}">(${dm > 0 ? '+' : ''}${dm}')</em>` : ''}</span>`
       + (diff.length ? `<span class="rl sm">${diff.map(x => `${esc(x.n)} ${x.dur}' <s>${x.plan}'</s>`).join(' · ')}</span>` : '');
   }
+  // Plantillas de semana: null = descanso, 'match' = partido, [MD, minutos] = sesión
+  const WTPL = {
+    sen5: { n: 'Sénior · 5 entrenos + partido el domingo', d: [['MD+1', 60], null, ['MD-4', 90], ['MD-3', 90], ['MD-2', 75], ['MD-1', 60], 'match'] },
+    sen4: { n: 'Sénior · 4 entrenos (M-X-V-S) + partido', d: [null, ['MD-4', 90], ['MD-3', 90], null, ['MD-2', 75], ['MD-1', 60], 'match'] },
+    juv3: { n: 'Juvenil / cadete · 3 entrenos (M-J-V) + partido', d: [null, ['MD-4', 90], null, ['MD-3', 90], ['MD-1', 75], null, 'match'] },
+    for3: { n: 'Formación · 3 entrenos (L-X-V) + partido el sábado', d: [['MD-4', 75], null, ['MD-3', 75], null, ['MD-1', 60], 'match', null] },
+    base2: { n: 'Fútbol base · 2 entrenos (M-J) + partido el sábado', d: [null, ['MD-4', 75], null, ['MD-2', 75], null, 'match', null] },
+    dos: { n: 'Semana con 2 partidos (miércoles y domingo)', d: [['MD+1', 60], ['MD-1', 60], 'match', ['MD+1', 60], ['MD-2', 70], ['MD-1', 60], 'match'] },
+    pre: { n: 'Pretemporada · doble carga y amistoso el sábado', d: [['MD-4', 90], ['MD-3', 90], ['MD+1', 60], ['MD-4', 90], ['MD-3', 90], 'match', null] }
+  };
+  function applyTpl(key, mon) {
+    const tp = WTPL[key], f0 = [...Array(7)].map((_, i) => iso(addDays(mon, i)));
+    if (f0.some(f => plan[f] && plan[f].k !== 'none') && !confirm('Esta semana ya tiene días planificados. ¿Sustituirlos por la plantilla?')) return false;
+    const pf = weekPf(mon) || (key === 'pre' ? { niv: 1 } : null), short = tp.n.split(' · ')[0];
+    tp.d.forEach((x, i) => {
+      const f = f0[i], old = plan[f] || {}, keep = { realMin: old.realMin, realEj: old.realEj, realSrc: old.realSrc };
+      if (x === 'match') plan[f] = { k: 'match', name: key === 'pre' ? 'Amistoso' : 'Partido', min: 90, rpe: 8 };
+      else if (!x) plan[f] = { k: 'rest' };
+      else { const items = genSession({ md: x[0], min: x[1], gk: ses.gk, ed: ses.ed, nj: ses.nj, pf }); plan[f] = { k: 'ses', name: `${short} · ${x[0]}`, md: x[0], items, ...sesTot(items, ses.ed) }; }
+      if (keep.realSrc) Object.assign(plan[f], keep);
+    });
+    savePlan(); return true;
+  }
+  const appLink = app => /vestuario/i.test(app || '') ? '../' : '../myteam/';
   function vPlan() {
     const mon = addDays(monday(new Date()), planWk * 7), today = iso(new Date());
-    const st = weekStats(mon), ac = acwrTag(acwr(mon));
     const fmtD = d => `${d.getDate()} ${MN[d.getMonth()]}`;
-    const opts = `<option value="">Asignar…</option><option value="cur">📋 Sesión actual (${ses.md})</option>${saved.map((x, i) => `<option value="sv:${i}">💾 ${esc(x.name)}</option>`).join('')}<option value="match">⚽ Partido</option><option value="rest">😴 Descanso</option><option value="clr">✕ Vaciar día</option>`;
-    const rows = [...Array(7)].map((_, i) => {
-      const d = addDays(mon, i), f = iso(d), e = plan[f], md = mdOf(f), l = dayLoad(e);
-      const body = !e || e.k === 'none' ? '<span class="sub">Sin planificar</span>'
-        : e.k === 'ses' ? `<b>${esc(e.name)}</b><span class="sub">${e.min}' · ${e.ua} UA · ${e.items.length} tareas</span>${realLine(e)}<button class="link" data-open="${f}">Abrir en Sesión</button>`
-        : e.k === 'match' ? `<b>⚽ Partido</b><span class="sub"><input type="number" class="mini" data-mm="${f}" value="${e.min}">' × RPE <input type="number" class="mini" data-mr="${f}" value="${e.rpe}" min="1" max="10"> = ${l} UA</span>`
+    const days = [...Array(7)].map((_, i) => plan[iso(addDays(mon, i))]);
+    const nS = days.filter(e => e && e.k === 'ses').length, nM = days.filter(e => e && e.k === 'match').length;
+    const minP = days.reduce((a, e) => a + (e && e.k === 'ses' ? e.min || 0 : 0), 0), uaP = days.reduce((a, e) => a + dayLoad(e), 0);
+    const c = contOf(mon);
+    const opts = `<option value="">Asignar…</option><option value="cur">📋 Sesión actual (${ses.md})</option>${saved.map((x, i) => `<option value="sv:${i}">💾 ${esc(x.name)}</option>`).join('')}<option value="gen">⚡ Generar sesión para este día</option><option value="match">⚽ Partido</option><option value="rest">😴 Descanso</option><option value="clr">✕ Vaciar día</option>`;
+    const rows = days.map((e, i) => {
+      const d = addDays(mon, i), f = iso(d), md = mdOf(f), l = dayLoad(e);
+      const body = !e || e.k === 'none' ? `<span class="sub">Sin planificar</span>${e ? realLine(e) : ''}`
+        : e.k === 'ses' ? `<b>${esc(e.name)}</b><span class="sub">${e.min}' · ${e.ua} UA objetivo · ${e.items.length} tareas</span>${realLine(e)}<button class="link" data-open="${f}">Abrir en Sesión</button>`
+        : e.k === 'match' ? `<b>⚽ ${esc(e.name || 'Partido')}</b><span class="sub"><input type="number" class="mini" data-mm="${f}" value="${e.min}">' × RPE <input type="number" class="mini" data-mr="${f}" value="${e.rpe}" min="1" max="10"> = ${l} UA</span>`
         : '<b>😴 Descanso</b>';
       return `<div class="pday ${f === today ? 'today' : ''} ${e && e.k === 'match' ? 'match' : ''}">
         <div class="pd1"><b>${DN[i]}</b><small>${fmtD(d)}</small>${md ? `<span class="md">${md}</span>` : ''}</div>
         <div class="pd2">${body}</div>
-        <div class="pd3"><select data-as="${f}" aria-label="Asignar">${opts}</select><label class="real">Real <input type="number" inputmode="numeric" data-real="${f}" value="${e && e.real != null ? e.real : ''}" placeholder="UA"></label></div>
+        <div class="pd3"><select data-as="${f}" aria-label="Asignar">${opts}</select></div>
       </div>`;
     }).join('');
-    // gráfica de temporada: 9 semanas atrás + 3 adelante
-    const W = [...Array(12)].map((_, i) => { const m = addDays(mon, (i - 8) * 7), s2 = weekStats(m); return { m, ...s2, ac: acwr(m) }; });
-    const mx = Math.max(400, ...W.map(w => Math.max(w.pl, w.rl))) * 1.15, bw = 100 / 12;
-    const chart = `<svg viewBox="0 0 100 52" class="chart" role="img" aria-label="Carga semanal">
-      ${W.map((w, i) => { const x = i * bw, hp = w.pl / mx * 40, hr = w.rl / mx * 40, cur = i === 8; const a = acwrTag(w.ac);
-        return `<rect x="${x + bw * .14}" y="${44 - hp}" width="${bw * .36}" height="${hp}" rx=".6" fill="${cur ? '#16a34a' : '#86efac'}"/>`
-          + (w.hasReal ? `<rect x="${x + bw * .52}" y="${44 - hr}" width="${bw * .36}" height="${hr}" rx=".6" fill="${cur ? '#14532d' : '#4b5563'}"/>` : '')
-          + (w.ac != null ? `<text x="${x + bw / 2}" y="${Math.min(44 - Math.max(hp, hr), 44) - 1.5}" font-size="2.6" text-anchor="middle" fill="${a[1]}" font-weight="800">${w.ac.toFixed(2)}</text>` : '')
-          + `<text x="${x + bw / 2}" y="49.5" font-size="2.5" text-anchor="middle" fill="currentColor" opacity="${cur ? 1 : .6}" font-weight="${cur ? 800 : 500}">${w.m.getDate()}/${w.m.getMonth() + 1}</text>`; }).join('')}
-      <line x1="0" y1="44" x2="100" y2="44" stroke="currentColor" stroke-opacity=".25" stroke-width=".2"/></svg>`;
     $('#app').innerHTML = `<section class="plan">
       <div class="wkn"><button class="btn" id="wp" aria-label="Semana anterior">‹</button><div><b>Semana del ${fmtD(mon)} al ${fmtD(addDays(mon, 6))}</b>${planWk ? '<button class="link" id="wt">Ir a esta semana</button>' : '<small class="sub">Semana actual</small>'}</div><button class="btn" id="wn" aria-label="Semana siguiente">›</button></div>
-      <div class="wstats">
-        <div><small>UA planificada</small><b>${st.pl}</b></div>
-        <div><small>UA real</small><b>${st.hasReal ? st.rl : '—'}</b></div>
-        <div title="${ac[2]}"><small>ACWR</small><b style="color:${ac[1]}">${ac[0]}</b></div>
-        <div><small>Monotonía</small><b style="color:${st.mono > 2 ? '#dc2626' : 'inherit'}">${st.mono ? st.mono.toFixed(2) : '—'}</b></div>
-        <div><small>Strain</small><b>${st.strain ?? '—'}</b></div>
+      <a class="cban ${c && c.p ? '' : 'off'}" href="#/temporada">${c && c.p ? `🎯 <span>Contenido: <b>${PRIN[c.p].n}</b>${c.s ? ' + ' + PRIN[c.s].n : ''} · nivel ${c.niv || 1}${c.nota ? `<small>${esc(c.nota)}</small>` : ''}</span>` : '🎯 <span>Esta semana no tiene contenido. <b>Planificar contenidos de la temporada</b></span>'}<i>›</i></a>
+      <div class="wstats w4">
+        <div><small>Sesiones</small><b>${nS}</b></div>
+        <div><small>Minutos</small><b>${minP}</b></div>
+        <div><small>UA objetivo</small><b>${uaP}</b></div>
+        <div><small>Partidos</small><b>${nM}</b></div>
       </div>
-      <p class="sub">${ac[2]}.${st.mono > 2 ? ' Monotonía alta (> 2): varía más la carga entre días.' : ''} Marca el día del partido y el MD de cada día se calcula solo.</p>
+      <p class="sub">Marca el día del partido y el MD de cada día se calcula solo. Aquí diseñas la semana; el control de la carga real (RPE, ACWR, monotonía…) se lleva en My Team.</p>
       <div class="pweek">${rows}</div>
-      <section><h2>Temporada · carga semanal</h2>${chart}
-        <div class="barl"><span><i style="background:#86efac"></i>Planificada</span><span><i style="background:#4b5563"></i>Real</span><span>Número = ACWR</span></div></section>
-      <div class="acts"><button class="btn ghost" id="copyw">⧉ Copiar semana anterior</button></div>
+      <div class="acts"><select id="wtpl" class="btn"><option value="">📋 Aplicar plantilla de semana…</option>${Object.entries(WTPL).map(([k, v]) => `<option value="${k}">${esc(v.n)}</option>`).join('')}</select><button class="btn ghost" id="copyw">⧉ Copiar semana anterior</button></div>
       <section class="bridge"><h2>Conexión con My Team</h2>
         <div id="mt" class="mtbox"><span class="sub">Buscando My Team en este móvil…</span></div>
-        <details class="csvd"><summary>Sin conexión directa: usar archivos CSV</summary>
-          <p class="sub">Exporta la carga planificada o importa la carga real (RPE × minutos) en CSV. Si hay varias filas por día (una por jugador), se hace la media.</p>
-          <div class="acts"><button class="btn" id="csv">⬇ Exportar plan (CSV)</button><label class="btn">⬆ Importar carga real (CSV)<input type="file" id="icsv" accept=".csv,text/csv,text/plain" hidden></label></div>
+        <details class="csvd"><summary>Sin conexión directa: exportar el plan en CSV</summary>
+          <div class="acts"><button class="btn" id="csv">⬇ Exportar plan (CSV)</button></div>
         </details>
       </section></section>`;
     mtPanel(mon);
     $('#wp').onclick = () => { planWk--; rePlan(); }; $('#wn').onclick = () => { planWk++; rePlan(); };
     if ($('#wt')) $('#wt').onclick = () => { planWk = 0; rePlan(); };
+    $('#wtpl').onchange = e => { const k = e.target.value; if (!k) return; if (applyTpl(k, mon)) toast('Plantilla aplicada: ' + WTPL[k].n.split(' · ')[0]); rePlan(); };
     $('#app').querySelectorAll('[data-as]').forEach(sel => sel.onchange = () => {
-      const f = sel.dataset.as, v = sel.value, old = plan[f] || {}, real = old.real;
-      if (v === 'cur') { if (!ses.items.length) { toast('La sesión actual está vacía'); sel.value = ''; return; } const t = sesTot(ses.items); plan[f] = { k: 'ses', name: `Sesión ${ses.md}`, md: ses.md, items: JSON.parse(JSON.stringify(ses.items)), ...t }; }
-      else if (v.startsWith('sv:')) { const x = saved[+v.slice(3)]; plan[f] = { k: 'ses', name: x.name, md: x.md, items: JSON.parse(JSON.stringify(x.items)), ...sesTot(x.items) }; }
+      const f = sel.dataset.as, v = sel.value, old = plan[f] || {}, keep = { realMin: old.realMin, realEj: old.realEj, realSrc: old.realSrc };
+      if (v === 'cur') { if (!ses.items.length) { toast('La sesión actual está vacía'); sel.value = ''; return; } plan[f] = { k: 'ses', name: `Sesión ${ses.md}`, md: ses.md, items: JSON.parse(JSON.stringify(ses.items)), ...sesTot(ses.items, ses.ed) }; }
+      else if (v.startsWith('sv:')) { const x = saved[+v.slice(3)]; plan[f] = { k: 'ses', name: x.name, md: x.md, items: JSON.parse(JSON.stringify(x.items)), ...sesTot(x.items, ses.ed) }; }
+      else if (v === 'gen') { const md = MDS.includes(mdOf(f)) ? mdOf(f) : 'MD-3'; const items = genSession({ md, min: ses.min, gk: ses.gk, ed: ses.ed, nj: ses.nj, pf: weekPf(f) }); if (!items.length) { toast('No hay tareas para ' + md); sel.value = ''; return; } plan[f] = { k: 'ses', name: `Sesión ${md}`, md, items, ...sesTot(items, ses.ed) }; }
       else if (v === 'match') plan[f] = { k: 'match', min: 90, rpe: 8 };
       else if (v === 'rest') plan[f] = { k: 'rest' };
-      else if (v === 'clr') { delete plan[f]; if (real != null) plan[f] = { k: 'none', real }; }
-      if (plan[f] && real != null) plan[f].real = real;
+      else if (v === 'clr') { delete plan[f]; if (keep.realSrc) plan[f] = { k: 'none' }; }
+      if (plan[f] && keep.realSrc) Object.assign(plan[f], keep);
       savePlan(); rePlan();
     });
-    $('#app').querySelectorAll('[data-real]').forEach(i => i.onchange = () => { const f = i.dataset.real; const v = i.value === '' ? null : Math.max(0, +i.value); plan[f] = plan[f] || { k: 'none' }; if (v == null) delete plan[f].real; else plan[f].real = v; if (plan[f].k === 'none' && plan[f].real == null) delete plan[f]; savePlan(); rePlan(); });
     $('#app').querySelectorAll('[data-mm]').forEach(i => i.onchange = () => { plan[i.dataset.mm].min = Math.max(0, +i.value || 0); savePlan(); rePlan(); });
     $('#app').querySelectorAll('[data-mr]').forEach(i => i.onchange = () => { plan[i.dataset.mr].rpe = Math.min(10, Math.max(0, +i.value || 0)); savePlan(); rePlan(); });
     $('#app').querySelectorAll('[data-open]').forEach(b => b.onclick = () => { const e = plan[b.dataset.open]; ses.md = e.md; ses.items = JSON.parse(JSON.stringify(e.items)); saveSes(); location.hash = '#/sesion'; });
-    $('#copyw').onclick = () => { let n = 0; for (let i = 0; i < 7; i++) { const src = plan[iso(addDays(mon, i - 7))], dst = iso(addDays(mon, i)); if (src && src.k !== 'none' && !plan[dst]) { const c = JSON.parse(JSON.stringify(src)); delete c.real; plan[dst] = c; n++; } } savePlan(); rePlan(); toast(n ? `${n} días copiados` : 'No había nada que copiar (o los días ya estaban ocupados)'); };
+    $('#copyw').onclick = () => { let n = 0; for (let i = 0; i < 7; i++) { const src = plan[iso(addDays(mon, i - 7))], dst = iso(addDays(mon, i)); if (src && src.k !== 'none' && (!plan[dst] || plan[dst].k === 'none')) { const c2 = JSON.parse(JSON.stringify(src)); delete c2.realMin; delete c2.realEj; delete c2.realSrc; plan[dst] = Object.assign(plan[dst] || {}, c2); n++; } } savePlan(); rePlan(); toast(n ? `${n} días copiados` : 'No había nada que copiar (o los días ya estaban ocupados)'); };
     $('#csv').onclick = () => {
-      const rows = [['fecha', 'md', 'tipo', 'nombre', 'minutos', 'rpe_planificado', 'ua_planificada', 'ua_real']];
-      Object.keys(plan).sort().forEach(f => { const e = plan[f], l = dayLoad(e); rows.push([f, mdOf(f), { ses: 'sesion', match: 'partido', rest: 'descanso', none: '' }[e.k], e.name || '', e.min || '', e.min ? (l / e.min).toFixed(1) : '', l, e.real ?? '']); });
-      const csv = '\ufeff' + rows.map(r => r.map(x => /[;"\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : x).join(';')).join('\n');
+      const rows = [['fecha', 'md', 'tipo', 'nombre', 'minutos', 'rpe_planificado', 'ua_planificada', 'tareas']];
+      Object.keys(plan).sort().forEach(f => { const e = plan[f], l = dayLoad(e); if (e.k === 'none') return; rows.push([f, mdOf(f), { ses: 'sesion', match: 'partido', rest: 'descanso' }[e.k], e.name || '', e.min || '', e.min ? (l / e.min).toFixed(1) : '', l, e.k === 'ses' ? e.items.map(x => byId[x.id] ? byId[x.id].n : '').filter(Boolean).join(' | ') : '']); });
+      const csv = '﻿' + rows.map(r => r.map(x => /[;"\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : x).join(';')).join('\n');
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'mycoach-plan.csv'; document.body.appendChild(a); a.click(); a.remove();
-    };
-    $('#icsv').onchange = async e => {
-      const f = e.target.files[0]; if (!f) return;
-      const n = importReal(await f.text()); savePlan(); rePlan(); toast(n ? `Carga real importada en ${n} días` : 'No se encontraron columnas de fecha y carga');
     };
   }
   // ---------- Conexión directa con My Team ----------
@@ -715,30 +844,30 @@
   async function mtSync(tid, silent) {
     const r = await MyTeamLink.read(tid); if (!r) return 0;
     let n = 0;
-    Object.entries(r.days).forEach(([f, x]) => { const e = plan[f] = plan[f] || { k: 'none' }; if (e.real !== x.ua || e.realMin !== x.min) { e.real = x.ua; n++; } e.realSrc = 'myteam'; e.realMin = x.min || null; e.realEj = x.ej || null; });
+    Object.entries(r.days).forEach(([f, x]) => { const e = plan[f] = plan[f] || { k: 'none' }; if (e.realMin !== (x.min || null) || JSON.stringify(e.realEj || null) !== JSON.stringify(x.ej || null)) n++; e.realSrc = 'myteam'; e.realMin = x.min || null; e.realEj = x.ej || null; });
     // los días que ya no tienen sesión en My Team pierden el dato importado
-    Object.entries(plan).forEach(([f, e]) => { if (e.realSrc === 'myteam' && !r.days[f]) { delete e.real; delete e.realSrc; delete e.realMin; delete e.realEj; if (e.k === 'none') delete plan[f]; n++; } });
-    r.games.forEach(g => { const e = plan[g.iso]; if (!e || e.k === 'none' || e.k === 'rest') { const real = e && e.real; const x = r.days[g.iso]; plan[g.iso] = { k: 'match', name: g.rival ? 'Partido vs ' + g.rival : 'Partido', min: g.dur, rpe: x ? x.rpe || 8 : 8, src: 'myteam' }; if (real != null) { plan[g.iso].real = real; plan[g.iso].realSrc = 'myteam'; } n++; } });
+    Object.entries(plan).forEach(([f, e]) => { if (e.realSrc === 'myteam' && !r.days[f]) { delete e.realSrc; delete e.realMin; delete e.realEj; if (e.k === 'none') delete plan[f]; n++; } });
+    r.games.forEach(g => { const e = plan[g.iso]; if (!e || e.k === 'none' || e.k === 'rest') { const x = r.days[g.iso]; plan[g.iso] = { k: 'match', name: g.rival ? 'Partido vs ' + g.rival : 'Partido', min: g.dur, rpe: x ? x.rpe || 8 : 8, src: 'myteam' }; n++; } });
     savePlan();
-    if (!silent) toast(n ? `Datos actualizados (${Object.keys(r.days).length} días con carga, ${r.games.length} partidos)` : 'Ya estaba todo al día');
+    if (!silent) toast(n ? `Actualizado (${Object.keys(r.days).length} sesiones hechas, ${r.games.length} partidos)` : 'Ya estaba todo al día');
     return n;
   }
   async function mtPanel(mon) {
     const box = $('#mt'); if (!box) return;
     let ts = null; try { ts = await MyTeamLink.teams(); } catch (e) { }
     if (!$('#mt')) return;
-    if (!ts) { box.innerHTML = `<p class="sub">No se han encontrado datos de My Team ni de Vestuario en este móvil. La conexión directa funciona cuando las dos apps están instaladas en el mismo teléfono (las dos usan Chrome por dentro) y My Team tiene datos guardados. Mientras tanto, puedes usar los archivos CSV.</p>`; return; }
+    if (!ts) { box.innerHTML = `<p class="sub">No se han encontrado datos de My Team ni de Vestuario en este móvil. La conexión directa funciona cuando las dos apps están instaladas en el mismo teléfono y My Team tiene datos guardados. Mientras tanto, puedes exportar el plan en CSV.</p>`; return; }
     if (!mtTeam || !ts.some(t => t.id === mtTeam)) { mtTeam = ts[0].id; store.set('mtTeam', mtTeam); }
-    const cur = ts.find(t => t.id === mtTeam);
+    const cur = ts.find(t => t.id === mtTeam), short = cur.app.split(' (')[0];
     const apps = new Set(ts.map(t => t.app));
     box.innerHTML = `<div class="mtok"><b>✓ Conectado con ${esc(cur.app)}</b><span class="sub">${esc(cur.name)} · ${cur.players} jugadores</span></div>
       ${ts.length > 1 ? `<label class="mtsel">Equipo <select id="mtteam">${ts.map(t => `<option value="${esc(t.id)}" ${t.id === mtTeam ? 'selected' : ''}>${esc(t.name)}${apps.size > 1 ? ' · ' + esc(t.app) : ''}</option>`).join('')}</select></label>` : ''}
-      <div class="acts"><button class="btn" id="mtin">⟳ Traer carga real y partidos</button><button class="btn pri" id="mtout">⬆ Enviar plan a ${esc(cur.app.split(' (')[0])}</button></div>
-      <p class="sub">Se trae la carga real (media de RPE × minutos por jugador) y los partidos de ${esc(cur.app.split(' (')[0])} cada vez que abres el Plan. «Enviar plan» escribe la carga objetivo de cada día en su Planificación semanal, donde verás plan frente a real.${apps.size > 1 ? ' Tienes las dos versiones con datos: elige en «Equipo» la que usas.' : ''}</p>`;
+      <div class="acts"><button class="btn pri" id="mtout">⬆ Enviar plan a ${esc(short)}</button><a class="btn" id="mtgo" href="${appLink(cur.app)}">📊 Ver la carga en ${esc(short)}</a><button class="btn ghost" id="mtin">⟳ Actualizar</button></div>
+      <p class="sub">«Enviar plan» pone la carga objetivo de cada día en la Planificación de ${esc(short)}. De allí se traen los partidos y lo que se hizo de verdad (minutos y ejercicios acortados), para que veas si la sesión salió como la diseñaste. RPE, ACWR y control de carga, en ${esc(short)}.${apps.size > 1 ? ' Tienes las dos versiones con datos: elige en «Equipo» la que usas.' : ''}</p>`;
     if ($('#mtteam')) $('#mtteam').onchange = e => { mtTeam = e.target.value; store.set('mtTeam', mtTeam); mtAuto = false; rePlan(); };
     $('#mtin').onclick = async () => { await mtSync(mtTeam); rePlan(); };
     $('#mtout').onclick = async () => {
-      const today = iso(new Date()), from = iso(addDays(mon, -7)), by = {};
+      const from = iso(addDays(mon, -7)), by = {};
       Object.entries(plan).forEach(([f, e]) => { if (f >= from && (e.k === 'ses' || e.k === 'match' || e.k === 'rest')) by[f] = dayLoad(e); });
       const n = Object.keys(by).length;
       if (!n) { toast('No hay días planificados desde la semana pasada'); return; }
@@ -747,39 +876,230 @@
     };
     if (!mtAuto) { mtAuto = true; try { if (await mtSync(mtTeam, true)) rePlan(); } catch (e) { } }
   }
-  function importReal(txt) {
-    const lines = txt.replace(/^\ufeff/, '').split(/\r?\n/).filter(l => l.trim());
-    if (lines.length < 2) return 0;
-    const sep = [';', '\t', ','].sort((a, b) => lines[0].split(b).length - lines[0].split(a).length)[0];
-    const split = l => { const out = []; let cur = '', q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === sep && !q) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out.map(x => x.trim()); };
-    const hd = split(lines[0]).map(h => h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
-    const col = re => hd.findIndex(h => re.test(h));
-    const cf = col(/fecha|date|dia/), cu = col(/(^|[^a-z])ua|carga|load|srpe/), cr = col(/rpe/), cm = col(/min|durac/);
-    if (cf < 0 || (cu < 0 && (cr < 0 || cm < 0))) return 0;
-    const acc = {};
-    lines.slice(1).forEach(l => {
-      const c = split(l); let ds = c[cf] || '', m;
-      if ((m = ds.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/))) ds = `${m[3].length === 2 ? '20' + m[3] : m[3]}-${pad(m[2])}-${pad(m[1])}`;
-      else if ((m = ds.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) ds = `${m[1]}-${pad(m[2])}-${pad(m[3])}`; else return;
-      const num = x => +String(x || '').replace(',', '.');
-      const v = cu >= 0 && c[cu] !== '' ? num(c[cu]) : num(c[cr]) * num(c[cm]);
-      if (!isFinite(v) || v <= 0) return;
-      (acc[ds] = acc[ds] || []).push(v);
+
+  // ---------- Temporada por contenidos ----------
+  const CYCLES = {
+    eq: { n: 'Equilibrado (ataque y defensa)', w: [['pos', 'pre'], ['fin', 'def'], ['sal', 'tra'], ['ban', 'abp']] },
+    at: { n: 'Prioridad ataque', w: [['sal', 'pre'], ['pos', 'def'], ['ban', 'tra'], ['fin', 'abp']] },
+    de: { n: 'Prioridad defensa', w: [['def', 'pos'], ['pre', 'sal'], ['tra', 'fin'], ['def', 'abp']] },
+    fo: { n: 'Formación (técnica y juego)', w: [['tec', 'pos'], ['pos', 'fin'], ['tec', 'ban'], ['fin', 'tra']] }
+  };
+  let tmpOff = 0;
+  function vTemporada() {
+    const mon0 = addDays(monday(new Date()), (tmpOff - 2) * 7), cur = iso(monday(new Date()));
+    const fmtD = d => `${d.getDate()} ${MN[d.getMonth()]}`;
+    const popt = (v, empty) => `<option value="">${empty}</option>` + Object.entries(PRIN).map(([k, p]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${p.i} ${p.n}</option>`).join('');
+    const rows = [...Array(16)].map((_, i) => {
+      const m = addDays(mon0, i * 7), k = iso(m), c = cont[k] || {}, ns = [...Array(7)].filter((_, j) => (plan[iso(addDays(m, j))] || {}).k === 'ses').length;
+      const n = c.p ? TAREAS.filter(t => prinOf(t).includes(c.p) && (!c.niv || t.dif === c.niv)).length : 0;
+      return `<div class="tw ${k === cur ? 'today' : ''}" data-w="${k}">
+        <div class="tw1"><b>${fmtD(m)}</b><small>${k === cur ? 'Esta semana' : ns ? ns + ' sesiones' : ''}</small></div>
+        <div class="tw2"><select data-k="p" aria-label="Contenido principal">${popt(c.p, 'Contenido principal…')}</select><select data-k="s" aria-label="Contenido secundario">${popt(c.s, 'Secundario (opcional)')}</select>
+          <div class="niv">${[1, 2, 3].map(v => `<button data-niv="${v}" class="${(c.niv || 0) === v ? 'on' : ''}" title="${DIF[v]}">${'▮'.repeat(v)}<small>${DIF[v]}</small></button>`).join('')}</div>
+          <input data-k="nota" placeholder="Nota (ej.: rival presiona alto)" value="${esc(c.nota || '')}">
+          ${c.p ? `<a class="link" href="#/" data-lib="${c.p}">${n} tareas de ${PRIN[c.p].n.toLowerCase()}${c.niv ? ' · nivel ' + DIF[c.niv].toLowerCase() : ''} ›</a>` : ''}</div>
+      </div>`;
+    }).join('');
+    $('#app').innerHTML = `<section class="tmp">
+      <h1>Temporada por contenidos</h1>
+      <p class="sub">Decide qué principio de juego trabajas cada semana y con qué nivel de exigencia. El generador de sesiones, las plantillas y el asistente eligen tareas de ese contenido.</p>
+      <div class="cyc"><b>Ciclo automático</b>
+        <label>Modelo <select id="cy">${Object.entries(CYCLES).map(([k, v]) => `<option value="${k}">${v.n}</option>`).join('')}</select></label>
+        <label>Desde <select id="cyf">${[...Array(16)].map((_, i) => { const m = addDays(mon0, i * 7); return `<option value="${iso(m)}" ${iso(m) === cur ? 'selected' : ''}>${fmtD(m)}</option>`; }).join('')}</select></label>
+        <label>Semanas <select id="cyn">${[4, 8, 12, 16].map(v => `<option ${v === 12 ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+        <button class="btn pri" id="cyg">Rellenar</button>
+        <small class="sub">Repite un bloque de 4 semanas y sube un nivel de exigencia cada vez que lo completa (fácil → media → difícil).</small></div>
+      <div class="wkn"><button class="btn" id="tp" aria-label="Antes">‹</button><b>${fmtD(mon0)} – ${fmtD(addDays(mon0, 15 * 7 + 6))}</b><button class="btn" id="tn" aria-label="Después">›</button></div>
+      <div class="tws">${rows}</div>
+      <div class="acts"><a class="btn" href="#/plan">📅 Ir al plan semanal</a><button class="btn ghost" id="tclr">Borrar estas 16 semanas</button></div></section>`;
+    const upd = (k, f) => { cont[k] = Object.assign(cont[k] || {}, f); if (!cont[k].p && !cont[k].s && !cont[k].nota) delete cont[k]; else if (cont[k].p && !cont[k].niv) cont[k].niv = 1; saveCont(); };
+    $('#app').querySelectorAll('.tw').forEach(r => {
+      const k = r.dataset.w;
+      r.querySelectorAll('[data-k]').forEach(el => el.onchange = () => { upd(k, { [el.dataset.k]: el.value }); if (el.tagName === 'SELECT') setTimeout(vTemporada, 0); });
+      r.querySelectorAll('[data-niv]').forEach(b => b.onclick = () => { upd(k, { niv: +b.dataset.niv }); vTemporada(); });
+      const l = r.querySelector('[data-lib]'); if (l) l.onclick = e => { e.preventDefault(); F.q = ''; F.cat = new Set(['tt', 'jue']); F.md = ''; F.prin = l.dataset.lib; F.open = true; location.hash = '#/'; };
     });
-    Object.entries(acc).forEach(([d, a]) => { plan[d] = plan[d] || { k: 'none' }; plan[d].real = Math.round(a.reduce((x, y) => x + y, 0) / a.length); });
-    return Object.keys(acc).length;
+    $('#tp').onclick = () => { tmpOff -= 4; vTemporada(); }; $('#tn').onclick = () => { tmpOff += 4; vTemporada(); };
+    $('#cyg').onclick = () => {
+      const cy = CYCLES[$('#cy').value], n = +$('#cyn').value, from = parseISO($('#cyf').value);
+      for (let i = 0; i < n; i++) { const k = iso(addDays(from, i * 7)), w = cy.w[i % cy.w.length], old = cont[k] || {}; cont[k] = { p: w[0], s: w[1], niv: Math.min(3, 1 + Math.floor(i / cy.w.length)), nota: old.nota || '' }; }
+      saveCont(); vTemporada(); toast(`${n} semanas planificadas`);
+    };
+    $('#tclr').onclick = () => { if (!confirm('¿Borrar los contenidos de estas 16 semanas?')) return; for (let i = 0; i < 16; i++) delete cont[iso(addDays(mon0, i * 7))]; saveCont(); vTemporada(); };
+  }
+
+  // ---------- Asistente «¿Qué entreno hoy?» ----------
+  let AS = store.get('as', null);
+  function vAsistente() {
+    const wc = contOf(new Date()), dmd = (() => { const m = mdOf(iso(new Date())); return MDS.includes(m) ? m : ses.md; })();
+    const A = AS = AS || { ed: ses.ed || 'S', md: dmd, nj: ses.nj || 16, gk: 2, min: ses.min || 75, mat: ['conos', 'picas', 'porterias', 'mini'], obj: '' };
+    if (!AS._t || AS._t !== iso(new Date())) { A.md = dmd; A._t = iso(new Date()); }
+    const chip = (g, v, lab, on) => `<button class="chip ${on ? 'on' : ''}" data-g="${g}" data-v="${v}">${lab}</button>`;
+    $('#app').innerHTML = `<section class="asis">
+      <h1>✨ ¿Qué entreno hoy?</h1>
+      <p class="sub">Responde y te preparo una sesión completa, adaptada a tu categoría, tus jugadores y tu material.</p>
+      <div class="aq"><b>1 · Categoría</b><div class="row wrap">${Object.entries(ED).reverse().map(([k, v]) => chip('ed', k, v, A.ed === k)).join('')}</div></div>
+      <div class="aq"><b>2 · ¿Qué día es?</b><div class="row wrap">${MDS.map(m => chip('md', m, `${m}<small>${MDINFO[m].carga}</small>`, A.md === m)).join('')}</div></div>
+      <div class="aq two"><label><b>3 · Jugadores de campo</b><input id="anj" type="number" min="4" max="40" inputmode="numeric" value="${A.nj}"></label><label><b>Porteros</b><input id="agk" type="number" min="0" max="4" inputmode="numeric" value="${A.gk}"></label><label><b>4 · Tiempo</b><select id="amin">${[45, 60, 75, 90, 105].map(v => `<option ${v === A.min ? 'selected' : ''} value="${v}">${v} min</option>`).join('')}</select></label></div>
+      <div class="aq"><b>5 · Material que tienes</b><div class="row wrap">${Object.entries(MAT).map(([k, v]) => chip('mat', k, v, A.mat.includes(k))).join('')}</div><small class="sub">Balones y petos se dan por hechos.</small></div>
+      <div class="aq"><b>6 · Objetivo</b><div class="row wrap">${chip('obj', '', wc && wc.p ? `🎯 Contenido de la semana (${PRIN[wc.p].n})` : '🎯 Lo que toca según el día', !A.obj)}${Object.entries(PRIN).map(([k, p]) => chip('obj', k, p.i + ' ' + p.n, A.obj === k)).join('')}${Object.entries(FIS).map(([k, v]) => chip('obj', 'F:' + k, '⚡ ' + v, A.obj === 'F:' + k)).join('')}</div></div>
+      <div class="acts"><button class="btn pri big" id="ago">⚡ Prepárame la sesión</button></div>
+      <div id="ares"></div></section>`;
+    const save = () => store.set('as', AS);
+    $('#app').querySelectorAll('.chip[data-g]').forEach(b => b.onclick = () => {
+      const g = b.dataset.g, v = b.dataset.v;
+      if (g === 'mat') { A.mat = A.mat.includes(v) ? A.mat.filter(x => x !== v) : [...A.mat, v]; b.classList.toggle('on'); save(); return; }
+      A[g] = v; save(); b.parentNode.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === b));
+    });
+    $('#anj').onchange = e => { A.nj = Math.max(4, +e.target.value || 16); save(); };
+    $('#agk').onchange = e => { A.gk = Math.max(0, +e.target.value || 0); save(); };
+    $('#amin').onchange = e => { A.min = +e.target.value; save(); };
+    $('#ago').onclick = () => {
+      let pf = null, order = null;
+      if (A.obj.startsWith('F:')) { const c = A.obj.slice(2); pf = { carga: c }; order = c === 'Recuperación' ? ['pre', 'tt', 'pre'] : ['fis', 'tt', 'fis']; }
+      else if (A.obj) { pf = { p: A.obj, niv: (wc && wc.niv) || null }; order = ['tt', A.md === 'MD-1' || A.md === 'MD+1' ? 'tt' : 'fis', 'tt']; }
+      else pf = weekPf(new Date());
+      const items = genSession({ md: A.md, min: A.min, gk: A.gk > 0, ed: A.ed, nj: A.nj, mat: new Set(A.mat), pf, order });
+      if (!items.length) { $('#ares').innerHTML = `<div class="empty">No he encontrado tareas para ${A.md} con ese material. Prueba a marcar más material o cambia el día (${A.md} suele ser descanso).</div>`; return; }
+      ses = { ...ses, md: A.md, min: A.min, gk: A.gk > 0, ed: A.ed, nj: A.nj, items }; saveSes();
+      const its = items.map(x => ({ ...x, t: byId[x.id] })), fieldIts = its.filter(x => x.b !== 'por'), D = t => adjDur(t, A.ed);
+      const tot = fieldIts.reduce((a, x) => a + D(x.t), 0), ua = Math.round(fieldIts.reduce((a, x) => a + D(x.t) * rpeMid(x.t.rpe), 0));
+      const why = x => { const r = []; const pr = prinOf(x.t); if (pf && pf.p && pr.includes(pf.p)) r.push(PRIN[pf.p].n); if (pf && pf.carga && x.t.carga === pf.carga) r.push(FIS[pf.carga]); const f = fitInfo(x.t, A.nj, A.ed); if (f) r.push(`${f.jug !== x.t.jug ? f.jug + ' en ' : ''}${f.w}x${f.h} m`); return r.join(' · '); };
+      $('#ares').innerHTML = `<section class="ares"><h2>Tu sesión ${A.md} · ${tot}' · ${ua} UA</h2><p class="sub">${MDINFO[A.md].t}. ${ED[A.ed]}, ${A.nj} jugadores${A.gk ? ' + ' + A.gk + ' porteros' : ''}.</p>
+        ${its.map((x, i) => `<a class="ait" href="#/t/${x.t.id}"><span class="an">${i + 1}</span><div><small>${BLK[x.b]}</small><b>${esc(x.t.n)}</b><span class="sub">${D(x.t)}' · ${INT[x.t.int].n}${why(x) ? ' · ' + esc(why(x)) : ''}</span></div></a>`).join('')}
+        <div class="acts"><a class="btn pri" href="#/sesion">📋 Abrir en Sesión</a><a class="btn" href="#/pizarra">📺 Modo vestuario</a><button class="btn ghost" id="aagain">⟳ Otra propuesta</button></div></section>`;
+      $('#aagain').onclick = () => $('#ago').click();
+      $('#ares').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+  }
+
+  // ---------- Modo vestuario (pizarra para explicar) ----------
+  let PZ = null, PZi = 0;
+  function vPizarra() {
+    if (PZ) { PZ.stop(); PZ = null; }
+    const its = ses.items.map(x => byId[x.id] ? { ...x, t: byId[x.id] } : null).filter(Boolean);
+    if (!its.length) { $('#app').innerHTML = '<div class="empty">La sesión está vacía. Genera una sesión o añade tareas y vuelve al modo vestuario.<br><br><a class="btn pri" href="#/sesion">Ir a Sesión</a></div>'; return; }
+    document.body.classList.add('pzmode');
+    let i = Math.min(PZi, its.length - 1), ctl = null, auto = true, tx0 = null;
+    $('#app').innerHTML = `<div class="pz" id="pz">
+      <div class="pzt"><button id="pzx" aria-label="Salir">✕</button><span id="pzh"></span><button id="pzfs">⛶ Pantalla completa</button></div>
+      <div class="pzb"><div class="pzf" id="pzf"></div><aside class="pzi" id="pzi"></aside></div>
+      <div class="pzc"><button id="pzp" aria-label="Anterior">‹</button><button id="pza">⏸ Pausa</button><button id="pzr" aria-label="Repetir">↺</button><span id="pzcap"></span><button id="pzn" aria-label="Siguiente">›</button></div>
+      <div class="pzd" id="pzd">${its.map((_, k) => `<i data-k="${k}"></i>`).join('')}</div></div>`;
+    const show = () => {
+      if (ctl) { ctl.stop(); ctl = null; }
+      PZi = i; const x = its[i], t = x.t, f = fitInfo(t, ses.nj, ses.ed), D = adjDur(t, ses.ed);
+      $('#pzh').innerHTML = `<b>${i + 1}/${its.length}</b> · ${BLK[x.b]}`;
+      $('#pzf').innerHTML = drawField(t.d, { label: t.n });
+      $('#pzi').innerHTML = `<h2>${esc(t.n)}</h2>${t.obj ? `<p class="po">🎯 ${esc(t.obj)}</p>` : ''}
+        <div class="pk"><span>⏱ ${D}'</span><span>👥 ${esc(f ? f.jug : t.jug)}</span>${t.esp && t.esp[0] ? `<span>📐 ${f ? f.w + 'x' + f.h : t.esp[0] + 'x' + t.esp[1]} m</span>` : ''}<span>🔁 ${esc(t.ser)}</span><span style="--c:${INT[t.int].c}" class="pint">${INT[t.int].n}</span></div>
+        ${t.reglas && t.reglas.length ? `<h3>Reglas</h3><ul>${t.reglas.slice(0, 4).map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+        ${t.cons && t.cons.length ? `<h3>Consignas</h3><ul>${t.cons.slice(0, 3).map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}`;
+      $('#pzd').querySelectorAll('i').forEach((d, k) => d.classList.toggle('on', k === i));
+      $('#pzp').disabled = i === 0; $('#pzn').disabled = i === its.length - 1; $('#pzcap').textContent = '';
+      const has = (t.d.a || []).length; $('#pza').hidden = $('#pzr').hidden = !has;
+      if (has) ctl = animateField($('#pzf'), t.d, { autoplay: auto, loop: true, react: true, speed: .8, onState: s => { $('#pza').textContent = s.playing ? '⏸ Pausa' : '▶ Animar'; $('#pzcap').textContent = s.caption || (s.step ? `Paso ${s.step}/${s.total}` : ''); } });
+    };
+    const go = d => { const n = i + d; if (n < 0 || n >= its.length) return; i = n; show(); };
+    const key = e => { if (e.key === 'ArrowRight' || e.key === 'PageDown') go(1); else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(-1); else if (e.key === ' ') { e.preventDefault(); $('#pza').click(); } else if (e.key === 'Escape' && !document.fullscreenElement) $('#pzx').click(); };
+    document.addEventListener('keydown', key);
+    const pz = $('#pz');
+    pz.addEventListener('touchstart', e => { tx0 = e.touches[0].clientX; }, { passive: true });
+    pz.addEventListener('touchend', e => { if (tx0 == null) return; const dx = e.changedTouches[0].clientX - tx0; tx0 = null; if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1); });
+    $('#pzp').onclick = () => go(-1); $('#pzn').onclick = () => go(1);
+    $('#pza').onclick = () => { if (!ctl) return; auto = !auto; auto ? ctl.play() : ctl.pause(); };
+    $('#pzr').onclick = () => { if (ctl) { auto = true; ctl.restart(); ctl.play(); } };
+    $('#pzd').onclick = e => { const d = e.target.closest('[data-k]'); if (d) { i = +d.dataset.k; show(); } };
+    $('#pzx').onclick = () => { location.hash = '#/sesion'; };
+    $('#pzfs').onclick = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else { await document.documentElement.requestFullscreen(); try { await screen.orientation.lock('landscape'); } catch (e) { } } } catch (e) { toast('Pantalla completa no disponible'); } };
+    wake(true);
+    PZ = { stop() { if (ctl) ctl.stop(); document.removeEventListener('keydown', key); document.body.classList.remove('pzmode'); wake(false); if (document.fullscreenElement) document.exitFullscreen().catch(() => { }); } };
+    show();
+  }
+
+  // ---------- Vídeo de la animación ----------
+  async function recordVideo(t) {
+    const mime = ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => { try { return window.MediaRecorder && MediaRecorder.isTypeSupported(m); } catch (e) { return false; } });
+    const cv0 = document.createElement('canvas');
+    if (!mime || !cv0.captureStream) { toast('Este móvil no permite grabar vídeo; usa «Imagen para WhatsApp»'); return; }
+    const W = 1080, FH = 720, TH = 120, BH = 70, H = TH + FH + BH;
+    const ov = document.createElement('div'); ov.className = 'vidov';
+    ov.innerHTML = `<div class="vidbox"><b id="vti">🎬 Grabando la animación…</b><div class="vprog"><i id="vbar"></i></div><small class="sub" id="vst">Preparando…</small><div id="vout"></div><div class="acts" id="vacts"><button class="btn ghost" id="vcan">Cancelar</button></div></div>`;
+    document.body.appendChild(ov);
+    const host = document.createElement('div'); host.className = 'vidhost'; host.style.cssText = `position:fixed;left:-30000px;top:0;width:${W}px;height:${FH}px;pointer-events:none`;
+    host.innerHTML = drawField(t.d); document.body.appendChild(host);
+    const c = cv0; c.width = W; c.height = H; const ctx = c.getContext('2d');
+    let st = { step: 0, total: fieldSteps(t.d).length }, cap = '', busy = false, live = true, ctl = null, fin = false;
+    const paint = img => {
+      const g = ctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, '#15803d'); g.addColorStop(1, '#16a34a'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, TH);
+      ctx.fillStyle = '#dcfce7'; ctx.font = `700 26px ${FONT}`; ctx.fillText(`${CAT[t.cat].n.toUpperCase()} · ${t.jug}${t.esp && t.esp[0] ? ` · ${t.esp[0]}x${t.esp[1]} m` : ''}`, 36, 44);
+      ctx.fillStyle = '#fff'; ctx.font = `800 42px ${FONT}`; ctx.fillText(wrap(ctx, t.n, W - 72)[0], 36, 96);
+      ctx.fillStyle = '#0b2614'; ctx.fillRect(0, TH, W, FH); if (img) ctx.drawImage(img, 0, TH, W, FH);
+      ctx.fillStyle = '#0f1f17'; ctx.fillRect(0, TH + FH, W, BH);
+      ctx.fillStyle = '#facc15'; ctx.font = `800 28px ${FONT}`; ctx.fillText(st.step ? `Paso ${Math.min(st.step, st.total)}/${st.total}${cap ? ' · ' + cap : ''}` : 'My Coach', 36, TH + FH + 45);
+      ctx.fillStyle = '#9bb0a4'; ctx.font = `600 22px ${FONT}`; ctx.textAlign = 'right'; ctx.fillText('My Coach', W - 36, TH + FH + 44); ctx.textAlign = 'left';
+    };
+    const frame = () => {
+      if (!live) return;
+      if (!busy) {
+        const svg = host.querySelector('svg');
+        if (svg) {
+          busy = true; let s = new XMLSerializer().serializeToString(svg).replace(/^<svg/, `<svg width="${W}" height="${FH}"`);
+          const img = new Image(); img.onload = () => { if (live) paint(img); busy = false; }; img.onerror = () => { busy = false; };
+          img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+        }
+      }
+      requestAnimationFrame(frame);
+    };
+    const cleanup = () => { live = false; if (ctl) ctl.stop(); host.remove(); };
+    const stream = c.captureStream(30), chunks = [];
+    let rec; try { rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 5e6 }); } catch (e) { cleanup(); ov.remove(); toast('No se pudo iniciar la grabación'); return; }
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    let cancelled = false;
+    ov.querySelector('#vcan').onclick = () => { cancelled = true; try { rec.stop(); } catch (e) { } cleanup(); ov.remove(); };
+    const finish = () => { if (rec.state !== 'inactive') rec.stop(); };
+    rec.onstop = () => {
+      cleanup(); if (cancelled) return;
+      const type = mime.split(';')[0], ext = type === 'video/mp4' ? 'mp4' : 'webm', blob = new Blob(chunks, { type });
+      const fn = t.n.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 50) + '.' + ext;
+      const file = new File([blob], fn, { type }), url = URL.createObjectURL(blob);
+      ov.querySelector('#vti').textContent = '🎬 Vídeo listo'; ov.querySelector('#vst').textContent = `${(blob.size / 1048576).toFixed(1)} MB · ${ext.toUpperCase()}${ext === 'webm' ? ' (si WhatsApp no lo acepta, descárgalo y envíalo como documento)' : ''}`;
+      ov.querySelector('.vprog').remove();
+      ov.querySelector('#vout').innerHTML = `<video src="${url}" controls playsinline muted autoplay loop></video>`;
+      const acts = ov.querySelector('#vacts');
+      acts.innerHTML = `${navigator.canShare && navigator.canShare({ files: [file] }) ? '<button class="btn pri" id="vsh">📤 Compartir (WhatsApp…)</button>' : ''}<a class="btn" id="vdl" href="${url}" download="${fn}">⬇ Descargar</a><button class="btn ghost" id="vcl">Cerrar</button>`;
+      if (ov.querySelector('#vsh')) ov.querySelector('#vsh').onclick = async () => { try { await navigator.share({ files: [file], title: t.n }); } catch (e) { } };
+      ov.querySelector('#vcl').onclick = () => { ov.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+      ov.dataset.ready = '1';
+    };
+    paint(null); frame();
+    await new Promise(r => setTimeout(r, 400));
+    rec.start(250);
+    setTimeout(() => {
+      if (!live) return;
+      ctl = animateField(host, t.d, { autoplay: true, speed: .75, loop: false, react: true, onState: x => {
+        st = x; cap = x.caption || cap; const bar = ov.querySelector('#vbar'); if (bar) bar.style.width = Math.round(100 * x.step / Math.max(1, x.total)) + '%';
+        const vs = ov.querySelector('#vst'); if (vs && !fin) vs.textContent = `Paso ${x.step}/${x.total}`;
+        if (x.done && !fin) { fin = true; setTimeout(finish, 1800); }
+      } });
+    }, 700);
+    setTimeout(() => { if (!fin) { fin = true; finish(); } }, 90000);
   }
 
   // ---------- Router ----------
   function route() {
     const h = location.hash || '#/';
     if (!h.startsWith('#/campo')) stopTimer();
+    if (PZ && !h.startsWith('#/pizarra')) { PZ.stop(); PZ = null; }
     let r = 'lib';
     $('#back').hidden = true; $('#title').textContent = 'My Coach'; $('#subtitle').textContent = 'Biblioteca de tareas · ' + TAREAS.length + ' ejercicios';
     if (h.startsWith('#/t/')) { r = 'task'; $('#back').hidden = false; $('#subtitle').textContent = 'Ficha de la tarea'; vTask(h.slice(4)); }
     else if (h.startsWith('#/sesion')) { r = 'ses'; $('#subtitle').textContent = 'Planifica tu sesión'; vSes(); }
     else if (h.startsWith('#/campo')) { r = 'ses'; $('#back').hidden = false; $('#subtitle').textContent = 'Modo campo · cronómetro'; vCampo(); }
-    else if (h.startsWith('#/plan')) { r = 'plan'; $('#subtitle').textContent = 'Planificación y control de carga'; vPlan(); }
+    else if (h.startsWith('#/plan')) { r = 'plan'; $('#subtitle').textContent = 'Diseño de la semana'; vPlan(); }
+    else if (h.startsWith('#/temporada')) { r = 'plan'; $('#back').hidden = false; $('#subtitle').textContent = 'Contenidos de la temporada'; vTemporada(); }
+    else if (h.startsWith('#/asistente')) { r = 'ses'; $('#back').hidden = false; $('#subtitle').textContent = 'Asistente de sesión'; vAsistente(); }
+    else if (h.startsWith('#/pizarra')) { r = 'ses'; $('#subtitle').textContent = 'Modo vestuario'; vPizarra(); }
     else if (h.startsWith('#/micro')) { r = 'micro'; $('#subtitle').textContent = 'Días MD y cargas'; vMicro(); }
     else if (h.startsWith('#/mis') || h.startsWith('#/favs')) { r = 'mis'; $('#subtitle').textContent = 'Creadas por ti y favoritos'; vMis(); }
     else if (h.startsWith('#/nueva')) { r = 'mis'; $('#back').hidden = false; $('#subtitle').textContent = 'Pizarra y ficha'; vEdit('nueva'); }
