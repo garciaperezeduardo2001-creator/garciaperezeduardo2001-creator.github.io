@@ -12,7 +12,7 @@
   };
   const INT = { 1: { n: 'Baja', c: '#22c55e' }, 2: { n: 'Media', c: '#eab308' }, 3: { n: 'Alta', c: '#f97316' }, 4: { n: 'Máxima', c: '#dc2626' } };
   const DIF = { 1: 'Básica', 2: 'Media', 3: 'Avanzada' };
-  const ED = { A: 'Alevín', I: 'Infantil', C: 'Cadete', J: 'Juvenil', S: 'Sénior' };
+  const ED = { P: 'Prebenjamín', B: 'Benjamín', A: 'Alevín', I: 'Infantil', C: 'Cadete', J: 'Juvenil', S: 'Sénior' };
   const MDS = ['MD+1', 'MD+2', 'MD-4', 'MD-3', 'MD-2', 'MD-1'];
   const MDINFO = {
     'MD+1': { dia: 'Lunes', t: 'Recuperación / compensación', carga: 'Recuperación', int: 1, vol: 'Bajo', esp: 'Pequeño-medio', obj: 'Titulares: regenerativo (trote, movilidad, rondos suaves). Suplentes: compensatorio a alta intensidad para acercarse a la carga de partido.', tareas: 'Rondos regenerativos, trote, movilidad, foam roller · compensatorio con juego reducido y sprints.' },
@@ -34,6 +34,16 @@
   function sync() { TAREAS.length = 0; TAREAS.push(...mine, ...BASE); byId = Object.fromEntries(TAREAS.map(t => [t.id, t])); }
   const saveMine = () => { store.set('mis', mine); sync(); };
   sync();
+  // ---------- Fútbol 11 / Fútbol 7 ----------
+  let MODE = store.get('mode', 'f11');
+  const isF7t = t => !!(t && t.d && t.d.f7);
+  const F11ONLY = /linea de 4|bascula|lateral - extremo|con lateral|carriles exteriores|4\+3 v|pivotes|10v10|11v11|9v9|8v8|centrales|marcaje mixto/;
+  const f7ok = t => isF7t(t) || t.own || t.cat !== 'tt' || !((t.np > 14 && !/todo|grupo|pareja|filas/i.test(t.jug)) || F11ONLY.test(nz(t.n + ' ' + t.tipo + ' ' + t.obj)));
+  const vis = t => MODE === 'f7' ? f7ok(t) : !isF7t(t) || t.own;
+  const EDM = () => MODE === 'f7' ? ['A', 'B', 'P'] : ['S', 'J', 'C', 'I', 'A'];
+  const edOpts = cur => EDM().map(k => `<option value="${k}" ${cur === k ? 'selected' : ''}>${ED[k]}</option>`).join('');
+  const defEd = () => MODE === 'f7' ? 'A' : 'S';
+  const fixEd = e => EDM().includes(e) ? e : defEd();
   let favs = new Set(store.get('favs', []));
   let ses = store.get('ses', { md: 'MD-4', min: 75, gk: false, items: [] });
   let saved = store.get('saved', []);
@@ -103,7 +113,7 @@
     fin: { n: 'Finalización', i: '🎯', re: /finaliz|remat|tiro|centros?\b|cut-back|al portero|llegada|segunda jugada|rechace|penalti/ },
     tra: { n: 'Transiciones', i: '⚡', re: /tras perdida|presion tras|repliegue|5 segundos|transicion|contraataque|contragolpe|tras recuperacion|tras robo|oleada|reinicio rapido/ },
     pre: { n: 'Presión', i: '🔥', re: /presion|pressing|senales|presionar/ },
-    def: { n: 'Defensa organizada', i: '🛡', re: /defensa|defensiv|bascula|linea de 4|bloque|marcaje|inferioridad|vigilancia/ },
+    def: { n: 'Defensa organizada', i: '🛡', re: /\bdefensa\b|defensiv|bascula|linea de 4|linea de 3|bloque|marcaje|inferioridad|vigilancia|cobertura/ },
     abp: { n: 'Balón parado', i: '🚩', re: /corner|falta|saque de banda|abp|balon parado|barrera/ },
     tec: { n: 'Técnica individual', i: '🎓', re: /control orientado|conduccion|regate|tecnica|pase por parejas|habilidad|golpeo/ }
   };
@@ -122,40 +132,52 @@
   // Progresión: la misma idea en fácil / media / difícil
   const ladCache = {};
   function ladder(t) {
-    if (ladCache[t.id] && ladCache[t.id].v === t && ladCache[t.id].n === TAREAS.length) return ladCache[t.id].l;
+    if (ladCache[t.id] && ladCache[t.id].v === t && ladCache[t.id].n === TAREAS.length + MODE) return ladCache[t.id].l;
     const pr = prinOf(t), out = [null, null, null]; out[t.dif - 1] = t;
     [1, 2, 3].forEach(d => {
       if (d === t.dif) return; let best = null, bs = 2.5;
       TAREAS.forEach(x => {
-        if (x.id === t.id || x.cat !== t.cat || x.dif !== d) return;
+        if (x.id === t.id || x.cat !== t.cat || x.dif !== d || !vis(x)) return;
         const xp = prinOf(x), s = pr.filter(k => xp.includes(k)).length * 2 + (x.tipo === t.tipo ? 3 : 0) + (x.fase === t.fase ? 1 : 0) + (x.md.some(m => t.md.includes(m)) ? 1 : 0) + (x.carga === t.carga ? 1 : 0);
         if (s > bs) { bs = s; best = x; }
       });
       out[d - 1] = best;
     });
-    ladCache[t.id] = { v: t, l: out, n: TAREAS.length }; return out;
+    ladCache[t.id] = { v: t, l: out, n: TAREAS.length + MODE }; return out;
   }
   // ---------- Adaptación por categoría (edad) ----------
-  const EDF = { S: { k: 1, d: 1 }, J: { k: .95, d: 1 }, C: { k: .88, d: .9 }, I: { k: .78, d: .8 }, A: { k: .65, d: .7 } };
+  const EDF = { S: { k: 1, d: 1 }, J: { k: .95, d: 1 }, C: { k: .88, d: .9 }, I: { k: .78, d: .8 }, A: { k: .65, d: .7 }, B: { k: .55, d: .6 }, P: { k: .45, d: .5 } };
+  // Las tareas propias de fútbol 7 ya están pensadas para alevín
+  const EDF7 = { A: { k: 1, d: 1 }, B: { k: .88, d: .9 }, P: { k: .75, d: .8 }, I: { k: 1, d: 1 } };
+  const clamp7 = (w, h) => { const s = Math.min(1, 58 / Math.max(w, h), 38 / Math.min(w, h)); return s < 1 ? [Math.round(w * s), Math.round(h * s)] : [w, h]; };
+  const edFit = (t, ed) => !ed || t.ed.includes(ed) || (!isF7t(t) && (ed === 'B' || ed === 'P') && t.ed.includes('A') && (t.dif === 1 || t.cat === 'jue') && !(t.cat === 'fis' && t.int >= 3));
   function catAdapt(t, ed) {
-    if (!ed || ed === 'S' || !EDF[ed]) return null;
-    const f = EDF[ed], notes = [], tx = nz(t.n + ' ' + t.tipo + ' ' + t.desc + ' ' + (t.reglas || []).join(' '));
-    const k = t.cat === 'pre' ? 1 : f.k, kid = ed === 'A' || ed === 'I';
-    const w = t.esp && t.esp[0] ? Math.round(t.esp[0] * k) : null, h = t.esp && t.esp[1] ? Math.round(t.esp[1] * k) : null;
+    if (!ed) return null;
+    const own7 = isF7t(t), to7 = MODE === 'f7' && !own7;
+    const f = own7 ? (EDF7[ed] || EDF[ed]) : EDF[ed]; if (!f) return null;
+    const small = ed === 'B' || ed === 'P', kid = small || ed === 'A' || ed === 'I';
+    const fit = edFit(t, ed);
+    if (fit && f.k === 1 && f.d === 1 && !to7) return null;
+    const notes = [], tx = nz(t.n + ' ' + t.tipo + ' ' + t.desc + ' ' + (t.reglas || []).join(' '));
+    const k = t.cat === 'pre' ? 1 : f.k;
+    let w = t.esp && t.esp[0] ? Math.round(t.esp[0] * k) : null, h = t.esp && t.esp[1] ? Math.round(t.esp[1] * k) : null;
+    if (to7 && w) [w, h] = clamp7(w, h);
     const dur = t.fase === 'pri' ? Math.max(5, Math.round(t.dur * f.d)) : t.dur;
-    const fit = t.ed.includes(ed);
+    if (to7) notes.push('Tarea de fútbol 11 adaptada al campo de fútbol 7.');
     if (!fit) notes.push(`No está pensada para ${ED[ed].toLowerCase()}: mejor usa una alternativa.`);
-    if (k < 1 && w) notes.push(`Espacio reducido al ${Math.round(k * 100)} % de cada lado: ${w} x ${h} m.`);
+    if (w && (w !== t.esp[0] || h !== t.esp[1])) notes.push(`Espacio: ${w} x ${h} m (original ${t.esp[0]} x ${t.esp[1]} m).`);
     if (dur < t.dur) notes.push(`Menos volumen: ${dur}' en lugar de ${t.dur}'${t.int >= 3 ? ', con pausas un poco más largas' : ''}.`);
     if (kid && t.cat === 'fis' && /fuerza|pliometr|nordic|sentadilla|lastre|trineo|medicinal|copenhag|zancada/.test(tx)) notes.push('Fuerza con autocargas y buena técnica: sin lastres, trineo ni excéntricos máximos.');
     else if ((ed === 'C' || ed === 'J') && t.cat === 'fis' && t.carga === 'Tensión') notes.push('Asegura la técnica antes de añadir carga externa.');
-    if (kid && t.cat === 'fis' && t.int >= 3 && !/balon/.test(tx)) notes.push('A estas edades funciona mejor en forma jugada (con balón) que corriendo sin él.');
+    if (kid && t.cat === 'fis' && t.int >= 3 && !/balon/.test(tx)) notes.push(small ? 'A esta edad, la condición física se trabaja jugando: mejor un juego con balón.' : 'A estas edades funciona mejor en forma jugada (con balón) que corriendo sin él.');
     if (kid && /toque/.test(tx) && (t.cat === 'tt' || t.cat === 'jue')) notes.push('Toques libres o máximo 3: prioriza el control y la decisión.');
     if (kid && /rondo|posesion|juego de posicion/.test(nz(t.tipo))) notes.push('Añade un comodín más para que la posesión tenga éxito.');
-    if (ed === 'A' && /fuera de juego/.test(tx)) notes.push('Sin fuera de juego.');
-    if (ed === 'A' && (t.cat === 'tt' || t.cat === 'jue' || t.cat === 'por')) notes.push('Balón del n.º 4.');
+    if ((ed === 'A' || small) && /fuera de juego/.test(tx)) notes.push('Sin fuera de juego.');
+    if (small && (t.cat === 'tt' || t.cat === 'jue')) notes.push('Explicación corta (30 segundos), mucho tiempo con balón y que nadie espere en fila.');
+    if ((ed === 'A' || ed === 'B') && (t.cat === 'tt' || t.cat === 'jue' || t.cat === 'por')) notes.push('Balón del n.º 4.');
+    if (ed === 'P' && (t.cat === 'tt' || t.cat === 'jue' || t.cat === 'por')) notes.push('Balón pequeño y ligero.');
     let alt = null;
-    if (!fit) { const pr = prinOf(t); alt = TAREAS.filter(x => x.id !== t.id && x.cat === t.cat && x.fase === t.fase && x.ed.includes(ed)).map(x => [(x.tipo === t.tipo ? 3 : 0) + prinOf(x).filter(p => pr.includes(p)).length * 2 + (x.md.some(m => t.md.includes(m)) ? 1 : 0) + (x.carga === t.carga ? 1 : 0), x]).sort((a, b) => b[0] - a[0]).map(x => x[1])[0] || null; }
+    if (!fit) { const pr = prinOf(t); alt = TAREAS.filter(x => x.id !== t.id && vis(x) && x.cat === t.cat && x.fase === t.fase && x.ed.includes(ed)).map(x => [(x.tipo === t.tipo ? 3 : 0) + prinOf(x).filter(p => pr.includes(p)).length * 2 + (x.md.some(m => t.md.includes(m)) ? 1 : 0) + (x.carga === t.carga ? 1 : 0) + (isF7t(x) ? 1 : 0), x]).sort((a, b) => b[0] - a[0]).map(x => x[1])[0] || null; }
     return { k, w, h, dur, fit, notes, alt };
   }
   const adjDur = (t, ed) => { const c = catAdapt(t, ed); return c ? c.dur : t.dur; };
@@ -168,6 +190,7 @@
       if (a) { w = a.w; h = a.h; jug = g > 1 ? `${g} grupos de ${a.jug || Math.floor(nj / g)}` : a.jug || jug; ch = true; }
     }
     const c = catAdapt(t, ed); if (c && c.k < 1) { w = Math.round(w * c.k); h = Math.round(h * c.k); ch = true; }
+    if (MODE === 'f7' && !isF7t(t)) { const [w2, h2] = clamp7(w, h); if (w2 !== w || h2 !== h) { w = w2; h = h2; ch = true; } }
     return ch ? { w, h, jug } : null;
   }
   // Contenidos por semana: { 'yyyy-mm-dd' (lunes): { p, s, niv, nota } }
@@ -188,7 +211,7 @@
   const catTag = t => `<span class="cat" style="--c:${CAT[t.cat].c}">${CAT[t.cat].s}</span>`;
   const card = t => `<a class="card" href="#/t/${t.id}">
     <div class="thumb">${drawField(t.d, { mini: true })}</div>
-    <div class="ci"><div class="ct">${catTag(t)}<span class="tipo">${esc(t.tipo)}</span>${t.own ? '<span class="own">MÍA</span>' : ''}${favs.has(t.id) ? '<span class="star">★</span>' : ''}</div>
+    <div class="ci"><div class="ct">${catTag(t)}<span class="tipo">${esc(t.tipo)}</span>${t.own ? '<span class="own">MÍA</span>' : ''}${MODE === 'f7' && !isF7t(t) ? '<span class="f7a">Adaptada F7</span>' : ''}${favs.has(t.id) ? '<span class="star">★</span>' : ''}</div>
     <h3>${esc(t.n)}</h3>
     <div class="meta">${mdChips(t)}</div>
     <div class="meta">${intBadge(t)}<span>⏱ ${t.dur}'</span><span>👥 ${esc(t.jug)}</span>${(notes[t.id] || {}).s ? `<span class="rate">★${notes[t.id].s}</span>` : ''}</div>
@@ -197,6 +220,7 @@
   function filtered() {
     const q = F.q.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     return TAREAS.filter(t => {
+      if (!vis(t)) return false;
       if (F.own && !t.own) return false;
       if (F.cat.size && !F.cat.has(t.cat)) return false;
       if (F.tipo && t.tipo !== F.tipo) return false;
@@ -214,6 +238,7 @@
   const SORTS = { rec: 'Recomendado', top: 'Mejor valoradas', intA: 'Intensidad ↑', intD: 'Intensidad ↓', dur: 'Duración', az: 'Nombre A-Z' };
   function sorted(r) {
     const f = { top: (a, b) => ((notes[b.id] || {}).s || 0) - ((notes[a.id] || {}).s || 0), intA: (a, b) => a.int - b.int, intD: (a, b) => b.int - a.int, dur: (a, b) => a.dur - b.dur, az: (a, b) => a.n.localeCompare(b.n, 'es') }[F.sort];
+    if (!f && MODE === 'f7') r = r.slice().sort((a, b) => isF7t(b) - isF7t(a));
     if (!f && F.nj) return r.slice().sort((a, b) => (flexible(a) ? 99 : F.nj - a.np) - (flexible(b) ? 99 : F.nj - b.np));
     return f ? r.slice().sort(f) : r;
   }
@@ -225,14 +250,14 @@
     $('#app').innerHTML = `<div id="lib">
       <div class="search"><input id="q" type="search" placeholder="Buscar: rondo, RSA, centros, nórdicos…" value="${esc(F.q)}" autocomplete="off"></div>
       <div class="row scroll">${mine.length ? chip('own', '1', '👤 Mías', F.own) : ''}${Object.entries(CAT).map(([k, c]) => chip('cat', k, c.i + ' ' + c.s, F.cat.has(k))).join('')}</div>
-      ${F.cat.size === 1 ? `<div class="row scroll"><span class="lbl">Tipo</span>${chip('tipo', '', 'Todos', !F.tipo)}${[...new Set(TAREAS.filter(t => F.cat.has(t.cat)).map(t => t.tipo))].sort().map(x => chip('tipo', esc(x), esc(x), F.tipo === x)).join('')}</div>` : ''}
+      ${F.cat.size === 1 ? `<div class="row scroll"><span class="lbl">Tipo</span>${chip('tipo', '', 'Todos', !F.tipo)}${[...new Set(TAREAS.filter(t => vis(t) && F.cat.has(t.cat)).map(t => t.tipo))].sort().map(x => chip('tipo', esc(x), esc(x), F.tipo === x)).join('')}</div>` : ''}
       <div class="row scroll"><span class="lbl">Día</span>${chip('md', '', 'Todos', !F.md)}${MDS.map(m => chip('md', m, m, F.md === m)).join('')}</div>
       <div class="row between"><button class="more" id="more">${F.open ? '▴' : '▾'} Más filtros${nf ? ` (${nf})` : ''}</button><select id="sort" class="sort" aria-label="Ordenar">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${F.sort === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
       <div class="fpanel" ${F.open ? '' : 'hidden'}>
         <div class="row wrap"><span class="lbl">Principio de juego</span>${chip('prin', '', 'Todos', !F.prin)}${Object.entries(PRIN).map(([k, p]) => chip('prin', k, p.i + ' ' + p.n, F.prin === k)).join('')}</div>
         <div class="row wrap"><span class="lbl">Intensidad</span>${[1, 2, 3, 4].map(i => chip('int', i, INT[i].n, F.int.has(i))).join('')}</div>
         <div class="row wrap"><span class="lbl">Dificultad</span>${[1, 2, 3].map(i => chip('dif', i, DIF[i], F.dif.has(i))).join('')}</div>
-        <div class="row wrap"><span class="lbl">Categoría</span>${Object.entries(ED).map(([k, v]) => chip('ed', k, v, F.ed.has(k))).join('')}</div>
+        <div class="row wrap"><span class="lbl">Categoría</span>${EDM().slice().reverse().map(k => chip('ed', k, ED[k], F.ed.has(k))).join('')}</div>
         <div class="row wrap"><span class="lbl">Jugadores</span><input id="nj" class="nj" type="number" min="2" max="40" inputmode="numeric" placeholder="¿Cuántos tienes hoy?" value="${F.nj || ''}"><small class="sub">Muestra tareas que puedes hacer con ellos y cómo adaptarlas.</small></div>
         <div class="row wrap"><span class="lbl">Material</span>${Object.entries(MAT).map(([k, v]) => chip('mat', k, v, F.mat.has(k))).join('')}<small class="sub full">Marca el material que tienes: solo verás tareas que puedes montar con él (balones y petos se dan por hechos).</small></div>
         ${nf || F.cat.size || F.md || F.q || F.own ? '<button class="link" id="clr">Quitar todos los filtros</button>' : ''}
@@ -297,7 +322,7 @@
           </div>
         </section>
         ${t.np && t.esp && t.esp[0] ? `<section class="adapt"><h2>Adaptar a mis jugadores</h2><div class="adrow"><label>Tengo <input id="adn" type="number" min="2" max="40" inputmode="numeric" value="${F.nj || t.np}"> jugadores</label><div id="adout"></div></div></section>` : ''}
-        <section class="adapt"><h2>Adaptar a la categoría</h2><div class="adrow"><label>Categoría <select id="ced">${Object.entries(ED).reverse().map(([k, v]) => `<option value="${k}" ${(ses.ed || 'S') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label><div id="cedout"></div></div></section>
+        <section class="adapt"><h2>Adaptar a la categoría</h2><div class="adrow"><label>Categoría <select id="ced">${edOpts(fixEd(ses.ed))}</select></label><div id="cedout"></div></div></section>
         ${progHTML(t)}
         ${t.desc ? `<section><h2>Descripción</h2><p>${esc(t.desc).replace(/\n/g, '<br>')}</p></section>` : ''}
         ${t.reglas && t.reglas.length ? `<section><h2>Reglas</h2><ul>${li(t.reglas)}</ul></section>` : ''}
@@ -434,7 +459,7 @@
     return `<section class="prog"><h2>Progresión</h2><p class="sub">La misma idea con más o menos exigencia. Sube de nivel cuando el equipo domine la tarea.</p><div class="ladder">${l.map((x, i) => x ? `<a href="#/t/${x.id}" class="lad ${x.id === t.id ? 'on' : ''}"><small>${['1 · Fácil', '2 · Media', '3 · Difícil'][i]}</small><b>${esc(x.n)}</b>${x.id === t.id ? '<em>Estás aquí</em>' : ''}</a>` : `<div class="lad off"><small>${['1 · Fácil', '2 · Media', '3 · Difícil'][i]}</small><b>—</b></div>`).join('<span class="lar">›</span>')}</div></section>`;
   }
   function related(t) {
-    const r = TAREAS.filter(x => x.id !== t.id && x.cat === t.cat && x.md.some(m => t.md.includes(m))).slice(0, 4);
+    const r = TAREAS.filter(x => x.id !== t.id && vis(x) && x.cat === t.cat && x.md.some(m => t.md.includes(m))).slice(0, 4);
     return r.length ? `<section><h2>Tareas parecidas</h2><div class="grid">${r.map(card).join('')}</div></section>` : '';
   }
 
@@ -446,15 +471,16 @@
   function pickP(pool, used, maxDur, pf, D) {
     D = D || (t => t.dur);
     const p = pool.filter(t => !used.has(t.id) && (!maxDur || D(t) <= maxDur)); if (!p.length) return null;
-    if (!pf) return p[Math.floor(Math.random() * p.length)];
-    const sc = t => { const pr = prinOf(t); return (pf.p && pr.includes(pf.p) ? 3 : 0) + (pf.s && pr.includes(pf.s) ? 1.5 : 0) + (pf.niv ? (t.dif === pf.niv ? 1 : Math.abs(t.dif - pf.niv) > 1 ? -1.5 : 0) : 0) + (pf.carga && t.carga === pf.carga ? 3 : 0) + Math.random() * 1.6; };
+    if (!pf && MODE !== 'f7') return p[Math.floor(Math.random() * p.length)];
+    pf = pf || {};
+    const sc = t => { const pr = prinOf(t); return (MODE === 'f7' && isF7t(t) ? 2.5 : 0) + (pf.p && pr.includes(pf.p) ? 3 : 0) + (pf.s && pr.includes(pf.s) ? 1.5 : 0) + (pf.niv ? (t.dif === pf.niv ? 1 : Math.abs(t.dif - pf.niv) > 1 ? -1.5 : 0) : 0) + (pf.carga && t.carga === pf.carga ? 3 : 0) + Math.random() * 1.6; };
     return p.map(t => [sc(t), t]).sort((a, b) => b[0] - a[0])[0][1];
   }
   // o = { md, min, gk (n.º porteros), ed, nj, mat (Set|null), pf, order }
   function genSession(o) {
     const md = o.md, D = t => adjDur(t, o.ed), used = new Set(), items = [];
     const can = t => (!o.mat || [...mats(t)].every(x => o.mat.has(x))) && (!o.nj || flexible(t) || t.np <= o.nj + 1);
-    const base = TAREAS.filter(t => t.md.includes(md) && can(t)), strict = base.filter(t => !o.ed || t.ed.includes(o.ed));
+    const base = TAREAS.filter(t => vis(t) && t.md.includes(md) && can(t)), strict = base.filter(t => edFit(t, o.ed));
     const P = (f, maxDur, pf) => pickP(strict.filter(f), used, maxDur, pf, D) || pickP(base.filter(f), used, maxDur, pf, D);
     const add = (t, b) => { if (t) { used.add(t.id); items.push({ id: t.id, b }); return D(t); } return 0; };
     let left = o.min;
@@ -504,7 +530,7 @@
         <div class="form">
           <label>Día<select id="smd">${opt(MDS, ses.md)}</select></label>
           <label>Duración<select id="smin">${opt([45, 60, 75, 90, 105], ses.min)}</select></label>
-          <label>Categoría<select id="sed">${Object.entries(ED).reverse().map(([k, v]) => `<option value="${k}" ${(ses.ed || 'S') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+          <label>Categoría<select id="sed">${edOpts(fixEd(ses.ed))}</select></label>
           <label>Jugadores<input id="snj" type="number" min="4" max="40" inputmode="numeric" placeholder="—" value="${ses.nj || ''}"></label>
           <label class="chk"><input type="checkbox" id="sgk" ${ses.gk ? 'checked' : ''}> Porteros</label>
         </div>
@@ -550,7 +576,7 @@
       if (op === 'down') { const j = ses.items.findIndex((x, k) => k > i && x.b === it.b); if (j >= 0) [ses.items[j], ses.items[i]] = [ses.items[i], ses.items[j]]; }
       if (op === 'swap') {
         const cur = byId[it.id], used = new Set(ses.items.map(x => x.id));
-        const pool = TAREAS.filter(t => t.md.includes(ses.md) && blockOf(t) === it.b && !used.has(t.id));
+        const pool = TAREAS.filter(t => vis(t) && t.md.includes(ses.md) && blockOf(t) === it.b && !used.has(t.id));
         const same = pool.filter(t => t.cat === cur.cat); const n = pick(same.length ? same : pool, used);
         if (n) it.id = n.id; else toast('No hay otra tarea para este bloque');
       }
@@ -682,7 +708,7 @@
 
   function vMicro() {
     $('#app').innerHTML = `<section class="intro"><h1>Microciclo competitivo</h1><p>Guía de la semana con un partido (domingo). Cada día tiene una carga dominante: así se reparte el esfuerzo para llegar fresco al partido. Si tu equipo entrena 3 días, prioriza <b>MD-4</b>, <b>MD-3/MD-2</b> y <b>MD-1</b>.</p></section>
-      <div class="week">${MDS.map(m => { const x = MDINFO[m], n = TAREAS.filter(t => t.md.includes(m)).length; return `
+      <div class="week">${MDS.map(m => { const x = MDINFO[m], n = TAREAS.filter(t => vis(t) && t.md.includes(m)).length; return `
         <article class="day" style="--c:${INT[x.int].c}">
           <header><b>${m}</b><span>${x.dia} · ${x.t}</span></header>
           <div class="kv s"><div><small>Intensidad</small>${x.int ? `<span class="int" style="--c:${INT[x.int].c}"><i></i>${INT[x.int].n}</span>` : ''}</div><div><small>Volumen</small><b>${x.vol}</b></div><div><small>Espacio</small><b>${x.esp}</b></div></div>
@@ -723,7 +749,7 @@
   const BLANK = { n: '', cat: 'tt', tipo: '', md: [], int: 2, rpe: '', carga: 'Tensión', fase: 'pri', dif: 2, ed: 'ICJS', jug: '', np: '', esp: null, ser: '', rec: '', dur: '', obj: '', desc: '', reglas: [], cons: [], var: [], d: { v: [27.5, 11, 50, 46] } };
   function vEdit(mode, id) {
     let t;
-    if (mode === 'nueva') t = JSON.parse(JSON.stringify(BLANK));
+    if (mode === 'nueva') { t = JSON.parse(JSON.stringify(BLANK)); if (MODE === 'f7') { t.d = { f7: true }; t.ed = 'PBA'; } }
     else { const src = byId[id]; if (!src) { $('#app').innerHTML = '<div class="empty">Tarea no encontrada.</div>'; return; } t = JSON.parse(JSON.stringify(src)); if (mode === 'duplicar') { delete t.id; t.n = t.n + ' (copia)'; } }
     TaskEditor.mount($('#app'), t, {
       title: { nueva: 'Nueva tarea', editar: 'Editar tarea', duplicar: 'Duplicar y editar' }[mode],
@@ -759,15 +785,19 @@
     for3: { n: 'Formación · 3 entrenos (L-X-V) + partido el sábado', d: [['MD-4', 75], null, ['MD-3', 75], null, ['MD-1', 60], 'match', null] },
     base2: { n: 'Fútbol base · 2 entrenos (M-J) + partido el sábado', d: [null, ['MD-4', 75], null, ['MD-2', 75], null, 'match', null] },
     dos: { n: 'Semana con 2 partidos (miércoles y domingo)', d: [['MD+1', 60], ['MD-1', 60], 'match', ['MD+1', 60], ['MD-2', 70], ['MD-1', 60], 'match'] },
-    pre: { n: 'Pretemporada · doble carga y amistoso el sábado', d: [['MD-4', 90], ['MD-3', 90], ['MD+1', 60], ['MD-4', 90], ['MD-3', 90], 'match', null] }
+    pre: { n: 'Pretemporada · doble carga y amistoso el sábado', d: [['MD-4', 90], ['MD-3', 90], ['MD+1', 60], ['MD-4', 90], ['MD-3', 90], 'match', null] },
+    f7a3: { f7: 1, n: 'Fútbol 7 · 3 entrenos (L-X-V) + partido el sábado', d: [['MD-4', 75], null, ['MD-3', 75], null, ['MD-1', 60], 'match', null] },
+    f7a2: { f7: 1, n: 'Fútbol 7 · 2 entrenos (M-J) + partido el sábado', d: [null, ['MD-4', 75], null, ['MD-2', 75], null, 'match', null] },
+    f7b2: { f7: 1, n: 'Benjamín / prebenjamín · 2 entrenos de 60′ + partido', d: [null, ['MD-4', 60], null, ['MD-2', 60], null, 'match', null] },
+    f7pre: { f7: 1, n: 'Fútbol 7 · pretemporada: 3 entrenos + amistoso', d: [['MD-4', 75], null, ['MD-3', 75], null, ['MD-2', 60], 'match', null] }
   };
   function applyTpl(key, mon) {
     const tp = WTPL[key], f0 = [...Array(7)].map((_, i) => iso(addDays(mon, i)));
     if (f0.some(f => plan[f] && plan[f].k !== 'none') && !confirm('Esta semana ya tiene días planificados. ¿Sustituirlos por la plantilla?')) return false;
-    const pf = weekPf(mon) || (key === 'pre' ? { niv: 1 } : null), short = tp.n.split(' · ')[0];
+    const pf = weekPf(mon) || (/pre/.test(key) ? { niv: 1 } : null), short = tp.n.split(' · ')[0];
     tp.d.forEach((x, i) => {
       const f = f0[i], old = plan[f] || {}, keep = { realMin: old.realMin, realEj: old.realEj, realSrc: old.realSrc };
-      if (x === 'match') plan[f] = { k: 'match', name: key === 'pre' ? 'Amistoso' : 'Partido', min: 90, rpe: 8 };
+      if (x === 'match') plan[f] = { k: 'match', name: /pre/.test(key) ? 'Amistoso' : 'Partido', min: tp.f7 ? 60 : 90, rpe: 8 };
       else if (!x) plan[f] = { k: 'rest' };
       else { const items = genSession({ md: x[0], min: x[1], gk: ses.gk, ed: ses.ed, nj: ses.nj, pf }); plan[f] = { k: 'ses', name: `${short} · ${x[0]}`, md: x[0], items, ...sesTot(items, ses.ed) }; }
       if (keep.realSrc) Object.assign(plan[f], keep);
@@ -806,7 +836,7 @@
       </div>
       <p class="sub">Marca el día del partido y el MD de cada día se calcula solo. Aquí diseñas la semana; el control de la carga real (RPE, ACWR, monotonía…) se lleva en My Team.</p>
       <div class="pweek">${rows}</div>
-      <div class="acts"><select id="wtpl" class="btn"><option value="">📋 Aplicar plantilla de semana…</option>${Object.entries(WTPL).map(([k, v]) => `<option value="${k}">${esc(v.n)}</option>`).join('')}</select><button class="btn ghost" id="copyw">⧉ Copiar semana anterior</button></div>
+      <div class="acts"><select id="wtpl" class="btn"><option value="">📋 Aplicar plantilla de semana…</option>${Object.entries(WTPL).filter(([k, v]) => !!v.f7 === (MODE === 'f7')).map(([k, v]) => `<option value="${k}">${esc(v.n)}</option>`).join('')}</select><button class="btn ghost" id="copyw">⧉ Copiar semana anterior</button></div>
       <section class="bridge"><h2>Conexión con My Team</h2>
         <div id="mt" class="mtbox"><span class="sub">Buscando My Team en este móvil…</span></div>
         <details class="csvd"><summary>Sin conexión directa: exportar el plan en CSV</summary>
@@ -822,7 +852,7 @@
       if (v === 'cur') { if (!ses.items.length) { toast('La sesión actual está vacía'); sel.value = ''; return; } plan[f] = { k: 'ses', name: `Sesión ${ses.md}`, md: ses.md, items: JSON.parse(JSON.stringify(ses.items)), ...sesTot(ses.items, ses.ed) }; }
       else if (v.startsWith('sv:')) { const x = saved[+v.slice(3)]; plan[f] = { k: 'ses', name: x.name, md: x.md, items: JSON.parse(JSON.stringify(x.items)), ...sesTot(x.items, ses.ed) }; }
       else if (v === 'gen') { const md = MDS.includes(mdOf(f)) ? mdOf(f) : 'MD-3'; const items = genSession({ md, min: ses.min, gk: ses.gk, ed: ses.ed, nj: ses.nj, pf: weekPf(f) }); if (!items.length) { toast('No hay tareas para ' + md); sel.value = ''; return; } plan[f] = { k: 'ses', name: `Sesión ${md}`, md, items, ...sesTot(items, ses.ed) }; }
-      else if (v === 'match') plan[f] = { k: 'match', min: 90, rpe: 8 };
+      else if (v === 'match') plan[f] = { k: 'match', min: MODE === 'f7' ? 60 : 90, rpe: 8 };
       else if (v === 'rest') plan[f] = { k: 'rest' };
       else if (v === 'clr') { delete plan[f]; if (keep.realSrc) plan[f] = { k: 'none' }; }
       if (plan[f] && keep.realSrc) Object.assign(plan[f], keep);
@@ -891,7 +921,7 @@
     const popt = (v, empty) => `<option value="">${empty}</option>` + Object.entries(PRIN).map(([k, p]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${p.i} ${p.n}</option>`).join('');
     const rows = [...Array(16)].map((_, i) => {
       const m = addDays(mon0, i * 7), k = iso(m), c = cont[k] || {}, ns = [...Array(7)].filter((_, j) => (plan[iso(addDays(m, j))] || {}).k === 'ses').length;
-      const n = c.p ? TAREAS.filter(t => prinOf(t).includes(c.p) && (!c.niv || t.dif === c.niv)).length : 0;
+      const n = c.p ? TAREAS.filter(t => vis(t) && prinOf(t).includes(c.p) && (!c.niv || t.dif === c.niv)).length : 0;
       return `<div class="tw ${k === cur ? 'today' : ''}" data-w="${k}">
         <div class="tw1"><b>${fmtD(m)}</b><small>${k === cur ? 'Esta semana' : ns ? ns + ' sesiones' : ''}</small></div>
         <div class="tw2"><select data-k="p" aria-label="Contenido principal">${popt(c.p, 'Contenido principal…')}</select><select data-k="s" aria-label="Contenido secundario">${popt(c.s, 'Secundario (opcional)')}</select>
@@ -932,13 +962,14 @@
   let AS = store.get('as', null);
   function vAsistente() {
     const wc = contOf(new Date()), dmd = (() => { const m = mdOf(iso(new Date())); return MDS.includes(m) ? m : ses.md; })();
-    const A = AS = AS || { ed: ses.ed || 'S', md: dmd, nj: ses.nj || 16, gk: 2, min: ses.min || 75, mat: ['conos', 'picas', 'porterias', 'mini'], obj: '' };
+    const A = AS = AS || { ed: fixEd(ses.ed), md: dmd, nj: ses.nj || (MODE === 'f7' ? 10 : 16), gk: 2, min: ses.min || 75, mat: ['conos', 'picas', 'porterias', 'mini'], obj: '' };
     if (!AS._t || AS._t !== iso(new Date())) { A.md = dmd; A._t = iso(new Date()); }
+    A.ed = fixEd(A.ed);
     const chip = (g, v, lab, on) => `<button class="chip ${on ? 'on' : ''}" data-g="${g}" data-v="${v}">${lab}</button>`;
     $('#app').innerHTML = `<section class="asis">
       <h1>✨ ¿Qué entreno hoy?</h1>
       <p class="sub">Responde y te preparo una sesión completa, adaptada a tu categoría, tus jugadores y tu material.</p>
-      <div class="aq"><b>1 · Categoría</b><div class="row wrap">${Object.entries(ED).reverse().map(([k, v]) => chip('ed', k, v, A.ed === k)).join('')}</div></div>
+      <div class="aq"><b>1 · Categoría</b><div class="row wrap">${EDM().map(k => chip('ed', k, ED[k], A.ed === k)).join('')}</div></div>
       <div class="aq"><b>2 · ¿Qué día es?</b><div class="row wrap">${MDS.map(m => chip('md', m, `${m}<small>${MDINFO[m].carga}</small>`, A.md === m)).join('')}</div></div>
       <div class="aq two"><label><b>3 · Jugadores de campo</b><input id="anj" type="number" min="4" max="40" inputmode="numeric" value="${A.nj}"></label><label><b>Porteros</b><input id="agk" type="number" min="0" max="4" inputmode="numeric" value="${A.gk}"></label><label><b>4 · Tiempo</b><select id="amin">${[45, 60, 75, 90, 105].map(v => `<option ${v === A.min ? 'selected' : ''} value="${v}">${v} min</option>`).join('')}</select></label></div>
       <div class="aq"><b>5 · Material que tienes</b><div class="row wrap">${Object.entries(MAT).map(([k, v]) => chip('mat', k, v, A.mat.includes(k))).join('')}</div><small class="sub">Balones y petos se dan por hechos.</small></div>
@@ -1092,7 +1123,7 @@
     if (!h.startsWith('#/campo')) stopTimer();
     if (PZ && !h.startsWith('#/pizarra')) { PZ.stop(); PZ = null; }
     let r = 'lib';
-    $('#back').hidden = true; $('#title').textContent = 'My Coach'; $('#subtitle').textContent = 'Biblioteca de tareas · ' + TAREAS.length + ' ejercicios';
+    $('#back').hidden = true; $('#title').textContent = 'My Coach'; $('#subtitle').textContent = (MODE === 'f7' ? 'Fútbol 7 · ' : 'Biblioteca de tareas · ') + TAREAS.filter(vis).length + ' ejercicios';
     if (h.startsWith('#/t/')) { r = 'task'; $('#back').hidden = false; $('#subtitle').textContent = 'Ficha de la tarea'; vTask(h.slice(4)); }
     else if (h.startsWith('#/sesion')) { r = 'ses'; $('#subtitle').textContent = 'Planifica tu sesión'; vSes(); }
     else if (h.startsWith('#/campo')) { r = 'ses'; $('#back').hidden = false; $('#subtitle').textContent = 'Modo campo · cronómetro'; vCampo(); }
@@ -1109,6 +1140,14 @@
     document.querySelectorAll('nav.bottom a').forEach(a => a.classList.toggle('on', a.dataset.r === r));
     if (r !== 'task') window.scrollTo(0, 0);
   }
+  function setMode(m) {
+    MODE = m; store.set('mode', m); document.body.classList.toggle('f7', m === 'f7');
+    ses.ed = fixEd(ses.ed); if (ses.nj && m === 'f7' && ses.nj > 16) ses.nj = null; saveSes(); if (AS) AS.ed = fixEd(AS.ed);
+    F.ed.clear(); F.tipo = '';
+    const b = $('#modeb'); if (b) b.dataset.m = m;
+  }
+  setMode(MODE);
+  $('#modeb').onclick = () => { setMode(MODE === 'f7' ? 'f11' : 'f7'); route(); toast(MODE === 'f7' ? `Fútbol 7: ${TAREAS.filter(vis).length} tareas (propias y adaptadas)` : `Fútbol 11: ${TAREAS.filter(vis).length} tareas`); };
   $('#back').onclick = () => history.length > 1 ? history.back() : (location.hash = '#/');
   window.addEventListener('hashchange', route);
   route();

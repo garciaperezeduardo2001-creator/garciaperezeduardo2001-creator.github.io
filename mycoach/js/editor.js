@@ -9,6 +9,22 @@
     mid: { n: 'Zona central', v: [27.5, 11, 50, 46] },
     area: { n: 'Área', v: [78, 8, 30, 52] }
   };
+  const VIEWS7 = {
+    full: { n: 'Campo completo', v: [-3, -3, 66, 46] },
+    half: { n: 'Medio campo', v: [27, -2, 36, 44] },
+    mid: { n: 'Zona central', v: [15, 6, 30, 28] },
+    area: { n: 'Área', v: [42, 4, 21, 32] }
+  };
+  // Pasa un dibujo de un campo a otro manteniendo su sitio relativo
+  function scaleD(d, sx, sy) {
+    const sm = (sx + sy) / 2, R = v => Math.round(v * 10) / 10;
+    (d.p || []).forEach(p => { p[1] = R(p[1] * sx); p[2] = R(p[2] * sy); });
+    ['c', 'pk', 'h', 'b', 'mg', 'g', 't'].forEach(k => (d[k] || []).forEach(e => { e[0] = R(e[0] * sx); e[1] = R(e[1] * sy); }));
+    (d.esc || []).forEach(e => { e[0] = R(e[0] * sx); e[1] = R(e[1] * sy); e[2] = R(e[2] * sm); });
+    (d.z || []).forEach(z => { z[0] = R(z[0] * sx); z[1] = R(z[1] * sy); z[2] = R(z[2] * sx); z[3] = R(z[3] * sy); });
+    (d.a || []).forEach(a => { a[1] = R(a[1] * sx); a[2] = R(a[2] * sy); a[3] = R(a[3] * sx); a[4] = R(a[4] * sy); if (a[5]) a[5] = R(a[5] * sm); });
+    (d.l || []).forEach(l => { l[0] = R(l[0] * sx); l[1] = R(l[1] * sy); l[2] = R(l[2] * sx); l[3] = R(l[3] * sy); });
+  }
   const TOOLS = [
     ['move', '✋', 'Mover'], ['A', '🔴', 'Equipo A'], ['B', '🔵', 'Equipo B'], ['N', '🟡', 'Comodín'], ['P', '🧤', 'Portero'], ['E', '⚪', 'Entrenador'],
     ['c', '🔺', 'Cono'], ['b', '⚽', 'Balón'], ['pk', '📍', 'Pica'], ['h', '🚧', 'Valla'], ['esc', '🪜', 'Escalera'], ['mg', '🥅', 'Miniportería'], ['g', '🥅', 'Portería'],
@@ -17,7 +33,7 @@
   const CONE_COL = ['#f97316', '#facc15', '#22c55e', '#3b82f6', '#ef4444'];
   const CATS = { tt: 'Técnico-táctico', fis: 'Físico condicional', pre: 'Prevención y recuperación', por: 'Porteros', jue: 'Juegos y dinámicas' };
   const MDS = ['MD+1', 'MD+2', 'MD-4', 'MD-3', 'MD-2', 'MD-1'];
-  const ED = { A: 'Alevín', I: 'Infantil', C: 'Cadete', J: 'Juvenil', S: 'Sénior' };
+  const ED = { P: 'Prebenjamín', B: 'Benjamín', A: 'Alevín', I: 'Infantil', C: 'Cadete', J: 'Juvenil', S: 'Sénior' };
   const CARGAS = ['Activación', 'Tensión', 'Duración', 'Velocidad', 'Recuperación', 'Mixta'];
   const PT_KEYS = ['c', 'pk', 'h', 'b', 'mg', 'g', 't', 'esc'];
 
@@ -41,7 +57,8 @@
         <div class="topts" id="topts"></div>
         <div class="board" id="board"></div>
         <div class="bopts">
-          <select id="view">${Object.entries(VIEWS).map(([k, v]) => `<option value="${k}">${v.n}</option>`).join('')}<option value="fit">Ajustar a lo dibujado</option><option value="" selected disabled>Vista…</option></select>
+          <select id="pitch" aria-label="Campo"><option value="11" ${d.f7 ? '' : 'selected'}>Campo de fútbol 11</option><option value="7" ${d.f7 ? 'selected' : ''}>Campo de fútbol 7</option></select>
+          <select id="view"></select>
           <button class="btn" id="undo">↶ Deshacer</button>
           <button class="btn" id="delsel" disabled>Eliminar seleccionado</button>
           <button class="btn ghost" id="wipe">Limpiar</button>
@@ -118,7 +135,7 @@
         for (let i = d.z.length - 1; i >= 0; i--) { const e = d.z[i]; if (x >= e[0] && x <= e[0] + e[2] && y >= e[1] && y <= e[1] + e[3]) return { key: 'z', i, part: 'in' }; }
         return null;
       }
-      const autoDir = x => x > 52.5 ? 'L' : 'R';
+      const autoDir = x => x > (d.f7 ? 30 : 52.5) ? 'L' : 'R';
       const nearPlayer = (x, y) => { const p = d.p.find(e => Math.hypot(e[1] - x, e[2] - y) < K() * 1.2); return p ? [p[1], p[2]] : [x, y]; };
 
       board.addEventListener('pointerdown', ev => {
@@ -193,8 +210,16 @@
       }
       function setTool(k) { tool = k; if (k !== 'move') sel = null; root.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === k)); toolOpts(); render(); }
       $('#tools').onclick = e => { const b = e.target.closest('[data-tool]'); if (b) setTool(b.dataset.tool); };
-      $('#view').onchange = e => { snap(); const v = e.target.value; d.v = v === 'fit' ? fieldBBox({ ...d, v: undefined }) : VIEWS[v].v.slice(); e.target.value = ''; render(); };
-      $('#undo').onclick = () => { if (!hist.length) return; const s = JSON.parse(hist.pop()); Object.keys(d).forEach(k => delete d[k]); Object.assign(d, s); sel = null; render(); };
+      const VW = () => d.f7 ? VIEWS7 : VIEWS;
+      const viewOpts = () => { $('#view').innerHTML = `${Object.entries(VW()).map(([k, v]) => `<option value="${k}">${v.n}</option>`).join('')}<option value="fit">Ajustar a lo dibujado</option><option value="" selected disabled>Vista…</option>`; };
+      viewOpts();
+      $('#view').onchange = e => { snap(); const v = e.target.value; d.v = v === 'fit' ? fieldBBox({ ...d, v: undefined }) : VW()[v].v.slice(); e.target.value = ''; render(); };
+      $('#pitch').onchange = e => {
+        const to7 = e.target.value === '7'; if (to7 === !!d.f7) return; snap();
+        if (to7) { scaleD(d, 60 / 105, 40 / 68); d.f7 = true; } else { scaleD(d, 105 / 60, 68 / 40); delete d.f7; }
+        d.v = VW().full.v.slice(); viewOpts(); render();
+      };
+      $('#undo').onclick = () => { if (!hist.length) return; const s = JSON.parse(hist.pop()); Object.keys(d).forEach(k => delete d[k]); Object.assign(d, s); sel = null; $('#pitch').value = d.f7 ? '7' : '11'; viewOpts(); render(); };
       $('#delsel').onclick = () => { if (!sel) return; snap(); d[sel.key].splice(sel.i, 1); sel = null; render(); };
       $('#wipe').onclick = () => { if (!confirm('¿Borrar todo lo dibujado?')) return; snap(); ['p', 'z', 'a', 'l', ...PT_KEYS].forEach(k => d[k] = []); sel = null; render(); };
 

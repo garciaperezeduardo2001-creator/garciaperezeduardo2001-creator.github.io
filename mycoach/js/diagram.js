@@ -18,7 +18,9 @@
    t  : textos [x, y, texto, tamaño?]
 */
 (function () {
-  const L = 105, W = 68;
+  // Campo de fútbol 11 (105 x 68) o de fútbol 7 (d.f7: 60 x 40, mismas coordenadas en metros)
+  let L = 105, W = 68;
+  const dims = d => { if (d && d.f7) { L = 60; W = 40; } else { L = 105; W = 68; } };
   const TEAM = {
     A: ['#e11d48', '#fff', '#fb7185', '#9f1239'], B: ['#2563eb', '#fff', '#60a5fa', '#1e3a8a'], N: ['#facc15', '#1f2937', '#fde68a', '#a16207'],
     P: ['#111827', '#facc15', '#4b5563', '#000000'], E: ['#ffffff', '#111827', '#ffffff', '#9ca3af'], C: ['#f97316', '#fff', '#fdba74', '#9a3412']
@@ -76,7 +78,23 @@
     return { type, path, at, len };
   }
 
+  function pitch7(lw, id, mini) {
+    const s = [], cy = 20;
+    s.push(`<rect x="0" y="0" width="60" height="40" fill="#1f8a43"/>`);
+    for (let i = 0; i < 8; i++) if (i % 2) s.push(`<rect x="${i * 7.5}" y="0" width="7.5" height="40" fill="#25994c"/>`);
+    if (!mini) s.push(`<rect x="0" y="0" width="60" height="40" fill="url(#vg-${id})"/>`);
+    const ln = `fill="none" stroke="rgba(255,255,255,.88)" stroke-width="${lw}" stroke-linecap="round"`;
+    s.push(`<g ${ln}><rect x="0" y="0" width="60" height="40"/><line x1="30" y1="0" x2="30" y2="40"/><circle cx="30" cy="20" r="6"/>
+      <rect x="0" y="7" width="12" height="26"/><rect x="0" y="14" width="5" height="12"/><rect x="48" y="7" width="12" height="26"/><rect x="55" y="14" width="5" height="12"/>
+      <path d="M0 1 A1 1 0 0 0 1 0"/><path d="M59 0 A1 1 0 0 0 60 1"/><path d="M0 39 A1 1 0 0 1 1 40"/><path d="M59 40 A1 1 0 0 1 60 39"/></g>`);
+    const net = mini ? 'rgba(255,255,255,.25)' : `url(#net-${id})`;
+    s.push(`<rect x="-1.6" y="17" width="1.6" height="6" fill="${net}" stroke="#fff" stroke-width="${lw}"/><rect x="60" y="17" width="1.6" height="6" fill="${net}" stroke="#fff" stroke-width="${lw}"/>`);
+    s.push(`<g fill="rgba(255,255,255,.9)"><circle cx="30" cy="20" r="${lw * 1.6}"/><circle cx="9" cy="20" r="${lw * 1.6}"/><circle cx="51" cy="20" r="${lw * 1.6}"/></g>`);
+    if (!mini) [[0, 0], [60, 0], [0, 40], [60, 40]].forEach(([x, y]) => s.push(`<line x1="${x}" y1="${y}" x2="${x}" y2="${y - 1.2}" stroke="#fff" stroke-width="${lw * .8}"/><path d="M${x} ${y - 1.2} l${x ? -1 : 1} .3 l${x ? 1 : -1} .3z" fill="#facc15"/>`));
+    return s.join('');
+  }
   function pitch(lw, id, mini) {
+    if (L === 60) return pitch7(lw, id, mini);
     const s = [];
     s.push(`<rect x="0" y="0" width="${L}" height="${W}" fill="#1f8a43"/>`);
     for (let i = 0; i < 14; i++) if (i % 2) s.push(`<rect x="${i * 7.5}" y="0" width="7.5" height="${W}" fill="#25994c"/>`);
@@ -108,11 +126,12 @@
     return `<rect x="${x - h}" y="${y0}" width="${w}" height="${dep}" fill="${fill}"/><path d="M${x - h} ${y + dy} L${x - h} ${y} L${x + h} ${y} L${x + h} ${y + dy}" fill="none" stroke="#fff" stroke-width="${lw * 1.7}" stroke-linejoin="round"/>`;
   }
 
-  window.fieldBBox = bbox;
+  window.fieldBBox = d => { dims(d); return bbox(d); };
+  window.fieldDims = d => (d && d.f7 ? [60, 40] : [105, 68]);
   window.fieldSteps = steps;
 
   window.drawField = function (d, opt = {}) {
-    d = d || {};
+    d = d || {}; dims(d);
     const id = ++uid, mini = !!opt.mini;
     let [vx, vy, vw, vh] = d.v || bbox(d);
     const AR = 1.5;
@@ -236,13 +255,14 @@
     }
     // ¿El tiro termina en una portería?
     function goalAt(x, y) {
-      const goals = [[0, 34, 4], [105, 34, 4], ...(d.g || []).map(g => [g[0], g[1], 4]), ...(d.mg || []).map(g => [g[0], g[1], Math.max(1.6, k)])];
+      const GL = d.f7 ? 60 : 105, GC = d.f7 ? 20 : 34, GH = d.f7 ? 3.2 : 4;
+      const goals = [[0, GC, GH], [GL, GC, GH], ...(d.g || []).map(g => [g[0], g[1], 4]), ...(d.mg || []).map(g => [g[0], g[1], Math.max(1.6, k)])];
       return goals.find(g => Math.abs(g[0] - x) < 2.5 + (g[2] > 3 ? 0 : 1) && Math.abs(g[1] - y) < g[2] + 1);
     }
     function celebrate(x, y) {
       const g = document.createElementNS(NS, 'g');
       g.innerHTML = `<circle cx="${x}" cy="${y}" r="${k * .8}" fill="none" stroke="#fde047" stroke-width="${k * .25}"><animate attributeName="r" from="${k * .6}" to="${k * 4}" dur=".9s" fill="freeze"/><animate attributeName="opacity" from="1" to="0" dur=".9s" fill="freeze"/></circle>`
-        + `<text x="${x + (x > 52 ? -k * 3 : k * 3)}" y="${y - k * 1.6}" text-anchor="middle" font-size="${k * 1.9}" font-weight="900" font-family="system-ui,sans-serif" fill="#fde047" stroke="rgba(0,0,0,.6)" stroke-width="${k * .3}" paint-order="stroke">¡GOL!<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.7;1" dur="1.4s" fill="freeze"/></text>`;
+        + `<text x="${x + (x > (d.f7 ? 30 : 52) ? -k * 3 : k * 3)}" y="${y - k * 1.6}" text-anchor="middle" font-size="${k * 1.9}" font-weight="900" font-family="system-ui,sans-serif" fill="#fde047" stroke="rgba(0,0,0,.6)" stroke-width="${k * .3}" paint-order="stroke">¡GOL!<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.7;1" dur="1.4s" fill="freeze"/></text>`;
       fx.appendChild(g); setTimeout(() => g.remove(), 1500);
     }
     function runStep(done) {
@@ -285,7 +305,7 @@
           const [tx, ty] = bm.end;
           P.forEach((p, i) => {
             if (usedP.has(i)) return; const t = pl[i][0];
-            if (t === 'P') { if ((p[0] < 22 || p[0] > 83) && Math.hypot(p[0] - tx, p[1] - ty) < 40) { const ny = 34 + Math.max(-2.6, Math.min(2.6, (ty - 34) * .22)); if (Math.abs(ny - p[1]) > .15 && Math.abs(p[1] - 34) < 6) reacts.push({ i, from: p.slice(), to: [p[0], ny] }); } return; }
+            if (t === 'P') { const GL = d.f7 ? 60 : 105, GC = d.f7 ? 20 : 34; if ((p[0] < GL * .21 || p[0] > GL * .79) && Math.hypot(p[0] - tx, p[1] - ty) < 40) { const ny = GC + Math.max(-2.6, Math.min(2.6, (ty - GC) * .22)); if (Math.abs(ny - p[1]) > .15 && Math.abs(p[1] - GC) < 6) reacts.push({ i, from: p.slice(), to: [p[0], ny] }); } return; }
             if (!defT || t !== defT) return;
             const dd = Math.hypot(tx - p[0], ty - p[1]); if (dd > 16 || dd < 2) return;
             const mv = Math.min(dd * .3, 3, dd - 1.6 * k); if (mv <= .2) return;
