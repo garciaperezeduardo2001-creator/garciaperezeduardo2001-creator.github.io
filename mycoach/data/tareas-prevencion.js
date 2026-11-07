@@ -334,3 +334,76 @@ T({ id: 'p37', n: 'Readaptación de isquios: fases de vuelta al sprint', cat: 'p
   cons: ['La velocidad máxima es la última fase.', 'Registrar sensaciones de cada sesión.'],
   var: ['+ Con balón y oposición.', '− Mantener la fase anterior.'],
   d: { z: [[22.5, 26, 60, 16]], c: [...conos(24, 29, 24, 39, 3), ...conos(44, 29, 44, 39, 3, '#22c55e'), ...conos(64, 29, 64, 39, 3, '#facc15'), ...conos(81, 29, 81, 39, 3, '#ef4444')], p: [A(23, 34), E(50, 41)], a: [['mov', 24, 34, 80.5, 34, 0]], t: [[34, 27.5, '60-70 %', .8], [54, 27.5, '80 %', .8], [72.5, 27.5, '90-100 %', .8]] } });
+
+// ---------- AMPLIACIÓN (p38 – p45) ----------
+T({ id: 'p38', n: 'Calentamiento RAMP con balón', cat: 'pre', tipo: 'Activación preventiva', ed: 'AICJS', dif: 1, md: ['MD-4', 'MD-3', 'MD-2', 'MD-1'], int: 2, rpe: '3-4', carga: 'Activación', fase: 'cal',
+  jug: 'Parejas', np: 2, esp: [20, 15], ser: '1 x 14\'', rec: '—', dur: 14,
+  obj: 'Calentar con las cuatro fases RAMP: elevar temperatura, activar, movilizar y potenciar, siempre con balón.',
+  desc: 'Elevar: pases por parejas en movimiento (3\'). Activar: puente de glúteo y plancha con pase de balón (3\'). Movilizar: zancadas con giro y pase, apertura de cadera (4\'). Potenciar: saltos y salida de 10 m con control (4\').',
+  reglas: ['Cada bloque con balón.', 'Intensidad que sube poco a poco.', 'Terminar con dos sprints máximos.'],
+  cons: ['Calidad en los movimientos.', 'Respirar y soltar.', 'Al final, piernas listas para esprintar.'],
+  var: ['+ Potenciar con duelos 1v1.', '− Sin saltos (MD+1).'],
+  d: { c: [...conos(40, 28, 60, 28, 5), ...conos(40, 40, 60, 40, 5, '#facc15')], p: [A(40, 31), A(40, 37), A(46, 31), A(46, 37)], b: [[40.8, 31.6]], a: [['pase', 40, 31, 46, 37, 0, 1], ['mov', 40, 37, 52, 37, 0, 2]], t: [[50, 26, 'Elevar · Activar · Movilizar · Potenciar', .8]] } });
+
+T({ id: 'p39', n: 'Isquiotibiales con fitball (curl de piernas)', cat: 'pre', tipo: 'Fuerza preventiva', ed: 'CJS', dif: 2, md: ['MD-4', 'MD-3', 'MD+2'], int: 2, rpe: '5', carga: 'Tensión', fase: 'pri',
+  jug: 'Individual', np: 1, esp: [3, 3], ser: '3 x 8-10', rec: '1\'', dur: 10,
+  obj: 'Fortalecer isquiotibiales con control de cadera, complemento a los nórdicos.',
+  desc: 'Tumbado boca arriba con los talones sobre un fitball. Elevar la cadera y flexionar las rodillas acercando el balón, manteniendo la cadera alta. Progresión a una pierna.',
+  reglas: ['La cadera no baja durante el movimiento.', 'Bajada lenta (3 segundos).', 'Progresar a una pierna cuando se hagan 3 x 10 limpias.'],
+  cons: ['Aprieta glúteos.', 'Controla la vuelta.', 'Respira.'],
+  var: ['+ A una pierna.', '− Solo puente de glúteo sobre el balón.'],
+  d: { p: [A(50, 34), A(56, 34), A(62, 34)], c: [[52, 34, '#f97316'], [58, 34, '#f97316'], [64, 34, '#f97316']], t: [[56, 30, 'Curl con fitball', .8]] } });
+
+T({ id: 'p40', n: 'Movilidad de tobillo en carga (dorsiflexión)', cat: 'pre', tipo: 'Movilidad', ed: 'AICJS', dif: 1, md: ['MD+1', 'MD+2', 'MD-4', 'MD-3', 'MD-2', 'MD-1'], int: 1, rpe: '2', carga: 'Recuperación', fase: 'cal',
+  jug: 'Individual', np: 1, esp: [5, 5], ser: '2 x 10 por pierna', rec: '—', dur: 6,
+  obj: 'Mejorar la dorsiflexión de tobillo, relacionada con lesiones de tobillo, rodilla y pubis.',
+  desc: 'De pie frente a una pared con un pie adelantado. Llevar la rodilla hacia la pared sin levantar el talón (test de la rodilla a la pared). Después, el mismo movimiento con una goma tirando del tobillo hacia atrás.',
+  reglas: ['El talón siempre apoyado.', 'La rodilla va en la línea del segundo dedo.', 'Anotar la distancia: debe mejorar.'],
+  cons: ['Movimiento lento y controlado.', 'Busca la tensión, no el dolor.', 'Igual en las dos piernas.'],
+  var: ['+ Con carga (mancuerna en la rodilla).', '− Sin goma.'],
+  d: { p: [A(48, 34), A(54, 34), A(60, 34)], l: [[46, 30, 46, 38], [52, 30, 52, 38], [58, 30, 58, 38]], t: [[53, 28, 'Rodilla a la pared', .8]] } });
+
+T({ id: 'p41', n: 'Prevención para porteros: hombros, muñecas y dedos', cat: 'pre', tipo: 'Fuerza preventiva', ed: 'ICJS', dif: 1, md: ['MD-4', 'MD-3', 'MD-2'], int: 1, rpe: '3', carga: 'Activación', fase: 'cal',
+  jug: 'Porteros', np: 2, esp: [5, 5], ser: '2 x 10 por ejercicio', rec: '30"', dur: 10,
+  obj: 'Proteger hombro, muñeca y dedos del portero antes del trabajo de caídas y blocajes.',
+  desc: 'Rotaciones externas con goma, Y-T-W boca abajo, flexoextensión de muñeca con goma y apretar una pelota de tenis. Termina con blocajes suaves a dos manos.',
+  reglas: ['Movimientos lentos.', 'Sin dolor.', 'Siempre antes de las caídas.'],
+  cons: ['Hombros hacia atrás y abajo.', 'Muñecas firmes al blocar.', 'Dedos activos.'],
+  var: ['+ Con mancuernas ligeras.', '− Sin goma.'],
+  d: { g: [[0, 34, 'R']], p: [P(4, 34), P(9, 34)], b: [[10, 34.6]], t: [[6.5, 30, 'Hombro · muñeca · dedos', .8]] } });
+
+T({ id: 'p42', n: 'Excéntricos de gemelo y Aquiles en escalón', cat: 'pre', tipo: 'Fuerza preventiva', ed: 'CJS', dif: 2, md: ['MD-4', 'MD-3', 'MD+2'], int: 2, rpe: '4-5', carga: 'Tensión', fase: 'pri',
+  jug: 'Individual', np: 1, esp: [3, 3], ser: '3 x 12 por pierna', rec: '45"', dur: 10,
+  obj: 'Fortalecer el tendón de Aquiles y el sóleo, sobre todo en jugadores con molestias o muchos minutos.',
+  desc: 'De pie en un escalón con la punta de los pies. Subir con las dos piernas y bajar lentamente con una sola (4 segundos). Hacerlo con la rodilla estirada (gemelo) y flexionada (sóleo).',
+  reglas: ['Bajada de 4 segundos.', 'Subida con las dos piernas.', 'Rodilla estirada y flexionada.'],
+  cons: ['Controla la bajada hasta el final.', 'Sin rebotes.', 'Molestia leve aceptable; dolor no.'],
+  var: ['+ Con mochila o mancuerna.', '− Bajada con las dos piernas.'],
+  d: { p: [A(50, 34), A(56, 34)], l: [[48, 36, 58, 36]], t: [[53, 30, 'Bajada lenta a una pierna', .8]] } });
+
+T({ id: 'p43', n: 'Control lumbopélvico: dead bug y bird dog', cat: 'pre', tipo: 'Core', ed: 'AICJS', dif: 1, md: ['MD+2', 'MD-4', 'MD-3', 'MD-2'], int: 1, rpe: '3', carga: 'Activación', fase: 'cal',
+  jug: 'Individual', np: 1, esp: [3, 3], ser: '2 x 10 por lado', rec: '30"', dur: 8,
+  obj: 'Controlar la zona lumbar y la pelvis mientras se mueven brazos y piernas: base para correr y golpear sin lesiones.',
+  desc: 'Dead bug: boca arriba, extender brazo y pierna contrarios sin despegar la zona lumbar. Bird dog: a cuatro patas, extender brazo y pierna contrarios manteniendo la espalda recta.',
+  reglas: ['Zona lumbar pegada al suelo en el dead bug.', 'Sin girar la cadera en el bird dog.', 'Movimiento lento.'],
+  cons: ['Respira y suelta el aire al extender.', 'Mueve solo lo que toca.', 'Calidad antes que repeticiones.'],
+  var: ['+ Con goma o balón entre manos y rodillas.', '− Solo piernas.'],
+  d: { p: [A(48, 32), A(54, 32), A(48, 38), A(54, 38)], t: [[51, 28, 'Dead bug · Bird dog', .8]] } });
+
+T({ id: 'p44', n: 'Pliometría de bajo impacto para readaptación', cat: 'pre', tipo: 'Readaptación', ed: 'CJS', dif: 1, md: ['MD-4', 'MD-3', 'MD+2'], int: 2, rpe: '4', carga: 'Tensión', fase: 'pri',
+  jug: 'Individual', np: 1, esp: [10, 5], ser: '3 x 10 contactos por ejercicio', rec: '1\'', dur: 10,
+  obj: 'Reintroducir los saltos de forma progresiva tras una lesión: de dos piernas a una, de poco a mucho impacto.',
+  desc: 'Saltos de comba suaves, saltos laterales sobre una línea, saltos adelante y atrás, y finalmente saltos a una pierna en el sitio. Se avanza solo si no hay dolor al día siguiente.',
+  reglas: ['Progresión: dos piernas → una pierna.', 'Aterrizaje silencioso.', 'Sin dolor al día siguiente para avanzar.'],
+  cons: ['Rodilla alineada.', 'Contacto corto con el suelo.', 'Para si notas molestia.'],
+  var: ['+ Saltos a una pierna con giro.', '− Solo saltos a dos piernas.'],
+  d: { l: [[46, 34, 58, 34]], p: [A(48, 32), A(52, 36), A(56, 32)], a: [['mov', 48, 32, 50, 35, 1, 1], ['mov', 52, 36, 54, 33, -1, 1]] } });
+
+T({ id: 'p45', n: 'Rutina de 10 minutos en casa tras el partido', cat: 'pre', tipo: 'Recuperación', ed: 'ICJS', dif: 1, md: ['MD', 'MD+1'], int: 1, rpe: '1-2', carga: 'Recuperación', fase: 'vc',
+  jug: 'Individual', np: 1, esp: [3, 3], ser: '1 x 10\'', rec: '—', dur: 10,
+  obj: 'Facilitar la recuperación tras el partido: movilidad suave, respiración y elevación de piernas.',
+  desc: 'Movilidad de cadera y columna (3\'), foam roller suave en gemelos, cuádriceps e isquios (4\'), piernas elevadas contra la pared con respiración lenta (3\'). Beber y comer bien después.',
+  reglas: ['Sin dolor.', 'Ritmo muy suave.', 'Mejor la misma noche o la mañana siguiente.'],
+  cons: ['Respira en 4 tiempos: inspira 4, suelta 6.', 'Hidrátate.', 'Duerme bien.'],
+  var: ['+ 15\' con estiramientos suaves.', '− Solo piernas en alto.'],
+  d: { p: [A(50, 34)], t: [[50, 30, 'Movilidad · roller · piernas en alto', .8]] } });

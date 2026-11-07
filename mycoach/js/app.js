@@ -37,6 +37,14 @@
   // ---------- Fútbol 11 / Fútbol 7 ----------
   let MODE = store.get('mode', 'f11');
   const isF7t = t => !!(t && t.d && t.d.f7);
+  // Dibujo que se muestra: en modo F7, las tareas de F11 se recolocan en el campo de fútbol 7
+  const f7Cache = {};
+  function DD(t) {
+    if (MODE !== 'f7' || !t || !t.d || isF7t(t)) return t && t.d;
+    const k = (EDF[fixEd(ses.ed)] || EDF.A).k, key = t.id + '|' + k, c = f7Cache[key];
+    if (c && c.v === t.d) return c.o;
+    const o = window.toF7(t.d, k) || t.d; f7Cache[key] = { v: t.d, o }; return o;
+  }
   const F11ONLY = /linea de 4|bascula|lateral - extremo|con lateral|carriles exteriores|4\+3 v|pivotes|10v10|11v11|9v9|8v8|centrales|marcaje mixto/;
   const f7ok = t => isF7t(t) || t.own || t.cat !== 'tt' || !((t.np > 14 && !/todo|grupo|pareja|filas/i.test(t.jug)) || F11ONLY.test(nz(t.n + ' ' + t.tipo + ' ' + t.obj)));
   const vis = t => MODE === 'f7' ? f7ok(t) : !isF7t(t) || t.own;
@@ -96,8 +104,9 @@
     if (m) {
       const a = +m[1], b = +m[2], n = +(m[3] || 0), p = +(m[4] || 0), free = N - n - p;
       if (free >= 2) {
-        let a2 = Math.max(1, Math.round(free * a / (a + b))), b2 = Math.max(1, Math.round(free * b / (a + b)));
+        let a2 = Math.max(1, Math.round(free * a / (a + b))), b2 = Math.max(1, free - a2);
         if (a === b) { a2 = b2 = Math.floor(free / 2); }
+        if (a2 + b2 > free) a2 = Math.max(1, free - b2);
         const extra = free - a2 - b2;
         jug = `${a2}v${b2}` + (n + extra ? `+${n + extra}` : '') + (p ? `+${p}P` : '');
       }
@@ -186,7 +195,7 @@
     if (!t.esp || !t.esp[0]) return null;
     let w = t.esp[0], h = t.esp[1], jug = t.jug, ch = false;
     if (nj && t.cat !== 'por' && !flexible(t) && t.np && nj !== t.np) {
-      const g = nj >= t.np * 1.6 ? Math.round(nj / t.np) : 1, a = adapt(t, Math.floor(nj / g));
+      const g = nj >= t.np * (/rondo/i.test(t.tipo) ? 1.3 : 1.6) ? Math.max(2, Math.round(nj / t.np)) : 1, a = adapt(t, Math.floor(nj / g));
       if (a) { w = a.w; h = a.h; jug = g > 1 ? `${g} grupos de ${a.jug || Math.floor(nj / g)}` : a.jug || jug; ch = true; }
     }
     const c = catAdapt(t, ed); if (c && c.k < 1) { w = Math.round(w * c.k); h = Math.round(h * c.k); ch = true; }
@@ -210,7 +219,7 @@
   const mdChips = t => t.md.map(m => `<span class="md">${m}</span>`).join('');
   const catTag = t => `<span class="cat" style="--c:${CAT[t.cat].c}">${CAT[t.cat].s}</span>`;
   const card = t => `<a class="card" href="#/t/${t.id}">
-    <div class="thumb">${drawField(t.d, { mini: true })}</div>
+    <div class="thumb">${drawField(DD(t), { mini: true })}</div>
     <div class="ci"><div class="ct">${catTag(t)}<span class="tipo">${esc(t.tipo)}</span>${t.own ? '<span class="own">MÍA</span>' : ''}${MODE === 'f7' && !isF7t(t) ? '<span class="f7a">Adaptada F7</span>' : ''}${favs.has(t.id) ? '<span class="star">★</span>' : ''}</div>
     <h3>${esc(t.n)}</h3>
     <div class="meta">${mdChips(t)}</div>
@@ -290,7 +299,7 @@
     const li = a => a.map(x => `<li>${esc(x)}</li>`).join('');
     $('#app').innerHTML = `
       <article class="task">
-        <div class="big" id="bigd" title="Toca para ver a pantalla completa">${drawField(t.d, { label: t.n })}<span class="zoom">⤢</span></div>
+        <div class="big" id="bigd" title="Toca para ver a pantalla completa">${drawField(DD(t), { label: t.n })}<span class="zoom">⤢</span></div>
         ${(t.d.a || []).length ? animBarHTML('ab') : ''}
         ${legendHTML()}
         <div class="ct">${catTag(t)}<span class="tipo">${esc(t.tipo)}</span>${prinChips(t)}</div>
@@ -335,7 +344,7 @@
       </article>`;
     const adn = $('#adn');
     if (adn) { const up = () => { const n = +adn.value, a = adapt(t, n); $('#adout').innerHTML = !a ? '' : a.same ? `<span class="sub">Es el número original: ${esc(t.jug)} en ${t.esp[0]}x${t.esp[1]} m (≈ ${a.m2} m²/jug.).</span>` : `<b>${a.jug ? esc(a.jug) + ' · ' : ''}${a.w} x ${a.h} m</b><span class="sub">Mantiene ≈ ${a.m2} m²/jugador (original: ${esc(t.jug)} en ${t.esp[0]}x${t.esp[1]} m). ${n > t.np * 1.6 ? 'Con tantos jugadores, plantéate hacer dos grupos.' : ''}</span>`; }; adn.oninput = up; up(); }
-    const stopAnim = bindAnim('ab', $('#bigd'), t.d);
+    const stopAnim = bindAnim('ab', $('#bigd'), DD(t));
     const ced = $('#ced'), cup = () => { const c = catAdapt(t, ced.value); $('#cedout').innerHTML = !c ? `<span class="sub">Tarea tal cual: ${t.esp && t.esp[0] ? `${t.esp[0]}x${t.esp[1]} m · ` : ''}${t.dur}' · ${esc(t.ser)}.</span>` : `<ul class="cad">${c.notes.map(n => `<li>${esc(n)}</li>`).join('') || '<li>Se puede hacer igual que en sénior.</li>'}</ul>${c.alt ? `<a class="btn sm" href="#/t/${c.alt.id}">Alternativa: ${esc(c.alt.n)}</a>` : ''}`; };
     ced.onchange = cup; cup();
     if ($('#vid')) $('#vid').onclick = () => recordVideo(t);
@@ -376,7 +385,7 @@
     ctx.fillStyle = '#dcfce7'; ctx.font = `700 28px ${FONT}`; ctx.fillText(`${CAT[t.cat].n.toUpperCase()} · ${t.tipo}`, M, 70);
     ctx.fillStyle = '#fff'; ctx.font = `800 50px ${FONT}`; title.forEach((l, i) => ctx.fillText(l, M, 135 + i * 60));
     let y = 150 + title.length * 60 + 30;
-    const img = await svgImg(t.d, W - 2 * M);
+    const img = await svgImg(DD(t), W - 2 * M);
     ctx.save(); rr(ctx, M, y, W - 2 * M, (W - 2 * M) / 1.5, 22); ctx.clip(); if (img) ctx.drawImage(img, M, y, W - 2 * M, (W - 2 * M) / 1.5); ctx.restore();
     y += (W - 2 * M) / 1.5 + 40;
     const box = (x, lab, val, col) => { ctx.fillStyle = '#fff'; rr(ctx, x, y, 316, 120, 16); ctx.fill(); ctx.fillStyle = '#5b6b62'; ctx.font = `700 22px ${FONT}`; ctx.fillText(lab, x + 20, y + 38); ctx.fillStyle = col || '#0f1f17'; ctx.font = `800 32px ${FONT}`; wrap(ctx, val, 280).slice(0, 2).forEach((l, i) => ctx.fillText(l, x + 20, y + 78 + i * 34)); };
@@ -400,7 +409,7 @@
     for (let i = 0; i < its.length; i++) {
       const t = its[i].t, iw = 420, ih = 280;
       ctx.fillStyle = '#fff'; rr(ctx, M, y, W - 2 * M, RH - 20, 20); ctx.fill();
-      const img = await svgImg(t.d, iw); ctx.save(); rr(ctx, M + 15, y + 15, iw, ih, 14); ctx.clip(); if (img) ctx.drawImage(img, M + 15, y + 15, iw, ih); ctx.restore();
+      const img = await svgImg(DD(t), iw); ctx.save(); rr(ctx, M + 15, y + 15, iw, ih, 14); ctx.clip(); if (img) ctx.drawImage(img, M + 15, y + 15, iw, ih); ctx.restore();
       const x = M + iw + 40, mw = W - M - x - 20;
       ctx.fillStyle = '#15803d'; ctx.font = `800 22px ${FONT}`; ctx.fillText(BLK[its[i].b].toUpperCase(), x, y + 52);
       ctx.fillStyle = '#0f1f17'; ctx.font = `800 34px ${FONT}`; const tl = wrap(ctx, `${i + 1}. ${t.n}`, mw).slice(0, 2); tl.forEach((l, k) => ctx.fillText(l, x, y + 96 + k * 40));
@@ -447,12 +456,12 @@
   }
   function fullField(t) {
     const o = document.createElement('div'); o.className = 'fsov';
-    o.innerHTML = `<div class="fs">${drawField(t.d, { label: t.n })}</div><button class="fsx" aria-label="Cerrar">✕</button><div class="fst">${esc(t.n)}${(t.d.a || []).length ? animBarHTML('abfs') : ''}</div>`;
+    o.innerHTML = `<div class="fs">${drawField(DD(t), { label: t.n })}</div><button class="fsx" aria-label="Cerrar">✕</button><div class="fst">${esc(t.n)}${(t.d.a || []).length ? animBarHTML('abfs') : ''}</div>`;
     let stop = () => { };
     const close = () => { stop(); o.remove(); document.removeEventListener('keydown', k); };
     const k = e => { if (e.key === 'Escape') close(); };
     o.onclick = close; document.addEventListener('keydown', k); document.body.appendChild(o);
-    stop = bindAnim('abfs', o.querySelector('.fs'), t.d);
+    stop = bindAnim('abfs', o.querySelector('.fs'), DD(t));
   }
   function progHTML(t) {
     const l = ladder(t); if (l.filter(Boolean).length < 2) return '';
@@ -546,7 +555,7 @@
         <div class="full barl">${byInt.map((m, k) => m ? `<span><i style="background:${INT[k + 1].c}"></i>${INT[k + 1].n} ${m}'</span>` : '').join('')}</div>
       </section>` : '<div class="empty">Elige el día y la duración y pulsa <b>Generar sesión</b>, o añade tareas desde la biblioteca.</div>'}
       ${Object.entries(BLK).map(([b, n]) => { const l = its.filter(x => x.b === b); return l.length ? `<section class="blk"><h2>${n}</h2>${l.map(x => `
-        <div class="sit"><a href="#/t/${x.t.id}" class="thumb s">${drawField(x.t.d, { mini: true })}</a>
+        <div class="sit"><a href="#/t/${x.t.id}" class="thumb s">${drawField(DD(x.t), { mini: true })}</a>
           <div class="ci"><a href="#/t/${x.t.id}"><h3>${esc(x.t.n)}</h3></a><div class="meta">${intBadge(x.t)}<span>⏱ ${D(x.t)}'${D(x.t) !== x.t.dur ? ` <s>${x.t.dur}'</s>` : ''}</span><span>${esc(x.t.ser)}</span><span class="dif d${x.t.dif}">${DIF[x.t.dif]}</span></div>${itemFit(x.t, x.i)}</div>
           <div class="ops"><button data-op="up" data-i="${x.i}" aria-label="Subir">↑</button><button data-op="down" data-i="${x.i}" aria-label="Bajar">↓</button><button data-op="swap" data-i="${x.i}" aria-label="Cambiar">⟳</button><button data-op="del" data-i="${x.i}" aria-label="Quitar">✕</button></div>
         </div>`).join('')}</section>` : ''; }).join('')}
@@ -592,7 +601,7 @@
     const tot = field.reduce((a, x) => a + x.t.dur, 0), ua = Math.round(field.reduce((a, x) => a + x.t.dur * rpeMid(x.t.rpe), 0));
     const li = a => a && a.length ? `<ul>${a.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
     pr.innerHTML = `<header class="ph"><div><h1>Sesión ${ses.md} · ${MDINFO[ses.md].t}</h1><p>Fecha: ____________ &nbsp; Equipo: ______________________</p></div><div class="pk"><b>${tot} min</b><span>${ua} UA estimadas</span><span>${its.length} tareas</span></div></header>` +
-      Object.entries(BLK).map(([b, n]) => { const l = its.filter(x => x.b === b); return l.length ? `<h2>${n}</h2>` + l.map((x, k) => `<article class="pt"><div class="pd">${drawField(x.t.d)}</div><div class="pi"><h3>${k + 1}. ${esc(x.t.n)}</h3>
+      Object.entries(BLK).map(([b, n]) => { const l = its.filter(x => x.b === b); return l.length ? `<h2>${n}</h2>` + l.map((x, k) => `<article class="pt"><div class="pd">${drawField(DD(x.t))}</div><div class="pi"><h3>${k + 1}. ${esc(x.t.n)}</h3>
         <p class="pm"><b>${INT[x.t.int].n}</b> (RPE ${esc(x.t.rpe)}) · ${x.t.dur}' · ${esc(x.t.ser)} · rec. ${esc(x.t.rec)} · ${esc(x.t.jug)} · ${x.t.esp[0]}x${x.t.esp[1]} m</p>
         ${x.t.obj ? `<p><b>Objetivo:</b> ${esc(x.t.obj)}</p>` : ''}${x.t.desc ? `<p>${esc(x.t.desc)}</p>` : ''}${li(x.t.reglas)}</div></article>`).join('') : ''; }).join('') +
       `<p class="pf2">My Coach · Biblioteca de tareas</p>`;
@@ -643,7 +652,7 @@
       : inp('cw', 'Minutos', Math.round(c.work / 60), 1, 1);
     $('#app').innerHTML = `<section class="campo">
       <div class="cnav"><button class="btn" id="prv" ${RUN.idx ? '' : 'disabled'} aria-label="Tarea anterior">‹</button><div><small>${BLK[x.b]} · ${RUN.idx + 1}/${its.length}</small><h1>${esc(t.n)}</h1></div><button class="btn" id="nxt" ${RUN.idx < its.length - 1 ? '' : 'disabled'} aria-label="Tarea siguiente">›</button></div>
-      <div class="big" id="bigd">${drawField(t.d, { label: t.n })}<span class="zoom">⤢</span></div>
+      <div class="big" id="bigd">${drawField(DD(t), { label: t.n })}<span class="zoom">⤢</span></div>
       ${(t.d.a || []).length ? animBarHTML('abc') : ''}
       <p class="pm">${intBadge(t)} RPE ${esc(t.rpe)} · ${esc(t.jug)} · ${t.esp[0]}x${t.esp[1]} m · ${esc(t.ser)} · rec. ${esc(t.rec)}</p>
       <div class="timer" id="timer"><div class="ph" id="tph"></div><div class="tt" id="ttime"></div><div class="tr" id="trep"></div></div>
@@ -696,7 +705,7 @@
     $('#rst').onclick = () => { stopTimer(); readCfg(); upd(); };
     $('#app').querySelectorAll('.cfg input').forEach(i => i.onchange = () => { stopTimer(); readCfg(); upd(); });
     $('#bigd').onclick = () => fullField(t);
-    bindAnim('abc', $('#bigd'), t.d);
+    bindAnim('abc', $('#bigd'), DD(t));
     $('#prv').onclick = () => { RUN.idx--; vCampo(); };
     $('#nxt').onclick = () => { RUN.idx++; vCampo(); };
     readCfg(); upd();
@@ -722,19 +731,33 @@
   function vMis() {
     const l = TAREAS.filter(t => favs.has(t.id));
     $('#app').innerHTML = `<section class="intro"><h1>Mis tareas</h1>
-        <div class="acts"><a class="btn pri" href="#/nueva">＋ Nueva tarea</a><button class="btn" id="exp">⬇ Copia de seguridad</button><label class="btn">⬆ Restaurar / importar<input type="file" id="imp" accept=".json,application/json" hidden></label></div>
-        <p class="sub">La copia incluye tus tareas, notas, valoraciones, sesiones guardadas y la planificación. Úsala para cambiar de móvil o compartir tus tareas con otros entrenadores.</p></section>
+        <div class="acts"><a class="btn pri" href="#/nueva">＋ Nueva tarea</a><button class="btn" id="exp">⬇ Copia de seguridad completa</button><button class="btn" id="expt">⬇ Exportar solo mis tareas</button><label class="btn">⬆ Restaurar / importar<input type="file" id="imp" accept=".json,application/json" hidden></label></div>
+        <p class="sub">La copia completa guarda todo lo de My Coach en un archivo: tus tareas, notas y valoraciones, sesiones, plan, contenidos de la temporada, metodología, partidos preparados y ajustes. Guárdala en Drive o envíatela por correo para no perder nada si cambias de móvil. «Exportar solo mis tareas» sirve para pasárselas a otro entrenador.</p>
+        ${(() => { const lb = store.get('lastbk', null), dd = lb ? Math.round((new Date() - parseISO(lb)) / 864e5) : null; return `<p class="bkst ${dd == null || dd > 30 ? 'warn' : ''}">${dd == null ? '⚠ Todavía no has hecho ninguna copia completa.' : dd === 0 ? '✓ Última copia: hoy.' : `${dd > 30 ? '⚠' : '✓'} Última copia: hace ${dd} día${dd > 1 ? 's' : ''}.`}</p>`; })()}</section>
       <section><h2>Creadas por mí (${mine.length})</h2>${mine.length ? `<div class="grid">${mine.map(card).join('')}</div>` : '<div class="empty">Todavía no has creado tareas. Pulsa <b>Nueva tarea</b> o abre cualquier tarea de la biblioteca y pulsa <b>Duplicar y editar</b> para adaptarla.</div>'}</section>
       <section><h2>Favoritos (${l.length})</h2>${l.length ? `<div class="grid">${l.map(card).join('')}</div>` : '<div class="empty">Pulsa ☆ en cualquier tarea para guardarla aquí.</div>'}</section>
       <p class="note center"><a href="privacidad.html">Política de privacidad</a> · My Coach</p>`;
+    const dl = (obj, name) => { const blob = new Blob([JSON.stringify(obj, null, 1)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
     $('#exp').onclick = () => {
-      const blob = new Blob([JSON.stringify({ app: 'My Coach', version: 2, tareas: mine, notas: notes, sesiones: saved, plan }, null, 1)], { type: 'application/json' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mycoach-copia-' + iso(new Date()) + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      const todo = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('mc_') && k !== 'mc_lastbk') todo[k] = localStorage.getItem(k); }
+      dl({ app: 'My Coach', version: 3, tipo: 'copia completa', fecha: new Date().toISOString(), tareas: mine, notas: notes, sesiones: saved, plan, todo }, 'mycoach-copia-' + iso(new Date()) + '.json');
+      store.set('lastbk', iso(new Date())); toast('Copia completa descargada'); setTimeout(vMis, 300);
     };
+    $('#expt').onclick = () => { if (!mine.length) { toast('Aún no has creado tareas'); return; } dl({ app: 'My Coach', version: 3, tipo: 'tareas', tareas: mine }, 'mycoach-tareas-' + iso(new Date()) + '.json'); };
     $('#imp').onchange = async e => {
       const f = e.target.files[0]; if (!f) return;
       try {
-        const j = JSON.parse(await f.text()); const arr = Array.isArray(j) ? j : j.tareas;
+        const j = JSON.parse(await f.text());
+        if (j && j.todo && typeof j.todo === 'object') {
+          const n = Object.keys(j.todo).length;
+          if (confirm(`Copia completa del ${String(j.fecha || '').slice(0, 10).split('-').reverse().join('/')} (${n} apartados: tareas, sesiones, plan, contenidos, notas…).\n\nAceptar: restaurarla tal cual (sustituye lo que hay ahora en este móvil).\nCancelar: solo añadir las tareas, sesiones y notas que falten.`)) {
+            Object.keys(localStorage).filter(k => k.startsWith('mc_') && k !== 'mc_lastbk').forEach(k => localStorage.removeItem(k));
+            Object.entries(j.todo).forEach(([k, v]) => { if (k.startsWith('mc_')) localStorage.setItem(k, v); });
+            if (j.fecha) store.set('lastbk', String(j.fecha).slice(0, 10));
+            toast('Copia restaurada'); setTimeout(() => location.reload(), 600); return;
+          }
+        }
+        const arr = Array.isArray(j) ? j : j.tareas;
         if (!Array.isArray(arr)) throw 0;
         if (j.notas) { notes = { ...j.notas, ...notes }; saveNotes(); }
         if (Array.isArray(j.sesiones)) { const ks = new Set(saved.map(x => x.name + x.date)); j.sesiones.forEach(x => { if (!ks.has(x.name + x.date)) saved.push(x); }); store.set('saved', saved); }
@@ -749,14 +772,18 @@
   const BLANK = { n: '', cat: 'tt', tipo: '', md: [], int: 2, rpe: '', carga: 'Tensión', fase: 'pri', dif: 2, ed: 'ICJS', jug: '', np: '', esp: null, ser: '', rec: '', dur: '', obj: '', desc: '', reglas: [], cons: [], var: [], d: { v: [27.5, 11, 50, 46] } };
   function vEdit(mode, id) {
     let t;
-    if (mode === 'nueva') { t = JSON.parse(JSON.stringify(BLANK)); if (MODE === 'f7') { t.d = { f7: true }; t.ed = 'PBA'; } }
-    else { const src = byId[id]; if (!src) { $('#app').innerHTML = '<div class="empty">Tarea no encontrada.</div>'; return; } t = JSON.parse(JSON.stringify(src)); if (mode === 'duplicar') { delete t.id; t.n = t.n + ' (copia)'; } }
+    const rp = rivPend; rivPend = null;
+    if (mode === 'nueva' && rp && rivals[rp]) t = planTaskFor(rivals[rp]);
+    else if (mode === 'nueva') { t = JSON.parse(JSON.stringify(BLANK)); if (MODE === 'f7') { t.d = { f7: true }; t.ed = 'PBA'; } }
+    else { const src = byId[id]; if (!src) { $('#app').innerHTML = '<div class="empty">Tarea no encontrada.</div>'; return; } t = JSON.parse(JSON.stringify(src)); if (mode === 'duplicar' && MODE === 'f7' && !isF7t(src)) { t.d = JSON.parse(JSON.stringify(DD(src))); const c = catAdapt(src, fixEd(ses.ed)); if (c && c.w) t.esp = [c.w, c.h]; if (c) t.dur = c.dur; } if (mode === 'duplicar') { delete t.id; t.n = t.n + ' (copia)'; } }
     TaskEditor.mount($('#app'), t, {
       title: { nueva: 'Nueva tarea', editar: 'Editar tarea', duplicar: 'Duplicar y editar' }[mode],
       onSave(out) {
         if (out.id && mine.some(m => m.id === out.id)) mine = mine.map(m => m.id === out.id ? out : m);
         else { out.id = newId(); mine.unshift(out); }
-        saveMine(); toast('Tarea guardada'); location.replace('#/t/' + out.id);
+        saveMine(); toast('Tarea guardada');
+        if (rp && rivals[rp]) { rivals[rp].tid = out.id; saveRivals(); location.replace('#/partido/' + rp); return; }
+        location.replace('#/t/' + out.id);
       },
       onCancel() { history.length > 1 ? history.back() : (location.hash = '#/mis'); }
     });
@@ -817,7 +844,7 @@
       const d = addDays(mon, i), f = iso(d), md = mdOf(f), l = dayLoad(e);
       const body = !e || e.k === 'none' ? `<span class="sub">Sin planificar</span>${e ? realLine(e) : ''}`
         : e.k === 'ses' ? `<b>${esc(e.name)}</b><span class="sub">${e.min}' · ${e.ua} UA objetivo · ${e.items.length} tareas</span>${realLine(e)}<button class="link" data-open="${f}">Abrir en Sesión</button>`
-        : e.k === 'match' ? `<b>⚽ ${esc(e.name || 'Partido')}</b><span class="sub"><input type="number" class="mini" data-mm="${f}" value="${e.min}">' × RPE <input type="number" class="mini" data-mr="${f}" value="${e.rpe}" min="1" max="10"> = ${l} UA</span>`
+        : e.k === 'match' ? `<b>⚽ ${esc(e.name || 'Partido')}</b><a class="link" href="#/partido/${f}">${rivals[f] && rivals[f].rival ? '⚔️ Ver preparación' : '⚔️ Preparar el partido'}</a><span class="sub"><input type="number" class="mini" data-mm="${f}" value="${e.min}">' × RPE <input type="number" class="mini" data-mr="${f}" value="${e.rpe}" min="1" max="10"> = ${l} UA</span>`
         : '<b>😴 Descanso</b>';
       return `<div class="pday ${f === today ? 'today' : ''} ${e && e.k === 'match' ? 'match' : ''}">
         <div class="pd1"><b>${DN[i]}</b><small>${fmtD(d)}</small>${md ? `<span class="md">${md}</span>` : ''}</div>
@@ -837,6 +864,7 @@
       <p class="sub">Marca el día del partido y el MD de cada día se calcula solo. Aquí diseñas la semana; el control de la carga real (RPE, ACWR, monotonía…) se lleva en My Team.</p>
       <div class="pweek">${rows}</div>
       <div class="acts"><select id="wtpl" class="btn"><option value="">📋 Aplicar plantilla de semana…</option>${Object.entries(WTPL).filter(([k, v]) => !!v.f7 === (MODE === 'f7')).map(([k, v]) => `<option value="${k}">${esc(v.n)}</option>`).join('')}</select><button class="btn ghost" id="copyw">⧉ Copiar semana anterior</button></div>
+      <div class="acts"><a class="btn" href="#/partido">⚔️ Preparar el partido</a><a class="btn" href="#/temporada">🎯 Contenidos</a><a class="btn" href="#/metodologia">🏛 Metodología del club</a></div>
       <section class="bridge"><h2>Conexión con My Team</h2>
         <div id="mt" class="mtbox"><span class="sub">Buscando My Team en este móvil…</span></div>
         <details class="csvd"><summary>Sin conexión directa: exportar el plan en CSV</summary>
@@ -931,7 +959,7 @@
       </div>`;
     }).join('');
     $('#app').innerHTML = `<section class="tmp">
-      <h1>Temporada por contenidos</h1>
+      <div class="ghd"><h1>Temporada por contenidos</h1><a class="btn sm" href="#/metodologia">🏛 Metodología del club</a></div>
       <p class="sub">Decide qué principio de juego trabajas cada semana y con qué nivel de exigencia. El generador de sesiones, las plantillas y el asistente eligen tareas de ese contenido.</p>
       <div class="cyc"><b>Ciclo automático</b>
         <label>Modelo <select id="cy">${Object.entries(CYCLES).map(([k, v]) => `<option value="${k}">${v.n}</option>`).join('')}</select></label>
@@ -1006,9 +1034,9 @@
 
   // ---------- Modo vestuario (pizarra para explicar) ----------
   let PZ = null, PZi = 0;
-  function vPizarra() {
+  function vPizarra(list, exitTo) {
     if (PZ) { PZ.stop(); PZ = null; }
-    const its = ses.items.map(x => byId[x.id] ? { ...x, t: byId[x.id] } : null).filter(Boolean);
+    const its = (list || ses.items).map(x => byId[x.id] ? { ...x, t: byId[x.id] } : null).filter(Boolean);
     if (!its.length) { $('#app').innerHTML = '<div class="empty">La sesión está vacía. Genera una sesión o añade tareas y vuelve al modo vestuario.<br><br><a class="btn pri" href="#/sesion">Ir a Sesión</a></div>'; return; }
     document.body.classList.add('pzmode');
     let i = Math.min(PZi, its.length - 1), ctl = null, auto = true, tx0 = null;
@@ -1021,7 +1049,7 @@
       if (ctl) { ctl.stop(); ctl = null; }
       PZi = i; const x = its[i], t = x.t, f = fitInfo(t, ses.nj, ses.ed), D = adjDur(t, ses.ed);
       $('#pzh').innerHTML = `<b>${i + 1}/${its.length}</b> · ${BLK[x.b]}`;
-      $('#pzf').innerHTML = drawField(t.d, { label: t.n });
+      $('#pzf').innerHTML = drawField(DD(t), { label: t.n });
       $('#pzi').innerHTML = `<h2>${esc(t.n)}</h2>${t.obj ? `<p class="po">🎯 ${esc(t.obj)}</p>` : ''}
         <div class="pk"><span>⏱ ${D}'</span><span>👥 ${esc(f ? f.jug : t.jug)}</span>${t.esp && t.esp[0] ? `<span>📐 ${f ? f.w + 'x' + f.h : t.esp[0] + 'x' + t.esp[1]} m</span>` : ''}<span>🔁 ${esc(t.ser)}</span><span style="--c:${INT[t.int].c}" class="pint">${INT[t.int].n}</span></div>
         ${t.reglas && t.reglas.length ? `<h3>Reglas</h3><ul>${t.reglas.slice(0, 4).map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
@@ -1029,7 +1057,7 @@
       $('#pzd').querySelectorAll('i').forEach((d, k) => d.classList.toggle('on', k === i));
       $('#pzp').disabled = i === 0; $('#pzn').disabled = i === its.length - 1; $('#pzcap').textContent = '';
       const has = (t.d.a || []).length; $('#pza').hidden = $('#pzr').hidden = !has;
-      if (has) ctl = animateField($('#pzf'), t.d, { autoplay: auto, loop: true, react: true, speed: .8, onState: s => { $('#pza').textContent = s.playing ? '⏸ Pausa' : '▶ Animar'; $('#pzcap').textContent = s.caption || (s.step ? `Paso ${s.step}/${s.total}` : ''); } });
+      if (has) ctl = animateField($('#pzf'), DD(t), { autoplay: auto, loop: true, react: true, speed: .8, onState: s => { $('#pza').textContent = s.playing ? '⏸ Pausa' : '▶ Animar'; $('#pzcap').textContent = s.caption || (s.step ? `Paso ${s.step}/${s.total}` : ''); } });
     };
     const go = d => { const n = i + d; if (n < 0 || n >= its.length) return; i = n; show(); };
     const key = e => { if (e.key === 'ArrowRight' || e.key === 'PageDown') go(1); else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(-1); else if (e.key === ' ') { e.preventDefault(); $('#pza').click(); } else if (e.key === 'Escape' && !document.fullscreenElement) $('#pzx').click(); };
@@ -1041,7 +1069,7 @@
     $('#pza').onclick = () => { if (!ctl) return; auto = !auto; auto ? ctl.play() : ctl.pause(); };
     $('#pzr').onclick = () => { if (ctl) { auto = true; ctl.restart(); ctl.play(); } };
     $('#pzd').onclick = e => { const d = e.target.closest('[data-k]'); if (d) { i = +d.dataset.k; show(); } };
-    $('#pzx').onclick = () => { location.hash = '#/sesion'; };
+    $('#pzx').onclick = () => { location.hash = exitTo || '#/sesion'; };
     $('#pzfs').onclick = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else { await document.documentElement.requestFullscreen(); try { await screen.orientation.lock('landscape'); } catch (e) { } } } catch (e) { toast('Pantalla completa no disponible'); } };
     wake(true);
     PZ = { stop() { if (ctl) ctl.stop(); document.removeEventListener('keydown', key); document.body.classList.remove('pzmode'); wake(false); if (document.fullscreenElement) document.exitFullscreen().catch(() => { }); } };
@@ -1058,9 +1086,9 @@
     ov.innerHTML = `<div class="vidbox"><b id="vti">🎬 Grabando la animación…</b><div class="vprog"><i id="vbar"></i></div><small class="sub" id="vst">Preparando…</small><div id="vout"></div><div class="acts" id="vacts"><button class="btn ghost" id="vcan">Cancelar</button></div></div>`;
     document.body.appendChild(ov);
     const host = document.createElement('div'); host.className = 'vidhost'; host.style.cssText = `position:fixed;left:-30000px;top:0;width:${W}px;height:${FH}px;pointer-events:none`;
-    host.innerHTML = drawField(t.d); document.body.appendChild(host);
+    host.innerHTML = drawField(DD(t)); document.body.appendChild(host);
     const c = cv0; c.width = W; c.height = H; const ctx = c.getContext('2d');
-    let st = { step: 0, total: fieldSteps(t.d).length }, cap = '', busy = false, live = true, ctl = null, fin = false;
+    let st = { step: 0, total: fieldSteps(DD(t)).length }, cap = '', busy = false, live = true, ctl = null, fin = false;
     const paint = img => {
       const g = ctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, '#15803d'); g.addColorStop(1, '#16a34a'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, TH);
       ctx.fillStyle = '#dcfce7'; ctx.font = `700 26px ${FONT}`; ctx.fillText(`${CAT[t.cat].n.toUpperCase()} · ${t.jug}${t.esp && t.esp[0] ? ` · ${t.esp[0]}x${t.esp[1]} m` : ''}`, 36, 44);
@@ -1108,13 +1136,220 @@
     rec.start(250);
     setTimeout(() => {
       if (!live) return;
-      ctl = animateField(host, t.d, { autoplay: true, speed: .75, loop: false, react: true, onState: x => {
+      ctl = animateField(host, DD(t), { autoplay: true, speed: .75, loop: false, react: true, onState: x => {
         st = x; cap = x.caption || cap; const bar = ov.querySelector('#vbar'); if (bar) bar.style.width = Math.round(100 * x.step / Math.max(1, x.total)) + '%';
         const vs = ov.querySelector('#vst'); if (vs && !fin) vs.textContent = `Paso ${x.step}/${x.total}`;
         if (x.done && !fin) { fin = true; setTimeout(finish, 1800); }
       } });
     }, 700);
     setTimeout(() => { if (!fin) { fin = true; finish(); } }, 90000);
+  }
+
+  // ---------- Utilidades de archivo ----------
+  function dlJSON(obj, name) { const blob = new Blob([JSON.stringify(obj, null, 1)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+  const seasonStart = (d = new Date()) => new Date(d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1, 8, 1);
+  const TRIM = [{ k: 't1', n: '1.er trimestre', s: 'Septiembre – diciembre', m: [8, 12] }, { k: 't2', n: '2.º trimestre', s: 'Enero – marzo', m: [12, 15] }, { k: 't3', n: '3.er trimestre', s: 'Abril – junio', m: [15, 18] }];
+  const trimRange = (tr, d) => { const y = seasonStart(d).getFullYear(); return [new Date(y, tr.m[0], 1), new Date(y, tr.m[1], 1)]; };
+
+  // ---------- Metodología del club ----------
+  const META_BASE = {
+    P: { t1: ['tec', 'pos', 'fin'], t2: ['tec', 'fin', 'pos'], t3: ['pos', 'fin', 'tec'] },
+    B: { t1: ['tec', 'pos', 'fin'], t2: ['fin', 'def', 'tec'], t3: ['pos', 'ban', 'tra'] },
+    A: { t1: ['sal', 'pos', 'tec'], t2: ['ban', 'fin', 'def'], t3: ['pre', 'tra', 'abp'] },
+    I: { t1: ['sal', 'pos', 'def'], t2: ['ban', 'fin', 'pre'], t3: ['tra', 'pre', 'abp'] },
+    C: { t1: ['sal', 'pre', 'def'], t2: ['pos', 'ban', 'tra'], t3: ['fin', 'tra', 'abp'] },
+    J: { t1: ['sal', 'pre', 'abp'], t2: ['pos', 'def', 'tra'], t3: ['fin', 'ban', 'abp'] },
+    S: { t1: ['sal', 'pre', 'abp'], t2: ['pos', 'def', 'tra'], t3: ['fin', 'ban', 'abp'] }
+  };
+  let meto = store.get('meto', null);
+  const saveMeto = () => store.set('meto', meto);
+  const metoBase = () => { const c = {}; Object.entries(META_BASE).forEach(([e, v]) => { c[e] = {}; TRIM.forEach(tr => { const [a, b, s] = v[tr.k]; c[e][tr.k] = { a, b, s, obj: '' }; }); }); return c; };
+  function vMeto() {
+    if (!meto) meto = { club: '', autor: '', cats: {}, mi: fixEd(ses.ed), notas: '' };
+    const M = meto, eds = ['P', 'B', 'A', 'I', 'C', 'J', 'S'];
+    const sel = (v, k, e, t, empty) => `<select data-e="${e}" data-t="${t}" data-k="${k}"><option value="">${empty}</option>${Object.entries(PRIN).map(([p, x]) => `<option value="${p}" ${v === p ? 'selected' : ''}>${x.i} ${x.n}</option>`).join('')}</select>`;
+    const filled = eds.filter(e => M.cats[e] && TRIM.some(tr => M.cats[e][tr.k] && M.cats[e][tr.k].a));
+    $('#app').innerHTML = `<section class="meto">
+      <h1>🏛 Metodología del club</h1>
+      <p class="sub">Qué se trabaja en cada categoría y trimestre. Compártela con los entrenadores del club: al importarla, cada uno rellena con un toque los contenidos de su temporada.</p>
+      <div class="mhd"><label>Club<input id="mclub" value="${esc(M.club)}" placeholder="Nombre del club"></label><label>Coordinador/a<input id="maut" value="${esc(M.autor)}" placeholder="Quién la firma"></label></div>
+      ${!filled.length ? `<div class="hint">Empieza desde cero o carga una propuesta base (de la técnica en prebenjamín al juego completo en sénior) y ajústala a tu club. <button class="btn sm pri" id="mbase">Cargar propuesta base</button></div>` : ''}
+      <div class="mtabs">${eds.map(e => `<button data-tab="${e}" class="${M.tab === e || (!M.tab && e === fixEd(M.mi)) ? 'on' : ''}">${ED[e]}${filled.includes(e) ? ' ✓' : ''}</button>`).join('')}</div>
+      ${(() => {
+        const e = M.tab || fixEd(M.mi); const c = M.cats[e] = M.cats[e] || {};
+        return `<div class="mcat"><h2>${ED[e]}</h2>${TRIM.map(tr => { const x = c[tr.k] = c[tr.k] || { a: '', b: '', s: '', obj: '' }; return `<div class="mtr"><div class="mtt"><b>${tr.n}</b><small>${tr.s}</small></div>
+          <div class="mts"><label>Contenido 1${sel(x.a, 'a', e, tr.k, '—')}</label><label>Contenido 2${sel(x.b, 'b', e, tr.k, '—')}</label><label>Secundario${sel(x.s, 's', e, tr.k, '—')}</label>
+          <label class="w">Objetivos del trimestre<textarea data-e="${e}" data-t="${tr.k}" data-k="obj" rows="2" placeholder="Ej.: salir jugando desde el portero; defender juntos">${esc(x.obj || '')}</textarea></label></div></div>`; }).join('')}</div>`;
+      })()}
+      <label class="w mnot">Notas generales del club<textarea id="mnot" rows="3" placeholder="Estilo de juego, sistema de referencia, normas…">${esc(M.notas || '')}</textarea></label>
+      <section class="mapl"><h2>Aplicar a mi temporada</h2>
+        <div class="row wrap"><label>Mi categoría <select id="mmi">${eds.map(e => `<option value="${e}" ${M.mi === e ? 'selected' : ''}>${ED[e]}</option>`).join('')}</select></label><button class="btn pri" id="mapp">Rellenar mis contenidos</button></div>
+        <p class="sub">Pone en «Temporada por contenidos» cada semana de la temporada ${seasonStart().getFullYear()}-${String(seasonStart().getFullYear() + 1).slice(2)}: alterna los dos contenidos del trimestre cada dos semanas, añade el secundario y sube la exigencia dentro de cada trimestre (fácil → media → difícil). Las semanas que ya tengas rellenas no se tocan.</p></section>
+      <div class="acts"><button class="btn" id="mexp">⬇ Exportar para el club</button><label class="btn">⬆ Importar metodología<input type="file" id="mimp" accept=".json,application/json" hidden></label><a class="btn ghost" href="#/temporada">🎯 Ir a mis contenidos</a></div>
+    </section>`;
+    $('#app').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { M.tab = b.dataset.tab; saveMeto(); vMeto(); });
+    $('#app').querySelectorAll('[data-e]').forEach(el => el.onchange = () => { const c = M.cats[el.dataset.e][el.dataset.t]; c[el.dataset.k] = el.value; saveMeto(); if (el.tagName === 'SELECT') setTimeout(vMeto, 0); });
+    $('#mclub').onchange = e => { M.club = e.target.value.trim(); saveMeto(); };
+    $('#maut').onchange = e => { M.autor = e.target.value.trim(); saveMeto(); };
+    $('#mnot').onchange = e => { M.notas = e.target.value; saveMeto(); };
+    $('#mmi').onchange = e => { M.mi = e.target.value; saveMeto(); };
+    if ($('#mbase')) $('#mbase').onclick = () => { M.cats = metoBase(); saveMeto(); vMeto(); toast('Propuesta base cargada: ajústala a tu club'); };
+    $('#mapp').onclick = () => {
+      const e = M.mi, c = M.cats[e]; if (!c || !TRIM.some(tr => c[tr.k] && c[tr.k].a)) { toast(`${ED[e]} no tiene contenidos todavía`); return; }
+      let n = 0;
+      TRIM.forEach(tr => {
+        const x = c[tr.k]; if (!x || !x.a) return; const [d0, d1] = trimRange(tr);
+        const weeks = []; for (let m = monday(d0); m < d1; m = addDays(m, 7)) weeks.push(m);
+        weeks.forEach((m, i) => { const k = iso(m); if (cont[k] && cont[k].p) return; const p = x.b && Math.floor(i / 2) % 2 ? x.b : x.a; cont[k] = { p, s: x.s || (p === x.a ? x.b : x.a) || '', niv: Math.min(3, 1 + Math.floor(3 * i / weeks.length)), nota: x.obj ? x.obj.slice(0, 80) : '' }; n++; });
+      });
+      saveCont(); toast(n ? `${n} semanas rellenadas con la metodología` : 'Todas las semanas ya tenían contenido');
+    };
+    $('#mexp').onclick = () => dlJSON({ app: 'My Coach', tipo: 'metodologia', version: 1, fecha: new Date().toISOString(), meto: { club: M.club, autor: M.autor, cats: M.cats, notas: M.notas } }, `metodologia-${nz(M.club || 'club').replace(/[^a-z0-9]+/g, '-')}.json`);
+    $('#mimp').onchange = async ev => {
+      const f = ev.target.files[0]; if (!f) return;
+      try { const j = JSON.parse(await f.text()); if (!j || j.tipo !== 'metodologia' || !j.meto || !j.meto.cats) throw 0;
+        if (filled.length && !confirm(`Se sustituirá tu metodología por la de ${j.meto.club || 'este archivo'}${j.meto.autor ? ' (' + j.meto.autor + ')' : ''}. ¿Continuar?`)) return;
+        meto = { ...j.meto, mi: M.mi, tab: null }; saveMeto(); vMeto(); toast('Metodología importada. Elige tu categoría y pulsa «Rellenar mis contenidos».');
+      } catch (e) { toast('El archivo no es una metodología de My Coach'); }
+    };
+  }
+
+  // ---------- Preparar el partido ----------
+  const SIS11 = {
+    '1-4-4-2': [[3, 34], [16, 10], [14, 26], [14, 42], [16, 58], [32, 12], [30, 28], [30, 40], [32, 56], [46, 28], [46, 40]],
+    '1-4-3-3': [[3, 34], [16, 10], [14, 26], [14, 42], [16, 58], [28, 34], [35, 21], [35, 47], [48, 12], [50, 34], [48, 56]],
+    '1-4-2-3-1': [[3, 34], [16, 10], [14, 26], [14, 42], [16, 58], [28, 27], [28, 41], [41, 13], [42, 34], [41, 55], [52, 34]],
+    '1-4-1-4-1': [[3, 34], [16, 10], [14, 26], [14, 42], [16, 58], [25, 34], [38, 12], [36, 27], [36, 41], [38, 56], [50, 34]],
+    '1-5-3-2': [[3, 34], [19, 7], [14, 22], [13, 34], [14, 46], [19, 61], [30, 22], [28, 34], [30, 46], [46, 28], [46, 40]],
+    '1-3-5-2': [[3, 34], [14, 22], [13, 34], [14, 46], [34, 7], [29, 24], [27, 34], [29, 44], [34, 61], [46, 28], [46, 40]]
+  };
+  const SIS7 = {
+    '1-3-3': [[2, 20], [10, 7], [9, 20], [10, 33], [24, 7], [26, 20], [24, 33]],
+    '1-2-3-1': [[2, 20], [9, 13], [9, 27], [18, 6], [18, 20], [18, 34], [28, 20]],
+    '1-3-2-1': [[2, 20], [9, 8], [8, 20], [9, 32], [18, 14], [18, 26], [27, 20]],
+    '1-2-1-2-1': [[2, 20], [9, 13], [9, 27], [15, 20], [21, 9], [21, 31], [28, 20]]
+  };
+  const RV = {
+    pres: { alta: 'Presiona alto', media: 'Bloque medio', baja: 'Espera atrás (bloque bajo)' },
+    est: { comb: 'Combinativo', dir: 'Juego directo', con: 'Al contraataque' },
+    fu: { bandas: 'Ataque por bandas', aereo: 'Juego aéreo', abp: 'Balón parado', trans: 'Transiciones rápidas', delantero: 'Delantero referencia', medio: 'Medio campo', presion: 'Presión tras pérdida', tiro: 'Tiro lejano' },
+    de: { espalda: 'Espalda de la defensa', salida: 'Salida de balón', tdef: 'Repliegue tras pérdida', abpd: 'Defensa del balón parado', lat: 'Laterales / bandas', centro: 'Pasillo central', fisico: 'Se cansa al final', aereod: 'Defensa aérea' }
+  };
+  let rivals = store.get('rivals', {});
+  const saveRivals = () => store.set('rivals', rivals);
+  // Qué principios conviene trabajar según el rival
+  function rivalKeys(r) {
+    const sc = {}, why = {}, add = (p, v, txt) => { sc[p] = (sc[p] || 0) + v; (why[p] = why[p] || []).push(txt); };
+    if (r.pres === 'alta') { add('sal', 3, 'presiona alto: hay que salir jugando con calma'); add('tra', 1, 'si superamos su presión, habrá espacio a su espalda'); }
+    if (r.pres === 'baja') { add('pos', 2, 'espera atrás: paciencia con balón'); add('ban', 2, 'abrir el campo para desordenar su bloque'); add('fin', 1, 'llegar al área con gente'); }
+    if (r.pres === 'media') add('pos', 1, 'bloque medio: atraer y progresar');
+    if (r.est === 'dir') { add('def', 2, 'juego directo: ganar el primer y segundo balón'); add('abp', 1, 'muchos balones parados'); }
+    if (r.est === 'con') { add('tra', 3, 'contraataca: reacción tras pérdida y vigilancias'); add('pre', 1, 'presionar tras pérdida para que no salga'); }
+    if (r.est === 'comb') { add('pre', 2, 'combina: presionar para que no se sienta cómodo'); add('def', 1, 'defender juntos y cerrar pasillos interiores'); }
+    const F = r.fu || [], D = r.de || [];
+    if (F.includes('bandas')) add('def', 2, 'ataca por bandas: basculación y ayudas');
+    if (F.includes('aereo') || F.includes('delantero')) add('def', 1, 'juego aéreo y delantero referencia: marcajes y segundas jugadas');
+    if (F.includes('abp')) add('abp', 3, 'peligro a balón parado: preparar marcajes');
+    if (F.includes('trans') || F.includes('presion')) add('tra', 2, 'son rápidos en transición');
+    if (F.includes('medio')) add('pre', 1, 'mandan en el medio: presión coordinada');
+    if (F.includes('tiro')) add('def', 1, 'tiran de lejos: no dejar recibir de cara');
+    if (D.includes('espalda')) add('fin', 2, 'sufren a la espalda: desmarques de ruptura'), add('tra', 1, 'contraataques rápidos');
+    if (D.includes('salida')) add('pre', 3, 'les cuesta salir: presión alta');
+    if (D.includes('tdef')) add('tra', 2, 'tardan en replegar: atacar rápido tras robo');
+    if (D.includes('abpd')) add('abp', 2, 'defienden mal el balón parado: jugadas ensayadas');
+    if (D.includes('lat')) add('ban', 3, 'sus bandas son débiles: atacar por fuera');
+    if (D.includes('centro')) add('pos', 2, 'pasillo central abierto: juego interior');
+    if (D.includes('fisico')) add('pre', 1, 'se cansan: mantener la intensidad hasta el final');
+    if (D.includes('aereod')) add('fin', 1, 'defienden mal por arriba: centros al área'), add('abp', 1, 'córners y faltas laterales');
+    return Object.keys(sc).sort((a, b) => sc[b] - sc[a]).map(p => ({ p, v: sc[p], why: why[p] }));
+  }
+  function rivalDays(r) {
+    const mds = MODE === 'f7' ? ['MD-4', 'MD-2'] : ['MD-4', 'MD-3', 'MD-2', 'MD-1'], d = parseISO(r.f);
+    return mds.map(m => ({ md: m, f: iso(addDays(d, -(+m.slice(3)))) }));
+  }
+  function rivalPropose(r) {
+    const keys = rivalKeys(r).map(x => x.p), k0 = keys[0] || 'pos', k1 = keys[1] || k0, k2 = keys[2] || k1;
+    const pick = { 'MD-4': { p: k0, s: k1 }, 'MD-3': { p: k0, s: k2 }, 'MD-2': { p: k1, s: k0 }, 'MD-1': { p: keys.includes('abp') ? 'abp' : k2, s: k0 } };
+    if (MODE === 'f7') { pick['MD-4'] = { p: k0, s: k1 }; pick['MD-2'] = { p: k1, s: keys.includes('abp') ? 'abp' : k2 }; }
+    r.prop = {}; rivalDays(r).forEach(x => { r.prop[x.md] = genSession({ md: x.md, min: MODE === 'f7' ? 75 : x.md === 'MD-1' ? 60 : ses.min || 90, gk: ses.gk, ed: ses.ed, nj: ses.nj, pf: pick[x.md] }); });
+  }
+  function planTaskFor(r) {
+    const own7 = MODE === 'f7', S = own7 ? SIS7 : SIS11, L = own7 ? 60 : 105, W = own7 ? 40 : 68;
+    const us = S[r.nos] || Object.values(S)[0], them = S[r.sis] || Object.values(S)[0];
+    const p = [...us.map(([x, y], i) => i ? A(x, y, String(i + 1)) : P(x, y)), ...them.map(([x, y], i) => i ? B(L - x, W - y) : ['P', L - x, W - y])];
+    return { n: `Plan de partido vs ${r.rival || 'rival'}`, cat: 'tt', tipo: 'Plan de partido', md: ['MD-1'], int: 1, rpe: '2', carga: 'Activación', fase: 'pri', dif: 2, ed: own7 ? 'PBA' : 'ICJS', jug: own7 ? '7v7' : '11v11', np: own7 ? 14 : 22, esp: [L, W], ser: 'Charla', rec: '—', dur: 10, obj: 'Explicar el plan del partido.', desc: [r.notas, r.pa ? 'Con balón: ' + r.pa : '', r.pd ? 'Sin balón: ' + r.pd : ''].filter(Boolean).join('\n'), reglas: [], cons: rivalKeys(r).slice(0, 3).map(x => `${PRIN[x.p].n}: ${x.why[0]}`), var: [], d: { f7: own7 || undefined, v: own7 ? [-3, -3, 66, 46] : [-4, -4, 113, 76], p } };
+  }
+  let rivPend = null;
+  function vPartido(f) {
+    const today = iso(new Date());
+    const upcoming = Object.keys(plan).filter(k => plan[k].k === 'match' && k >= today).sort().slice(0, 6);
+    const all = [...new Set([...upcoming, ...Object.keys(rivals).filter(k => k >= iso(addDays(new Date(), -21)))])].sort();
+    if (!f) f = all.find(k => k >= today) || all[all.length - 1] || null;
+    const S = MODE === 'f7' ? SIS7 : SIS11;
+    const r = f ? (rivals[f] = rivals[f] || { f, rival: ((plan[f] || {}).name || '').replace(/^Partido( vs )?/, ''), sis: Object.keys(S)[0], nos: Object.keys(S)[0], fu: [], de: [] }) : null;
+    if (r && !S[r.sis]) r.sis = Object.keys(S)[0]; if (r && !S[r.nos]) r.nos = Object.keys(S)[0];
+    const fmt = k => { const d = parseISO(k); return `${DN[(d.getDay() + 6) % 7]} ${d.getDate()} ${MN[d.getMonth()]}`; };
+    const chips = (g, obj, cur, multi) => Object.entries(obj).map(([k, v]) => `<button class="chip ${(multi ? (cur || []).includes(k) : cur === k) ? 'on' : ''}" data-g="${g}" data-v="${k}" data-m="${multi ? 1 : ''}">${v}</button>`).join('');
+    if (r && !r.prop) rivalPropose(r);
+    const keys = r ? rivalKeys(r) : [];
+    const ptask = r && r.tid ? byId[r.tid] : null;
+    $('#app').innerHTML = `<section class="riv">
+      <h1>⚔️ Preparar el partido</h1>
+      <div class="row wrap rsel">${all.map(k => `<a class="chip ${k === f ? 'on' : ''}" href="#/partido/${k}">${fmt(k)}${rivals[k] && rivals[k].rival ? ' · ' + esc(rivals[k].rival) : (plan[k] && plan[k].name ? ' · ' + esc(plan[k].name.replace(/^Partido( vs )?/, '')) : '')}</a>`).join('')}<label class="chip">＋ Otro partido <input type="date" id="rnew"></label></div>
+      ${!r ? '<div class="empty">No hay partidos próximos en el plan. Marca uno en «Plan» o elige la fecha arriba.</div>' : `
+      <div class="aq two"><label><b>Rival</b><input id="rname" value="${esc(r.rival || '')}" placeholder="Nombre del rival"></label><label><b>Su sistema</b><select id="rsis">${Object.keys(S).map(k => `<option ${r.sis === k ? 'selected' : ''}>${k}</option>`).join('')}</select></label><label><b>Nuestro sistema</b><select id="rnos">${Object.keys(S).map(k => `<option ${r.nos === k ? 'selected' : ''}>${k}</option>`).join('')}</select></label></div>
+      <div class="aq"><b>Sin balón, el rival…</b><div class="row wrap">${chips('pres', RV.pres, r.pres)}</div></div>
+      <div class="aq"><b>Con balón, juega…</b><div class="row wrap">${chips('est', RV.est, r.est)}</div></div>
+      <div class="aq"><b>Sus puntos fuertes</b><div class="row wrap">${chips('fu', RV.fu, r.fu, 1)}</div></div>
+      <div class="aq"><b>Sus puntos débiles</b><div class="row wrap">${chips('de', RV.de, r.de, 1)}</div></div>
+      <div class="aq"><label class="w"><b>Notas del rival</b><textarea id="rnot" rows="2" placeholder="Jugadores clave, cómo sacan de portería, resultado de la ida…">${esc(r.notas || '')}</textarea></label></div>
+      <section class="rkeys"><h2>Claves del partido</h2>${keys.length ? keys.slice(0, 4).map((x, i) => `<div class="rk"><span class="ri">${i + 1}</span><div><b>${PRIN[x.p].i} ${PRIN[x.p].n}</b><small>${x.why.map(esc).join(' · ')}</small></div></div>`).join('') : '<p class="sub">Marca cómo juega el rival y aquí verás qué conviene trabajar.</p>'}</section>
+      <section class="rweek"><h2>Semana propuesta</h2><p class="sub">Sesiones de ${MODE === 'f7' ? 'MD-4 y MD-2' : 'MD-4 a MD-1'} centradas en esas claves.</p>
+        ${rivalDays(r).map(x => { const its = (r.prop[x.md] || []).map(i => byId[i.id]).filter(Boolean); const e = plan[x.f]; return `<div class="rday"><div class="rdh"><b>${x.md}</b><small>${fmt(x.f)}${e && e.k === 'ses' ? ' · ya tiene «' + esc(e.name) + '»' : ''}</small></div><div class="rdi">${its.filter(t => t.fase === 'pri' && t.cat !== 'por').map(t => `<a href="#/t/${t.id}">${esc(t.n)}</a>`).join('') || '<span class="sub">Sin tareas</span>'}</div></div>`; }).join('')}
+        <div class="acts"><button class="btn pri" id="rapp">📅 Pasar al plan</button><button class="btn ghost" id="rgen">⟳ Otra propuesta</button></div></section>
+      <section class="rplan"><h2>Plan y balón parado</h2>
+        <div class="aq two"><label class="w"><b>Con balón</b><textarea id="rpa" rows="2" placeholder="Ej.: salir por fuera, atacar la espalda de su lateral">${esc(r.pa || '')}</textarea></label><label class="w"><b>Sin balón</b><textarea id="rpd" rows="2" placeholder="Ej.: bloque medio, presión cuando el central recibe de espaldas">${esc(r.pd || '')}</textarea></label></div>
+        <div class="aq"><label class="w"><b>Balón parado</b><textarea id="rabp" rows="2" placeholder="Nuestros córners: jugada 2. Defensa: zonal + 2 marcajes al 9 y al 4">${esc(r.abp || '')}</textarea></label></div>
+        <div class="rpb">${ptask ? `<a href="#/t/${ptask.id}" class="thumb">${drawField(DD(ptask), { mini: true })}</a>` : ''}<div class="acts">
+          <button class="btn" id="rdraw">✏ ${ptask ? 'Editar' : 'Dibujar'} la pizarra del partido</button>
+          <button class="btn pri" id="rvest">📺 Explicarlo en el vestuario</button></div></div>
+        <p class="sub">La pizarra empieza con los dos sistemas colocados. En el modo vestuario salen la pizarra y las jugadas de balón parado.</p></section>`}
+    </section>`;
+    $('#rnew').onchange = e => { if (e.target.value) location.hash = '#/partido/' + e.target.value; };
+    if (!r) return;
+    const save = (re) => { saveRivals(); if (re) setTimeout(() => vPartido(f), 0); };
+    $('#app').querySelectorAll('.chip[data-g]').forEach(b => b.onclick = () => {
+      const g = b.dataset.g, v = b.dataset.v;
+      if (b.dataset.m) { r[g] = (r[g] || []).includes(v) ? r[g].filter(x => x !== v) : [...(r[g] || []), v]; } else r[g] = r[g] === v ? null : v;
+      rivalPropose(r); save(true);
+    });
+    $('#rname').onchange = e => { r.rival = e.target.value.trim(); save(); };
+    $('#rsis').onchange = e => { r.sis = e.target.value; save(); };
+    $('#rnos').onchange = e => { r.nos = e.target.value; save(); };
+    $('#rnot').onchange = e => { r.notas = e.target.value; save(); };
+    $('#rpa').onchange = e => { r.pa = e.target.value; save(); };
+    $('#rpd').onchange = e => { r.pd = e.target.value; save(); };
+    $('#rabp').onchange = e => { r.abp = e.target.value; save(); };
+    $('#rgen').onclick = () => { rivalPropose(r); save(true); };
+    $('#rapp').onclick = () => {
+      const days = rivalDays(r), busy = days.filter(x => plan[x.f] && plan[x.f].k === 'ses');
+      if (busy.length && !confirm(`${busy.length} de esos días ya tienen sesión. ¿Sustituirlas por la propuesta para el partido?`)) return;
+      days.forEach(x => { const items = r.prop[x.md] || []; if (!items.length) return; const old = plan[x.f] || {}; plan[x.f] = { k: 'ses', name: `${x.md} vs ${r.rival || 'rival'}`, md: x.md, items: JSON.parse(JSON.stringify(items)), ...sesTot(items, ses.ed) }; if (old.realSrc) Object.assign(plan[x.f], { realMin: old.realMin, realEj: old.realEj, realSrc: old.realSrc }); });
+      if (!plan[f] || plan[f].k !== 'match') plan[f] = { k: 'match', name: 'Partido vs ' + (r.rival || 'rival'), min: MODE === 'f7' ? 60 : 90, rpe: 8 };
+      else if (r.rival && !/vs/.test(plan[f].name || '')) plan[f].name = 'Partido vs ' + r.rival;
+      savePlan(); planWk = Math.round((monday(parseISO(f)) - monday(new Date())) / 6048e5); toast('Semana del partido en el plan'); location.hash = '#/plan';
+    };
+    $('#rdraw').onclick = () => { rivPend = f; location.hash = r.tid && byId[r.tid] ? '#/editar/' + r.tid : '#/nueva'; };
+    $('#rvest').onclick = () => { location.hash = '#/pizarra/r/' + f; };
+  }
+  // Lista para el modo vestuario de un partido: pizarra del plan + jugadas de balón parado
+  function rivalSlides(f) {
+    const r = rivals[f]; if (!r) return [];
+    const out = []; if (r.tid && byId[r.tid]) out.push({ id: r.tid, b: 'pri' });
+    const abp = TAREAS.filter(t => vis(t) && t.fase === 'pri' && prinOf(t).includes('abp') && edFit(t, fixEd(ses.ed))).sort((x, y) => isF7t(y) - isF7t(x)).slice(0, 3);
+    abp.forEach(t => out.push({ id: t.id, b: 'pri' }));
+    rivalKeys(r).slice(0, 2).forEach(k => { const t = ((r.prop && r.prop['MD-1']) || []).map(i => byId[i.id]).find(t => t && t.fase === 'pri' && prinOf(t).includes(k.p)); if (t && !out.some(o => o.id === t.id)) out.push({ id: t.id, b: 'pri' }); });
+    return out;
   }
 
   // ---------- Router ----------
@@ -1130,7 +1365,10 @@
     else if (h.startsWith('#/plan')) { r = 'plan'; $('#subtitle').textContent = 'Diseño de la semana'; vPlan(); }
     else if (h.startsWith('#/temporada')) { r = 'plan'; $('#back').hidden = false; $('#subtitle').textContent = 'Contenidos de la temporada'; vTemporada(); }
     else if (h.startsWith('#/asistente')) { r = 'ses'; $('#back').hidden = false; $('#subtitle').textContent = 'Asistente de sesión'; vAsistente(); }
+    else if (h.startsWith('#/pizarra/r/')) { r = 'plan'; const f = h.split('/')[3]; vPizarra(rivalSlides(f), '#/partido/' + f); }
     else if (h.startsWith('#/pizarra')) { r = 'ses'; $('#subtitle').textContent = 'Modo vestuario'; vPizarra(); }
+    else if (h.startsWith('#/metodologia')) { r = 'plan'; $('#back').hidden = false; $('#subtitle').textContent = 'Metodología del club'; vMeto(); }
+    else if (h.startsWith('#/partido')) { r = 'plan'; $('#back').hidden = false; $('#subtitle').textContent = 'Preparar el partido'; vPartido(h.split('/')[2] || null); }
     else if (h.startsWith('#/micro')) { r = 'micro'; $('#subtitle').textContent = 'Días MD y cargas'; vMicro(); }
     else if (h.startsWith('#/mis') || h.startsWith('#/favs')) { r = 'mis'; $('#subtitle').textContent = 'Creadas por ti y favoritos'; vMis(); }
     else if (h.startsWith('#/nueva')) { r = 'mis'; $('#back').hidden = false; $('#subtitle').textContent = 'Pizarra y ficha'; vEdit('nueva'); }

@@ -511,3 +511,94 @@ T({ id: 'f56', n: 'Compensatorio de alta velocidad (no convocados)', cat: 'fis',
   cons: ['Correr relajado a alta velocidad.', 'Controlar molestias en isquios.'],
   var: ['+ Con balón en la última parte.', '− Solo carreras al 85 %.'],
   d: { z: [[22.5, 26, 60, 16]], c: [...conos(24, 29, 24, 39, 3), ...conos(49, 29, 49, 39, 3, '#facc15'), ...conos(64, 29, 64, 39, 3, '#22c55e')], p: [A(23, 31), A(23, 37)], a: [['mov', 24, 31, 63.5, 31, 0, 1], ['mov', 24, 37, 44, 37, 0, 2]], t: [[44, 27.5, '40 m progresivo · 20 m sprint', .85]] } });
+
+// ---------- AMPLIACIÓN (f57 – f66) ----------
+T({ id: 'f57', n: 'Contrastes: sentadilla con goma + sprint de 10 m', cat: 'fis', tipo: 'Fuerza', ed: 'JS', dif: 2, md: ['MD-4'], int: 3, rpe: '6-7', carga: 'Tensión', fase: 'pri',
+  jug: 'Parejas', np: 2, esp: [20, 5], ser: '4 x (4 sentadillas + sprint)', rec: '1\'30"', dur: 12,
+  obj: 'Potenciar la aceleración con el método de contraste: fuerza con resistencia seguida de un esfuerzo explosivo libre.',
+  desc: 'Cuatro sentadillas rápidas con goma elástica o chaleco ligero y, inmediatamente, sprint de 10 m. El compañero descansa y luego cambian. Recuperación completa entre series.',
+  reglas: ['Sentadilla rápida en la subida.', 'Sprint en menos de 5 segundos tras la última repetición.', 'Recuperación completa.'],
+  cons: ['Empuja el suelo con fuerza.', 'Primeros apoyos cortos y potentes.', 'Calidad máxima: si baja la velocidad, se para.'],
+  var: ['+ Sprint de 15 m con salida en reacción.', '− Sentadilla sin carga.'],
+  d: { esc: [], c: [[42, 34], [52, 34, '#facc15']], p: [A(40, 34), A(40, 37)], a: [['mov', 42, 34, 52, 34, 0, 1]], t: [[41, 31, '4 sentadillas', .8], [52, 31, 'Sprint 10 m', .8]] } });
+
+T({ id: 'f58', n: 'Juego reducido 3v3 sin porteros (potencia aeróbica)', cat: 'fis', tipo: 'Juego reducido', ed: 'ICJS', dif: 2, md: ['MD-4', 'MD-3'], int: 4, rpe: '8-9', carga: 'Duración', fase: 'pri',
+  jug: '3v3', np: 6, esp: [25, 20], ser: '4 x 2\' (2 series)', rec: '1\'30" entre repeticiones, 3\' entre series', dur: 22,
+  obj: 'Trabajo de alta intensidad con balón: frecuencia cardiaca alta, aceleraciones y duelos.',
+  desc: 'Tres contra tres a dos miniporterías por equipo, con balones en los laterales para que no se pare el juego. El entrenador anima constantemente.',
+  reglas: ['Sin saques de banda: balón nuevo inmediato.', 'Gol solo desde la mitad rival.', 'Cuenta de goles por serie.'],
+  cons: ['Presión inmediata tras pérdida.', 'Intensidad máxima durante los 2 minutos.', 'Recuperar caminando y bebiendo.'],
+  var: ['+ 25 x 25 m.', '− 4v4.'],
+  d: { z: [[40, 24, 25, 20]], mg: [[40, 28, 'R'], [40, 40, 'R'], [65, 28, 'L'], [65, 40, 'L']], p: [A(46, 30), A(50, 38), A(54, 33), B(56, 29), B(59, 36), B(52, 41)], b: [[54.8, 33.5]], a: [['pase', 54, 33, 50, 38, 0, 1], ['cond', 50, 38, 60, 40, 0, 2], ['tiro', 60, 40, 64.5, 40, 0, 3]] } });
+
+T({ id: 'f59', n: 'Posesión 5v5 intermitente (30" juego / 30" pausa)', cat: 'fis', tipo: 'Intermitente', ed: 'CJS', dif: 2, md: ['MD-4', 'MD-3'], int: 3, rpe: '7', carga: 'Duración', fase: 'pri',
+  jug: '5v5', np: 10, esp: [30, 30], ser: '2 x 8 x (30"-30")', rec: '3\' entre series', dur: 20,
+  obj: 'Potencia aeróbica en forma de posesión: esfuerzos cortos de alta intensidad con pausas activas.',
+  desc: 'Posesión 5v5 durante 30 segundos a máxima intensidad; en la pausa de 30 segundos, los jugadores se pasan el balón en el sitio. Punto cada 6 pases seguidos.',
+  reglas: ['30 segundos de juego, 30 de pausa activa.', '6 pases: 1 punto.', 'Balón nuevo inmediato si sale.'],
+  cons: ['Máxima intensidad en los 30".', 'Movilidad constante sin balón.', 'En la pausa, respirar y soltar piernas.'],
+  var: ['+ 40"-20".', '− 20"-40".'],
+  d: { z: [[37.5, 19, 30, 30]], p: [A(42, 24), A(62, 24), A(42, 44), A(62, 44), A(52, 34), B(48, 30), B(57, 30), B(48, 39), B(57, 39), B(52, 25)], b: [[42.8, 24.6]], a: [['pase', 42, 24, 52, 34, 0, 1], ['pase', 52, 34, 62, 44, 0, 2], ['mov', 62, 24, 64, 30, 0, 2]] } });
+
+T({ id: 'f60', n: 'Isometría + reactividad: sentadilla isométrica y 3 saltos', cat: 'fis', tipo: 'Fuerza', ed: 'CJS', dif: 2, md: ['MD-4'], int: 3, rpe: '6', carga: 'Tensión', fase: 'pri',
+  jug: 'Individual en grupo', np: 12, esp: [15, 15], ser: '4 x (20" isométrico + 3 saltos)', rec: '1\'30"', dur: 12,
+  obj: 'Fuerza isométrica de cuádriceps y glúteo seguida de saltos reactivos para transferir al juego.',
+  desc: 'Sentadilla isométrica a 90° durante 20 segundos (en pared o libre) y, sin pausa, tres saltos verticales máximos con aterrizaje controlado. Termina con 5 m de aceleración.',
+  reglas: ['Rodillas alineadas con los pies.', 'Saltos máximos y aterrizaje estable.', 'Si se pierde la técnica, se para.'],
+  cons: ['Empuja el suelo como si quisieras romperlo.', 'Aterriza suave, con rodillas hacia fuera.', 'Brazos activos en el salto.'],
+  var: ['+ Isométrico a una pierna 10" por lado.', '− 15" isométrico + 2 saltos.'],
+  d: { p: [A(45, 30), A(50, 30), A(55, 30), A(45, 38), A(50, 38), A(55, 38)], c: conos(45, 44, 55, 44, 3, '#facc15'), a: [['mov', 45, 38, 45, 43, 0, 1], ['mov', 50, 38, 50, 43, 0, 1], ['mov', 55, 38, 55, 43, 0, 1]], t: [[50, 26, '20" isométrico → 3 saltos → 5 m', .8]] } });
+
+T({ id: 'f61', n: 'Duelos de fuerza: cargas, empujes y protección de balón', cat: 'fis', tipo: 'Fuerza', ed: 'CJS', dif: 2, md: ['MD-4', 'MD-3'], int: 3, rpe: '7', carga: 'Tensión', fase: 'pri',
+  jug: 'Parejas', np: 2, esp: [5, 5], ser: '6 x 15" por ejercicio', rec: '45"', dur: 14,
+  obj: 'Fuerza específica de duelo: estabilidad de tronco, cargas hombro con hombro y protección del balón.',
+  desc: 'Parejas en cuadrados de 5 x 5 m. 1) Empuje hombro con hombro para sacar al compañero. 2) Protección de balón 1v1 durante 15 segundos. 3) Lucha por el balón en el centro tras una señal.',
+  reglas: ['Cargas legales: hombro con hombro.', 'Sin agarrones.', 'Cambio de pareja cada ejercicio.'],
+  cons: ['Base ancha y centro de gravedad bajo.', 'Brazos para sentir al rival, no para empujar.', 'Tronco firme.'],
+  var: ['+ Protección contra dos defensores.', '− Duelos de 10".'],
+  d: { z: [[45, 28, 5, 5], [52, 28, 5, 5], [59, 28, 5, 5]], p: [A(47, 30.5), B(48.4, 30.5), A(54, 30.5), B(55.4, 30.5), A(61, 30.5), B(62.4, 30.5)], b: [[54.4, 31.6]] } });
+
+T({ id: 'f62', n: 'Carrera con balón de 30 m y centro (velocidad específica)', cat: 'fis', tipo: 'Velocidad', ed: 'ICJS', dif: 2, md: ['MD-3', 'MD-2'], int: 4, rpe: '7-8', carga: 'Velocidad', fase: 'pri',
+  jug: 'Dos filas + rematadores + P', np: 10, esp: [40, 40], ser: '2 x 5 repeticiones por jugador', rec: '1\' entre repeticiones', dur: 15,
+  obj: 'Velocidad máxima con balón por banda y centro al área, como en el partido.',
+  desc: 'Pase al espacio del entrenador; el extremo esprinta 30 m, conduce y centra al área, donde dos compañeros que han esprintado desde el medio rematan.',
+  reglas: ['Sprint máximo en cada repetición.', 'Centro antes de la línea de fondo.', 'Recuperación completa: se rota.'],
+  cons: ['Conducción larga con el exterior.', 'Levanta la cabeza antes de centrar.', 'Rematadores: llegar a la vez que el balón.'],
+  var: ['+ Defensor que persigue.', '− Sin balón: sprint y centro desde parado.'],
+  d: { v: [60, -2, 48, 50], p: [P(103, 34), A(68, 6), A(70, 26), A(70, 36), E(64, 14)], b: [[65, 13]], a: [['pase', 64, 14, 80, 5, 0, 1], ['mov', 68, 6, 80, 5, 0, 1], ['cond', 80, 5, 96, 6, 0, 2], ['mov', 70, 26, 96, 30, 0, 2], ['mov', 70, 36, 92, 38, 0, 2], ['pase', 96, 6, 96, 30, -1, 3], ['tiro', 96, 30, 104.5, 36, 0, 4]] } });
+
+T({ id: 'f63', n: 'Repliegue de 40 m + duelo defensivo', cat: 'fis', tipo: 'RSA', ed: 'CJS', dif: 3, md: ['MD-4', 'MD-3'], int: 4, rpe: '8', carga: 'Velocidad', fase: 'pri',
+  jug: 'Parejas + P', np: 6, esp: [45, 30], ser: '2 x 5 repeticiones', rec: '30" entre repeticiones, 3\' entre series', dur: 16,
+  obj: 'Repetir esfuerzos de repliegue a máxima velocidad y llegar a tiempo a defender un 1v1.',
+  desc: 'El defensor empieza en el área rival (simulando que ha perdido el balón) y esprinta 40 m de vuelta. A la vez, un atacante sale conduciendo desde el medio campo. Cuando se encuentran, 1v1 hasta tiro o robo.',
+  reglas: ['El atacante sale cuando el defensor pasa un cono.', '1v1 hasta tiro o robo.', 'Se cambian los roles en cada serie.'],
+  cons: ['Correr hacia tu portería, no hacia el balón.', 'Al llegar, frena y perfílate.', 'No te lances.'],
+  var: ['+ Repliegue de 50 m.', '− 30 m.'],
+  d: { v: [-3, 10, 60, 48], p: [P(2, 34), B(48, 34), A(28, 40)], c: [[38, 34], [28, 44]], b: [[28.8, 40.5]], a: [['mov', 48, 34, 14, 34, 0, 1], ['cond', 28, 40, 18, 38, 0, 1], ['tiro', 16, 37, 0.5, 35, 0, 2]] } });
+
+T({ id: 'f64', n: 'Rondos itinerantes de baja intensidad (aeróbico extensivo)', cat: 'fis', tipo: 'Aeróbico', ed: 'AICJS', dif: 1, md: ['MD+2', 'MD-3'], int: 2, rpe: '4-5', carga: 'Duración', fase: 'pri',
+  jug: 'Grupos de 6', np: 12, esp: [40, 40], ser: '3 x 8\'', rec: '2\'', dur: 28,
+  obj: 'Volumen aeróbico con balón a intensidad moderada para recuperar o construir base.',
+  desc: 'Rondos 5v1 que se desplazan: cada minuto, el grupo lleva el rondo trotando hasta el siguiente cono (4 conos en un cuadrado grande). Pases sin parar durante los desplazamientos.',
+  reglas: ['El rondo nunca se para.', 'Cambio de defensor cada minuto.', 'Ritmo de trote constante.'],
+  cons: ['Respiración cómoda: se puede hablar.', 'Pases suaves y precisos.', 'Todos se mueven.'],
+  var: ['+ 4 x 8\'.', '− 2 x 8\'.'],
+  d: { c: esq(32.5, 14, 40, 40), p: [...ring(36, 18, 4, 5, 'A'), B(36, 18), ...ring(69, 50, 4, 5, 'A'), B(69, 50)], a: [['mov', 36, 18, 66, 18, 0, 1], ['mov', 69, 50, 39, 50, 0, 1]] } });
+
+T({ id: 'f65', n: 'Frenadas y cambios de dirección con balón (45° y 90°)', cat: 'fis', tipo: 'Agilidad', ed: 'AICJS', dif: 2, md: ['MD-3', 'MD-2'], int: 3, rpe: '6', carga: 'Velocidad', fase: 'pri',
+  jug: 'Filas de 3', np: 9, esp: [20, 20], ser: '6-8 repeticiones por jugador', rec: '45"', dur: 14,
+  obj: 'Técnica de frenada y cambio de dirección conduciendo, para salir del rival y proteger la rodilla.',
+  desc: 'Recorrido en zigzag de conos: conducción rápida 5 m, frenada con la planta y cambio de 45°; en el último cono, cambio de 90° y pase a una miniportería.',
+  reglas: ['Frenar con pasos cortos antes del cono.', 'Alternar el pie con el que se cambia.', 'Calidad antes que velocidad.'],
+  cons: ['Baja la cadera antes de cambiar.', 'La rodilla no se va hacia dentro.', 'El balón siempre cerca.'],
+  var: ['+ Con defensor que persigue.', '− Sin balón.'],
+  d: { c: [[42, 34], [47, 30], [52, 34], [57, 30], [62, 34, '#facc15']], mg: [[62, 42, 'U']], p: [A(38, 34), A(36, 34), A(34, 34)], b: [[38.8, 34.6]], a: [['cond', 38, 34, 46.5, 30.5, 0, 1], ['cond', 46.5, 30.5, 51.5, 33.5, 0, 2], ['cond', 51.5, 33.5, 56.5, 30.5, 0, 3], ['cond', 56.5, 30.5, 61.5, 33.5, 0, 4], ['pase', 62, 34.5, 62, 41.5, 0, 5]] } });
+
+T({ id: 'f66', n: 'Test de sprint de 30 m con parciales (evaluación)', cat: 'fis', tipo: 'Evaluación', ed: 'AICJS', dif: 1, md: ['MD-4', 'MD-3'], int: 4, rpe: '7', carga: 'Velocidad', fase: 'pri',
+  jug: 'Individual', np: 1, esp: [40, 5], ser: '2-3 intentos', rec: '3\'', dur: 15,
+  obj: 'Medir aceleración (0-10 m) y velocidad (10-30 m) para controlar la evolución del jugador.',
+  desc: 'Salida desde parado a 0,5 m de la línea. Se cronometran el paso por 10 m y la llegada a 30 m (fotocélulas, app de vídeo o dos cronometradores). Se registra el mejor intento.',
+  reglas: ['Calentamiento completo antes.', 'Salida sin balanceo hacia atrás.', 'Recuperación completa entre intentos.'],
+  cons: ['Primeros pasos potentes.', 'No frenar antes de la línea de 30 m.', 'Anota el mejor tiempo.'],
+  var: ['+ Repetir cada 6-8 semanas.', '− Solo 10 m en edades pequeñas.'],
+  d: { c: [[30, 32], [30, 36], [40, 32, '#facc15'], [40, 36, '#facc15'], [60, 32], [60, 36]], p: [A(29, 34)], a: [['mov', 30, 34, 61, 34, 0, 1]], t: [[30, 30, '0', .9], [40, 30, '10 m', .9], [60, 30, '30 m', .9]] } });

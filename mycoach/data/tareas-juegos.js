@@ -269,3 +269,76 @@ T({ id: 'j30', n: 'Reto del equipo: 100 pases sin que caiga', cat: 'jue', tipo: 
   cons: ['Toques suaves y altos.', 'Avisar antes de recibir.'],
   var: ['+ Solo de cabeza y pecho.', '− Se permite un bote.'],
   d: { z: [[45, 26.5, 15, 15]], p: [...ring(52.5, 34, 7, 12, 'A')], b: [[52.5, 28]], a: [['pase', 52.5, 27, 58.6, 30.5, -2, 1], ['pase', 58.6, 30.5, 56, 40, -2, 2], ['pase', 56, 40, 46.4, 37.5, -2, 3]] } });
+
+// ---------- AMPLIACIÓN (j31 – j38) ----------
+T({ id: 'j31', n: 'Fútbol-béisbol', cat: 'jue', tipo: 'Juego lúdico', ed: 'AICJS', dif: 1, md: ['MD+2', 'MD-2', 'MD-1'], int: 2, rpe: '4-5', carga: 'Activación', fase: 'pri',
+  jug: 'Dos equipos de 5-8', np: 14, esp: [30, 30], ser: '2 entradas por equipo', rec: '—', dur: 18,
+  obj: 'Golpeo, carrera y cooperación en un juego distinto que rompe la rutina.',
+  desc: 'El bateador golpea el balón con el pie desde la base y corre alrededor de 4 conos. El equipo que defiende debe controlar el balón y pasarlo a su jugador en la base antes de que el bateador llegue a un cono. Carrera completa: 1 punto.',
+  reglas: ['El balón se golpea parado.', 'El que defiende solo puede usar los pies.', 'Tres eliminados: cambio de equipo.'],
+  cons: ['Golpea hacia donde no hay nadie.', 'Defensores: pases rápidos.', 'Animar al equipo.'],
+  var: ['+ Golpeo con la pierna mala.', '− Bateador puede parar en cada cono.'],
+  d: { c: [[40, 46], [40, 22], [65, 22], [65, 46]], p: [A(38, 48), B(50, 30), B(58, 36), B(48, 40), B(60, 26), B(40, 44)], b: [[39.5, 47]], a: [['tiro', 39.5, 47, 56, 32, 0, 1], ['mov', 38, 48, 40, 23, 0, 1]] } });
+
+T({ id: 'j32', n: 'El reloj: relevos contra el tiempo', cat: 'jue', tipo: 'Juego de activación', ed: 'AICJS', dif: 1, md: ['MD-4', 'MD-3', 'MD-2', 'MD-1'], int: 3, rpe: '6', carga: 'Velocidad', fase: 'cal',
+  jug: 'Dos equipos', np: 12, esp: [20, 20], ser: '4 rondas', rec: '1\'', dur: 10,
+  obj: 'Velocidad con balón y cooperación: un equipo da vueltas conduciendo mientras el otro completa pases.',
+  desc: 'El equipo A, en círculo, se pasa el balón contando pases. El equipo B, por relevos, da una vuelta completa al círculo conduciendo. Cuando el último de B termina, se apunta cuántos pases ha hecho A. Cambio de roles.',
+  reglas: ['Pases solo al compañero de al lado (o saltando uno).', 'Conducción por fuera del círculo.', 'Gana quien haga más pases.'],
+  cons: ['Pases rápidos y precisos.', 'Conducción rápida con el exterior.', 'Relevo con choque de manos.'],
+  var: ['+ Pases a un toque.', '− Círculo más pequeño.'],
+  d: { p: [...ring(52, 34, 7, 6, 'A'), B(43, 34)], b: [[45, 34.5]], a: [['cond', 43, 34, 52, 24, -3, 1]] } });
+
+T({ id: 'j33', n: 'Partido de los retos (cartas)', cat: 'jue', tipo: 'Competición', ed: 'AICJS', dif: 1, md: ['MD-3', 'MD-2', 'MD-1'], int: 3, rpe: '6', carga: 'Tensión', fase: 'pri',
+  jug: '5v5 + porteros', np: 12, esp: [40, 30], ser: '4 x 4\'', rec: '1\'', dur: 20,
+  obj: 'Partido divertido con condiciones cambiantes que obligan a adaptarse.',
+  desc: 'Antes de cada tiempo, cada equipo saca una carta con un reto: «solo gol de cabeza vale doble», «un jugador no puede tocar el balón», «gol tras 5 pases = 3», «todos deben pasar del medio campo»… Si se cumple el reto, punto extra.',
+  reglas: ['Una carta por equipo y tiempo.', 'Reto cumplido: 1 punto extra.', 'El entrenador hace de árbitro de retos.'],
+  cons: ['Lee el reto y organiza al equipo.', 'Adáptate rápido.', 'Diviértete compitiendo.'],
+  var: ['+ Carta secreta (el rival no la conoce).', '− Retos más sencillos.'],
+  d: { z: [[32.5, 19, 40, 30]], g: [[32.5, 34, 'R'], [72.5, 34, 'L']], p: [P(33.5, 34), P(71.5, 34), A(42, 26), A(46, 40), A(52, 32), A(58, 24), A(62, 42), B(48, 28), B(54, 38), B(60, 32), B(64, 26), B(44, 34)], b: [[52.8, 32.5]], a: [['pase', 52, 32, 58, 24, 1, 1], ['tiro', 58, 24, 71.8, 33, 0, 2]] } });
+
+T({ id: 'j34', n: 'Bolos defendidos: tiro a conos con defensor', cat: 'jue', tipo: 'Juego lúdico', ed: 'AICJS', dif: 1, md: ['MD-3', 'MD-2', 'MD-1'], int: 3, rpe: '6', carga: 'Tensión', fase: 'pri',
+  jug: '4v4', np: 8, esp: [30, 20], ser: '4 x 3\'', rec: '1\'', dur: 15,
+  obj: 'Pase y tiro con precisión mientras se protege el propio objetivo.',
+  desc: 'Cada equipo tiene 3 conos de pie (bolos) en su zona de fondo. Se gana un punto al derribar un bolo rival con un tiro raso desde fuera de la zona. Nadie puede entrar en las zonas de bolos.',
+  reglas: ['Prohibido entrar en la zona de bolos.', 'Tiros siempre rasos.', 'Gana quien derriba los 3 bolos o tiene más al final.'],
+  cons: ['Tira cuando el defensor no tape.', 'Defiende tapando la línea de tiro.', 'Mueve el balón rápido para abrir huecos.'],
+  var: ['+ Bolos más pequeños.', '− 4 bolos por equipo.'],
+  d: { z: [[37.5, 24, 30, 20], [37.5, 24, 4, 20, 'rgba(250,204,21,.18)'], [63.5, 24, 4, 20, 'rgba(250,204,21,.18)']], c: [[39.5, 28], [39.5, 34], [39.5, 40], [65.5, 28, '#facc15'], [65.5, 34, '#facc15'], [65.5, 40, '#facc15']], p: [A(46, 28), A(50, 38), A(54, 31), B(56, 36), B(58, 28), B(48, 33)], b: [[54.8, 31.5]], a: [['pase', 54, 31, 50, 38, 0, 1], ['tiro', 50, 38, 65.5, 40, 0, 2]] } });
+
+T({ id: 'j35', n: 'Malabares por parejas: control y volea', cat: 'jue', tipo: 'Técnica lúdica', ed: 'AICJS', dif: 1, md: ['MD-4', 'MD-3', 'MD-2', 'MD-1'], int: 1, rpe: '3', carga: 'Activación', fase: 'cal',
+  jug: 'Parejas', np: 2, esp: [6, 6], ser: '4 x 2\'', rec: '30"', dur: 10,
+  obj: 'Dominio del balón en el aire: control con muslo, pie y cabeza y pase de volea.',
+  desc: 'Parejas a 4-5 m. Pasarse el balón sin que toque el suelo: un control y pase de volea. Cuenta de pases seguidos; cada serie se intenta superar el récord.',
+  reglas: ['Un control y un pase (dos toques).', 'Si cae al suelo, empieza la cuenta.', 'Récord por pareja.'],
+  cons: ['Amortigua el balón.', 'Pase suave y alto al compañero.', 'Usa las dos piernas.'],
+  var: ['+ Un toque obligatorio con la cabeza.', '− Se permite un bote.'],
+  d: { p: [A(48, 34), A(54, 34), A(48, 40), A(54, 40)], b: [[51, 33]], a: [['pase', 48, 34, 54, 34, -2, 1], ['pase', 54, 34, 48, 34, -2, 2]] } });
+
+T({ id: 'j36', n: 'Estrella de pases con competición', cat: 'jue', tipo: 'Juego de activación', ed: 'AICJS', dif: 1, md: ['MD-4', 'MD-3', 'MD-2', 'MD-1'], int: 2, rpe: '4', carga: 'Activación', fase: 'cal',
+  jug: 'Dos grupos de 5-6', np: 12, esp: [15, 15], ser: '3 x 2\'', rec: '45"', dur: 10,
+  obj: 'Pase y desplazamiento siguiendo un dibujo en estrella, compitiendo contra el otro grupo.',
+  desc: 'Cinco conos en estrella. Cada jugador pasa al cono que no tiene al lado (dibujando una estrella) y sigue su pase. Gana el grupo que completa más vueltas enteras en 2 minutos.',
+  reglas: ['Pase siempre en estrella.', 'Sigue tu pase.', 'Si el balón se escapa, se repite el pase.'],
+  cons: ['Pase al pie bueno del compañero.', 'Control orientado hacia el siguiente cono.', 'Comunicación.'],
+  var: ['+ Dos balones a la vez.', '− Pase al cono de al lado.'],
+  d: { c: ring(52, 34, 7, 5, 'A').map(p => [p[1], p[2]]), p: ring(52, 34, 7, 5, 'A'), b: [[52, 26.6]], a: [['pase', 52, 27, 56.1, 39.7, 0, 1], ['pase', 56.1, 39.7, 45.3, 31.8, 0, 2], ['pase', 45.3, 31.8, 58.7, 31.8, 0, 3]] } });
+
+T({ id: 'j37', n: 'Puntería: tiro a dianas en la portería', cat: 'jue', tipo: 'Juego lúdico', ed: 'AICJS', dif: 1, md: ['MD-2', 'MD-1'], int: 2, rpe: '4', carga: 'Activación', fase: 'pri',
+  jug: 'Dos equipos', np: 10, esp: [20, 20], ser: '3 rondas', rec: '—', dur: 12,
+  obj: 'Precisión en el tiro a los rincones de la portería.',
+  desc: 'Se cuelgan aros, petos o conos en las cuatro esquinas de la portería. Cada jugador tira desde 14-16 m. Escuadra: 3 puntos; esquina baja: 2 puntos; resto de la portería: 1 punto.',
+  reglas: ['Tiro desde la línea marcada.', 'Cada jugador tira 3 veces por ronda.', 'Gana el equipo con más puntos.'],
+  cons: ['Elige el rincón antes de tirar.', 'Interior para colocar, empeine para fuerza.', 'Pie de apoyo apuntando a la diana.'],
+  var: ['+ Tiro tras control.', '− Distancia más corta.'],
+  d: { v: [80, 20, 28, 28], c: [[104.5, 30.6, '#facc15'], [104.5, 37.4, '#facc15']], p: [A(90, 34), A(88, 36), B(88, 32)], b: [[91, 34.5]], a: [['tiro', 91, 34, 104.5, 30.8, 0, 1]], t: [[104, 28, '3', 1], [104, 40, '2', 1]] } });
+
+T({ id: 'j38', n: 'De las manos a los pies: pase con la mano y gol con el pie', cat: 'jue', tipo: 'Juego lúdico', ed: 'AICJS', dif: 1, md: ['MD+2', 'MD-2', 'MD-1'], int: 2, rpe: '5', carga: 'Activación', fase: 'pri',
+  jug: '5v5 + porteros', np: 12, esp: [35, 25], ser: '3 x 4\'', rec: '1\'', dur: 15,
+  obj: 'Desmarques y visión de juego en un juego de balonmano adaptado; el gol se hace con el pie o la cabeza.',
+  desc: 'El balón se juega con la mano (máximo 3 pasos con el balón) y solo se puede marcar con el pie tras soltarlo uno mismo, de volea, o de cabeza tras un pase del compañero.',
+  reglas: ['Máximo 3 pasos con el balón en la mano.', 'No se puede quitar el balón de las manos: solo interceptar.', 'Gol de cabeza: 2 puntos.'],
+  cons: ['Desmárcate en cuanto tu equipo recupera.', 'Pases rápidos.', 'Atacar el espacio.'],
+  var: ['+ Gol solo de cabeza.', '− Sin límite de pasos.'],
+  d: { z: [[35, 21.5, 35, 25]], g: [[35, 34, 'R'], [70, 34, 'L']], p: [P(36, 34), P(69, 34), A(44, 28), A(48, 40), A(54, 32), A(60, 26), A(62, 40), B(50, 30), B(56, 38), B(60, 34), B(64, 30), B(42, 34)], b: [[54.8, 31]], a: [['pase', 54, 32, 60, 26, 2, 1], ['mov', 62, 40, 66, 34, 0, 1], ['pase', 60, 26, 66, 34, 2, 2], ['tiro', 66, 34, 69.8, 34, 0, 3]] } });

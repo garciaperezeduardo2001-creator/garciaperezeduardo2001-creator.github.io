@@ -343,3 +343,76 @@ T({ id: 'gk38', n: 'Partido de porteros (fútbol-portería)', cat: 'por', tipo: 
   cons: ['Posición básica antes de cada lanzamiento rival.', 'Contraatacar rápido tras blocar.'],
   var: ['+ Volea obligatoria.', '− Solo con la mano.'],
   d: { z: [[43.5, 29, 18, 10]], g: [[43.5, 34, 'R'], [61.5, 34, 'L']], p: [P(45, 34), P(60, 34)], b: [[46, 34.5]], a: [['tiro', 45, 34, 61, 32, 0, 1], ['mov', 60, 34, 60, 32.3, 0, 1]] } });
+
+// ---------- AMPLIACIÓN (gk39 – gk46) ----------
+T({ id: 'gk39', n: 'Juego aéreo en córner con oposición real', cat: 'por', tipo: 'Juego aéreo', ed: 'CJS', dif: 3, md: ['MD-3', 'MD-2'], int: 3, rpe: '6', carga: 'Tensión', fase: 'pri',
+  jug: 'Portero + 3v3 en el área', np: 8, esp: [20, 40], ser: '3 x 6 córners', rec: '1\'', dur: 14,
+  obj: 'Decidir salir o quedarse ante córners con tráfico real, blocar arriba o despejar de puños.',
+  desc: 'Córners desde ambos lados con tres atacantes y tres defensores en el área. Un atacante se coloca delante del portero. El portero debe gritar «¡mía!» y decidir.',
+  reglas: ['El portero puede blocar o despejar.', 'Si un atacante remata, sigue la jugada.', 'Se alternan cerrados y abiertos.'],
+  cons: ['Posición inicial: medio paso adelantado al centro de la portería.', 'Decide pronto y comunica.', 'Ataca el balón en su punto más alto.'],
+  var: ['+ 4v4.', '− Sin atacante delante del portero.'],
+  d: { v: [76, 0, 32, 46], p: [P(102.5, 33), A(101, 30), A(96, 30), A(94, 36), B(97, 33), B(95, 39), B(93, 28), A(105, 0.5)], b: [[104.5, 1.2]], a: [['pase', 105, 0.5, 98, 31, 3, 1], ['mov', 102.5, 33, 99, 31.5, 0, 2]] } });
+
+T({ id: 'gk40', n: 'Paradas tras finta del lanzador', cat: 'por', tipo: 'Blocaje', ed: 'ICJS', dif: 2, md: ['MD-4', 'MD-3', 'MD-2'], int: 2, rpe: '5', carga: 'Velocidad', fase: 'pri',
+  jug: 'Portero + entrenador', np: 2, esp: [16, 20], ser: '3 x 8 tiros', rec: '1\'', dur: 12,
+  obj: 'Mantener la posición y no lanzarse antes de tiempo cuando el lanzador amaga.',
+  desc: 'El entrenador conduce hacia el área y amaga el tiro una o dos veces antes de disparar. El portero ajusta posición en pasos cortos y reacciona solo al golpeo real.',
+  reglas: ['El portero no puede tirarse antes del golpeo.', 'Tiro a los dos lados alternos.', 'Cuenta de paradas.'],
+  cons: ['Peso en la parte delantera de los pies.', 'Pasos cortos para ajustar.', 'Paciencia: espera el golpeo.'],
+  var: ['+ Lanzadores que regatean.', '− Sin finta.'],
+  d: { v: [76, 14, 32, 40], p: [P(102, 34), E(86, 34)], b: [[87, 34.6]], a: [['cond', 86, 34, 90, 33, 0, 1], ['tiro', 90, 33, 104.5, 30, 0, 2], ['mov', 102, 34, 102.5, 31, 0, 2]] } });
+
+T({ id: 'gk41', n: 'Desvío con la mano cambiada', cat: 'por', tipo: 'Parada', ed: 'CJS', dif: 3, md: ['MD-4', 'MD-3'], int: 3, rpe: '6', carga: 'Tensión', fase: 'pri',
+  jug: 'Portero + entrenador', np: 2, esp: [10, 16], ser: '3 x 6 por lado', rec: '1\'', dur: 12,
+  obj: 'Técnica de mano cambiada para tiros a la escuadra contraria al paso de impulso.',
+  desc: 'El entrenador lanza con la mano o golpea a la escuadra. El portero da un paso de impulso y desvía con la mano contraria (la más alejada), girando el cuerpo para llegar más lejos.',
+  reglas: ['Paso de impulso con el pie del lado del balón.', 'Desviar fuera, por encima del larguero o al lado.', 'Alternar lados.'],
+  cons: ['Impulso hacia arriba y hacia el lado.', 'Mano fuerte y firme.', 'Cae de lado, protegiéndote.'],
+  var: ['+ Tiros reales a la escuadra.', '− Lanzamiento con la mano más lento.'],
+  d: { v: [86, 20, 22, 28], p: [P(103, 34), E(94, 34)], b: [[95, 34]], a: [['tiro', 95, 34, 104.5, 30.5, -1, 1], ['mov', 103, 34, 103.5, 31.5, 0, 1]] } });
+
+T({ id: 'gk42', n: 'Portero director: comunicación y organización de la defensa', cat: 'por', tipo: 'Táctica de portero', ed: 'ICJS', dif: 2, md: ['MD-3', 'MD-2'], int: 2, rpe: '4-5', carga: 'Duración', fase: 'pri',
+  jug: 'Portero + 4 defensas v 4 atacantes', np: 9, esp: [40, 50], ser: '4 x 3\'', rec: '1\'', dur: 15,
+  obj: 'Que el portero ordene la línea: altura, basculación, marcas y salida tras el despeje.',
+  desc: 'Cuatro atacantes circulan el balón delante de la línea de 4. El portero da órdenes cortas («¡arriba!», «¡derecha!», «¡tápalo!») y la línea se mueve según su voz. Puntos si la línea responde a tiempo.',
+  reglas: ['Solo el portero da órdenes.', 'Palabras cortas y claras.', 'Si un atacante recibe a la espalda, punto para el ataque.'],
+  cons: ['Habla antes de que pase, no después.', 'Ordena con nombres.', 'Tono firme y tranquilo.'],
+  var: ['+ 5 atacantes.', '− Atacantes pasan sin progresar.'],
+  d: { v: [58, 0, 50, 68], p: [P(103, 34), B(92, 18), B(92, 29), B(92, 39), B(92, 50), A(74, 16), A(72, 30), A(72, 42), A(74, 54)], b: [[72.8, 30.5]], a: [['pase', 72, 30, 74, 16, 1, 1], ['mov', 92, 18, 88, 16, 0, 2], ['mov', 92, 29, 88, 26, 0, 2], ['mov', 92, 39, 88, 37, 0, 2], ['mov', 92, 50, 88, 46, 0, 2]] } });
+
+T({ id: 'gk43', n: 'Tiros cruzados desde la frontal tras conducción', cat: 'por', tipo: 'Parada', ed: 'AICJS', dif: 2, md: ['MD-4', 'MD-3', 'MD-2'], int: 2, rpe: '5', carga: 'Velocidad', fase: 'pri',
+  jug: 'Portero + 2 filas de tiradores', np: 8, esp: [30, 30], ser: '3 x 10 tiros', rec: '1\'', dur: 14,
+  obj: 'Colocación y parada en tiros cruzados desde la frontal, desplazándose con el balón.',
+  desc: 'Dos filas en los vértices del área. El tirador conduce en diagonal hacia el centro y tira cruzado. El portero se desplaza con pasos laterales manteniendo la línea balón-portería.',
+  reglas: ['Tiro antes del borde del área.', 'Se alternan las filas.', 'El portero vuelve al centro tras cada parada.'],
+  cons: ['Muévete con el balón.', 'Quieto en el momento del golpeo.', 'Blocar o desviar fuera, nunca al centro.'],
+  var: ['+ Tiro de primeras tras pase.', '− Tiro desde parado.'],
+  d: { v: [70, 6, 38, 56], p: [P(103, 34), A(80, 16), A(80, 52), A(78, 14), A(78, 54)], b: [[80.8, 16.6]], a: [['cond', 80, 16, 86, 26, 0, 1], ['mov', 103, 34, 102.5, 32, 0, 1], ['tiro', 86, 26, 104.5, 38, 0, 2]] } });
+
+T({ id: 'gk44', n: 'Tiros con bote delante del portero', cat: 'por', tipo: 'Blocaje', ed: 'ICJS', dif: 2, md: ['MD-4', 'MD-3', 'MD-2'], int: 2, rpe: '5', carga: 'Tensión', fase: 'pri',
+  jug: 'Portero + entrenador', np: 2, esp: [16, 20], ser: '3 x 8', rec: '1\'', dur: 12,
+  obj: 'Blocar balones que botan delante, uno de los errores más habituales en partido (mojado o césped artificial).',
+  desc: 'El entrenador golpea de volea o tira para que el balón bote 2-3 m delante del portero. El portero ataca el balón, cierra el cuerpo detrás de las manos y bloca.',
+  reglas: ['Bloca o desvía fuera.', 'Cuerpo siempre detrás del balón.', 'Alternar alturas.'],
+  cons: ['Atacar el balón después del bote.', 'Manos juntas y codos cerrados.', 'Rodilla al suelo como segunda barrera en los rasos.'],
+  var: ['+ Balón mojado.', '− Botes suaves con la mano.'],
+  d: { v: [80, 18, 28, 32], p: [P(102, 34), E(90, 34)], b: [[91, 34.5]], a: [['tiro', 91, 34, 99, 34.5, 0, 1], ['tiro', 99, 34.5, 101.5, 34, 0, 2]] } });
+
+T({ id: 'gk45', n: 'Juego de pies a un toque hacia las bandas', cat: 'por', tipo: 'Juego con los pies', ed: 'ICJS', dif: 2, md: ['MD-4', 'MD-3', 'MD-2'], int: 2, rpe: '4', carga: 'Activación', fase: 'pri',
+  jug: 'Portero + 3 jugadores', np: 4, esp: [35, 50], ser: '3 x 2\'', rec: '45"', dur: 10,
+  obj: 'Pase de primeras con las dos piernas hacia los laterales abiertos, como solución a la presión.',
+  desc: 'Un central pasa atrás al portero, que a un toque la manda a uno de los dos laterales abiertos (dentro de un cuadrado). El lateral devuelve al central y se repite.',
+  reglas: ['El portero juega a un toque.', 'El pase debe entrar en el cuadrado.', 'Alternar pierna.'],
+  cons: ['Perfílate antes de que llegue el balón.', 'Mira dónde vas a pasar antes de recibir.', 'Pase tenso y raso.'],
+  var: ['+ Delantero que presiona.', '− Dos toques.'],
+  d: { v: [-3, 4, 42, 60], z: [[16, 6, 6, 6], [16, 56, 6, 6]], p: [P(2, 34), A(14, 34), A(19, 9), A(19, 59)], b: [[13, 34.5]], a: [['pase', 14, 34, 2.8, 34, 0, 1], ['pase', 2, 34, 19, 9, -2, 2], ['pase', 19, 9, 14, 34, 1, 3]] } });
+
+T({ id: 'gk46', n: 'Reactividad con balones de distinto peso', cat: 'por', tipo: 'Reflejos', ed: 'ICJS', dif: 2, md: ['MD-3', 'MD-2', 'MD-1'], int: 2, rpe: '4-5', carga: 'Velocidad', fase: 'cal',
+  jug: 'Portero + entrenador', np: 2, esp: [8, 8], ser: '3 x 10', rec: '45"', dur: 10,
+  obj: 'Mejorar la reacción de manos y la adaptación a balones que llegan con velocidades y trayectorias distintas.',
+  desc: 'El entrenador lanza alternando balón normal, de tenis, medicinal ligero y balón de playa. El portero bloca o desvía según el balón. Se termina con balones normales a máxima velocidad.',
+  reglas: ['Lanzamientos a distancia corta.', 'Orden aleatorio.', 'Siempre volver a la posición de espera.'],
+  cons: ['Manos delante del cuerpo.', 'Ojos en el balón hasta el final.', 'Adaptar la fuerza de las manos al balón.'],
+  var: ['+ Lanzamientos desde detrás de una pantalla.', '− Solo balón normal y de tenis.'],
+  d: { v: [88, 22, 20, 24], p: [P(102, 34), E(95, 34)], b: [[96, 34.4]], a: [['pase', 96, 34, 101.5, 33, 0, 1]] } });

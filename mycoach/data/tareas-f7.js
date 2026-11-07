@@ -392,3 +392,130 @@ T({ id: 'f7_42', n: 'Rondo regenerativo y charla final', cat: 'jue', tipo: 'Jueg
   cons: ['Pases suaves y precisos.', 'Reconoce lo que han hecho bien tus compañeros.', 'Recoged el material entre todos.'],
   var: ['+ A dos toques.', '− Pases con la mano (prebenjamín).'],
   d: { f7: true, z: [[24, 14, 12, 12]], p: [...ring(30, 20, 6, 6, 'A'), B(30, 20)], b: [[30, 14.6]], a: [['pase', 30, 14, 35.2, 23, -2]] } });
+
+// ---------- AMPLIACIÓN (f7_43 – f7_56) ----------
+T({ id: 'f7_43', n: 'Salida de balón 1-3-2-1: portero + 3 + 2 contra 3', cat: 'tt', tipo: 'Juego de posición', ed: 'A', dif: 2, md: ['MD-4', 'MD-3'], int: 3, rpe: '6', carga: 'Duración', fase: 'pri',
+  jug: '1+5v3', np: 9, esp: [35, 40], ser: '6 x 2\'', rec: '1\'', dur: 18,
+  obj: 'Salir jugando con tres defensas y dos medios, encontrando al medio libre entre los delanteros rivales.',
+  desc: 'El portero inicia; tres defensas abiertos y dos medios escalonados buscan pasar el balón a un compañero que espera en el medio campo. Tres rivales presionan y, si roban, atacan la portería.',
+  reglas: ['Punto al pasar al compañero del medio campo.', 'Si roban, 8 segundos para tirar.', 'Siempre inicia el portero.'],
+  cons: ['Los medios no se ponen en la misma línea.', 'Si un medio está tapado, el otro se ofrece.', 'Defensas: conducir si nadie sale.'],
+  var: ['+ Presión de 4.', '− Presión de 2.'],
+  d: { f7: true, v: [-3, -2, 40, 44], p: [P(2, 20), A(9, 8), A(8, 20), A(9, 32), A(17, 15), A(20, 26), A(32, 20), B(14, 12), B(14, 28), B(21, 20)], b: [[3.2, 20.6]], a: [['pase', 2, 20, 9, 32, -1, 1], ['mov', 20, 26, 22, 30, 0, 1], ['pase', 9, 32, 22, 30, 0, 2], ['pase', 22, 30, 32, 20, 1, 3]] } });
+
+T({ id: 'f7_44', n: 'Rondo 5v2 de fútbol 7 a dos toques', cat: 'tt', tipo: 'Rondo', ed: 'BA', dif: 2, md: ['MD-4', 'MD-3', 'MD-2', 'MD-1'], int: 2, rpe: '5', carga: 'Activación', fase: 'cal',
+  jug: '5v2', np: 7, esp: [12, 12], ser: '5 x 2\'', rec: '30"', dur: 12,
+  obj: 'Circular con dos toques, ver al compañero libre y superar a dos defensores con el pase entre ellos.',
+  desc: 'Cinco jugadores alrededor de un cuadrado y dos defensores dentro. El pase que pasa entre los dos defensores vale un punto. El defensor que roba cambia con quien perdió.',
+  reglas: ['Dos toques.', 'Pase entre los defensores: 1 punto.', '10 pases seguidos: 1 punto.'],
+  cons: ['Control hacia fuera, lejos del defensor.', 'Busca el pase entre los dos.', 'Muévete para dar una línea limpia.'],
+  var: ['+ Un toque.', '− Toques libres.'],
+  d: { f7: true, z: [[24, 14, 12, 12]], p: [A(24, 17), A(29, 14), A(36, 18), A(33, 26), A(25, 25), B(28, 19), B(31, 22)], b: [[24.8, 17.6]], a: [['pase', 24, 17, 29, 14, 1, 1], ['pase', 29, 14, 33, 26, 0, 2]] } });
+
+T({ id: 'f7_45', n: 'Posesión 5v5 con portero de apoyo', cat: 'tt', tipo: 'Posesión', ed: 'A', dif: 2, md: ['MD-4', 'MD-3'], int: 3, rpe: '7', carga: 'Tensión', fase: 'pri',
+  jug: '5v5+P', np: 11, esp: [30, 30], ser: '4 x 3\'', rec: '1\'', dur: 16,
+  obj: 'Mantener la posesión usando al portero como jugador más: cambiar de lado y volver a empezar.',
+  desc: 'Cuadrado de 30 x 30 m con una portería pequeña en un lado y el portero que juega con quien tiene el balón (solo con los pies). Punto cada 8 pases. El portero no puede recibir dos veces seguidas.',
+  reglas: ['El portero juega con los pies y a dos toques.', '8 pases: 1 punto.', 'El portero no recibe dos veces seguidas.'],
+  cons: ['Usa al portero cuando te presionen.', 'Después de pasarle, ábrete.', 'Presión de todo el equipo tras pérdida.'],
+  var: ['+ Portero a un toque.', '− 6 pases.'],
+  d: { f7: true, z: [[15, 5, 30, 30]], p: [P(30, 4.5), A(19, 12), A(41, 12), A(22, 28), A(38, 28), A(30, 20), B(25, 15), B(35, 15), B(26, 24), B(34, 24), B(30, 30)], b: [[19.8, 12.5]], a: [['pase', 19, 12, 30, 4.5, 1, 1], ['pase', 30, 4.5, 41, 12, 1, 2], ['pase', 41, 12, 30, 20, 0, 3]] } });
+
+T({ id: 'f7_46', n: 'Carrileros altos: 6v4 por fuera', cat: 'tt', tipo: 'Juego de posición', ed: 'A', dif: 3, md: ['MD-4', 'MD-3'], int: 3, rpe: '6-7', carga: 'Duración', fase: 'pri',
+  jug: '6v4+P', np: 11, esp: [35, 40], ser: '5 x 3\'', rec: '1\'', dur: 18,
+  obj: 'Atacar por fuera con los carrileros altos y abiertos: superioridad en banda y centro al área.',
+  desc: 'En tres cuartos de campo. Dos carrileros (en los pasillos de banda, donde no puede entrar la defensa) se suman al ataque de cuatro jugadores contra cuatro defensores y el portero. Gol tras centro desde el pasillo: doble.',
+  reglas: ['En los pasillos solo los carrileros.', 'Gol tras centro: 2 puntos.', 'Si roban, conducen hasta la línea de medio campo.'],
+  cons: ['Carrileros pegados a la banda.', 'Si la defensa se abre, pase interior.', 'Llegar al área con 2-3 jugadores.'],
+  var: ['+ Un defensor puede entrar al pasillo.', '− 6v3.'],
+  d: { f7: true, v: F7H, z: [[30, 0, 30, 5, 'rgba(250,204,21,.18)'], [30, 35, 30, 5, 'rgba(250,204,21,.18)']], p: [P(58.5, 20), A(40, 2.5), A(40, 37.5), A(36, 15), A(36, 25), A(44, 20), A(48, 12), B(50, 12), B(51, 20), B(50, 28), B(44, 26)], b: [[36.8, 15.5]], a: [['pase', 36, 15, 40, 2.5, 1, 1], ['cond', 40, 2.5, 52, 2.5, 0, 2], ['mov', 44, 20, 53, 18, 0, 3], ['pase', 52, 2.5, 53, 18, -1, 3], ['tiro', 53, 18, 59.5, 21, 0, 4]] } });
+
+T({ id: 'f7_47', n: 'Remate tras centro raso: 2v1 en el área', cat: 'tt', tipo: 'Finalización', ed: 'BA', dif: 1, md: ['MD-3', 'MD-2', 'MD-1'], int: 2, rpe: '5', carga: 'Velocidad', fase: 'pri',
+  jug: '2v1+P + centrador', np: 6, esp: [20, 30], ser: '10-12 centros', rec: 'Rotación', dur: 12,
+  obj: 'Atacar los centros rasos con dos rematadores que se reparten primer y segundo palo.',
+  desc: 'Un jugador conduce por banda y centra raso. Dos rematadores contra un defensor atacan primer palo y punto de penalti. Rotación: centrador → rematador → defensor → centrador.',
+  reglas: ['Centro raso desde fuera del área.', 'Remate de primeras: 2 puntos.', 'Se alternan las bandas.'],
+  cons: ['Un rematador al primer palo y otro atrás.', 'Llegar en carrera.', 'Remate al suelo y cruzado.'],
+  var: ['+ 2v2.', '− Sin defensor.'],
+  d: { f7: true, v: F7H, p: [P(58.5, 20), A(42, 4), A(44, 16), A(42, 24), B(52, 20)], b: [[42.8, 4.6]], a: [['cond', 42, 4, 52, 5, 0, 1], ['mov', 44, 16, 55, 17, 0, 2], ['mov', 42, 24, 50, 23, 0, 2], ['pase', 52, 5, 50, 23, -1, 2], ['tiro', 50, 23, 59.5, 19, 0, 3]] } });
+
+T({ id: 'f7_48', n: 'Desmarque al espacio y pase filtrado: 3v2 + portero', cat: 'tt', tipo: 'Finalización', ed: 'A', dif: 2, md: ['MD-4', 'MD-3', 'MD-2'], int: 3, rpe: '6-7', carga: 'Velocidad', fase: 'pri',
+  jug: '3v2+P', np: 6, esp: [30, 40], ser: '10 ataques', rec: '45"', dur: 15,
+  obj: 'Coordinar el pase filtrado con el desmarque de ruptura a la espalda de la defensa.',
+  desc: 'Tres atacantes contra dos defensores. El que tiene el balón conduce; los compañeros amagan en corto y rompen al espacio. Se juega con fuera de juego a partir de la línea del área.',
+  reglas: ['10 segundos por ataque.', 'Gol tras pase al espacio: 2 puntos.', 'Fuera de juego desde la línea de 3/4.'],
+  cons: ['Amaga hacia el balón y rompe a la espalda.', 'Pase al espacio, delante del compañero.', 'No te adelantes: espera a que el pasador levante la cabeza.'],
+  var: ['+ 3v3.', '− Sin fuera de juego.'],
+  d: { f7: true, v: F7H, p: [P(58.5, 20), A(34, 20), A(38, 10), A(38, 30), B(46, 15), B(46, 25)], b: [[34.8, 20.6]], a: [['cond', 34, 20, 39, 20, 0, 1], ['mov', 38, 10, 40, 12, 0, 1], ['mov', 40, 12, 52, 14, 0, 2], ['pase', 39, 20, 52, 14, -1, 2], ['tiro', 52, 14, 59.5, 19, 0, 3]] } });
+
+T({ id: 'f7_49', n: 'Presión tras pérdida: 5v5 + porteros', cat: 'tt', tipo: 'Transición', ed: 'BA', dif: 2, md: ['MD-4', 'MD-3'], int: 4, rpe: '7-8', carga: 'Tensión', fase: 'pri',
+  jug: '5v5+2P', np: 12, esp: [40, 30], ser: '4 x 3\'', rec: '1\'30"', dur: 18,
+  obj: 'Reaccionar en cuanto se pierde el balón: el más cercano presiona y los demás cierran.',
+  desc: 'Partido 5v5 con porteros. Si un equipo recupera el balón en menos de 5 segundos tras perderlo, gana un punto. Gol normal: 1 punto.',
+  reglas: ['Recuperar en 5 segundos tras pérdida: 1 punto.', 'Gol: 1 punto.', 'El entrenador cuenta en voz alta.'],
+  cons: ['¡Pierdo y presiono!', 'Cierra el pase al compañero más cercano.', 'Todos juntos, nadie se queda mirando.'],
+  var: ['+ Recuperar en 3 segundos.', '− 6v5.'],
+  d: { f7: true, v: [8, 2, 44, 36], z: [[10, 5, 40, 30]], g: [[10, 20, 'R'], [50, 20, 'L']], p: [P(11, 20), P(49, 20), A(24, 14), A(30, 22), A(22, 28), A(36, 12), A(40, 26), B(32, 18), B(28, 26), B(38, 20), B(42, 14), B(18, 20)], b: [[32.8, 18.5]], a: [['mov', 30, 22, 31.5, 19.5, 0, 1], ['mov', 36, 12, 34, 16, 0, 1], ['mov', 24, 14, 28, 15, 0, 1]] } });
+
+T({ id: 'f7_50', n: 'Defender la portería: 2v2 + portero desde la banda', cat: 'tt', tipo: 'Defensa', ed: 'BA', dif: 2, md: ['MD-4', 'MD-3'], int: 3, rpe: '6', carga: 'Tensión', fase: 'pri',
+  jug: '2v2+P', np: 5, esp: [25, 30], ser: '10 ataques', rec: '30"', dur: 14,
+  obj: 'Defender juntos cerca de la portería: presión, cobertura y ayuda al portero.',
+  desc: 'Dos atacantes salen desde la banda con balón contra dos defensores. Los defensores deben coordinar presión y cobertura; si roban, conducen hasta una miniportería en la banda.',
+  reglas: ['8 segundos para finalizar.', 'Robo y conducción a la miniportería: 2 puntos.', 'Cambio de roles cada 5 ataques.'],
+  cons: ['Uno presiona, otro cubre.', 'No dejar el centro libre.', 'Portero: habla y orienta.'],
+  var: ['+ 3v2.', '− 2v1.'],
+  d: { f7: true, v: F7H, mg: [[36, 2, 'D']], p: [P(58.5, 20), A(38, 6), A(36, 16), B(48, 14), B(50, 22)], b: [[38.8, 6.6]], a: [['cond', 38, 6, 44, 9, 0, 1], ['mov', 48, 14, 45.5, 10.5, 0, 1], ['mov', 50, 22, 48, 16, 0, 1]] } });
+
+T({ id: 'f7_51', n: 'Partido 7v7 por zonas (pasar de zona con pase)', cat: 'tt', tipo: 'Competición', ed: 'BA', dif: 2, md: ['MD-4', 'MD-3'], int: 3, rpe: '7', carga: 'Duración', fase: 'pri',
+  jug: '6v6+2P', np: 14, esp: [60, 40], ser: '2 x 10\'', rec: '2\'', dur: 24,
+  obj: 'Construir el ataque por zonas: el balón solo puede cambiar de tercio con un pase, no conduciendo.',
+  desc: 'Campo de fútbol 7 dividido en tres zonas. El balón debe pasar de una zona a otra con un pase a un compañero. Dentro de cada zona, conducción libre.',
+  reglas: ['Cambio de zona solo con pase.', 'Gol válido solo desde la última zona.', 'Si se conduce de una zona a otra, balón al rival.'],
+  cons: ['Busca al compañero en la zona siguiente.', 'Ocupa las tres zonas: nadie amontonado.', 'Pase tenso al pie.'],
+  var: ['+ Máximo 3 toques por jugador.', '− Se permite conducir de zona una vez.'],
+  d: { f7: true, v: F7V, l: [[20, 0, 20, 40], [40, 0, 40, 40]], p: [P(1.5, 20), A(10, 10), A(10, 30), A(24, 14), A(26, 28), A(42, 10), A(44, 28), P(58.5, 20), B(50, 12), B(50, 28), B(36, 20), B(32, 8), B(18, 20), B(30, 32)], b: [[10.8, 10.6]], a: [['pase', 10, 10, 24, 14, 1, 1], ['pase', 24, 14, 26, 28, 0, 2], ['pase', 26, 28, 44, 28, -1, 3], ['tiro', 44, 28, 59.5, 21, 0, 4]] } });
+
+T({ id: 'f7_52', n: 'Portero de fútbol 7: juego aéreo en córner', cat: 'por', tipo: 'Juego aéreo', ed: 'A', dif: 2, md: ['MD-3', 'MD-2'], int: 2, rpe: '5', carga: 'Tensión', fase: 'pri',
+  jug: 'Portero + lanzador + 2 atacantes', np: 4, esp: [12, 26], ser: '3 x 6 córners', rec: '1\'', dur: 12,
+  obj: 'Blocar o despejar los córners en el área de fútbol 7, con poco espacio y jugadores cerca.',
+  desc: 'Córners lanzados con la mano y luego con el pie. Dos atacantes molestan sin cargar. El portero decide salir o quedarse y grita «¡mía!».',
+  reglas: ['Primero con la mano, luego con el pie.', 'Atacantes sin contacto fuerte.', 'Blocar arriba o despejar de puños.'],
+  cons: ['Coloca el cuerpo de lado mirando al lanzador.', 'Sal decidido o quédate: sin dudas.', 'Rodilla arriba para protegerte.'],
+  var: ['+ Defensor que bloquea.', '− Sin atacantes.'],
+  d: { f7: true, v: [44, -2, 19, 26], p: [P(59, 19), A(60, 0.4), A(55, 18), A(53, 22)], b: [[59.6, 1]], a: [['pase', 60, 0.4, 56, 19, 2, 1], ['mov', 59, 19, 56.5, 18.5, 0, 2]] } });
+
+T({ id: 'f7_53', n: 'Saque de banda en fútbol 7 para progresar', cat: 'tt', tipo: 'ABP', ed: 'BA', dif: 1, md: ['MD-2', 'MD-1'], int: 1, rpe: '3', carga: 'Activación', fase: 'pri',
+  jug: '3v2', np: 5, esp: [20, 15], ser: '10-12 saques', rec: '—', dur: 10,
+  obj: 'Sacar de banda rápido y bien: el compañero se desmarca, recibe y progresa.',
+  desc: 'Un jugador saca de banda; dos compañeros hacen un desmarque cruzado (uno viene, otro se va). Dos defensores intentan robar. El objetivo es conducir hasta una línea de conos.',
+  reglas: ['Saque reglamentario (dos pies en el suelo, por detrás de la cabeza).', 'Menos de 5 segundos.', 'Punto al cruzar la línea conduciendo.'],
+  cons: ['Desmárcate antes de que el balón salga.', 'Saque a los pies del compañero.', 'El que saca entra rápido al campo.'],
+  var: ['+ 3v3.', '− Sin defensores.'],
+  d: { f7: true, c: conos(36, 26, 36, 38, 4, '#facc15'), p: [A(26, 40), A(28, 34), A(30, 30), B(29, 32), B(32, 34)], b: [[26, 39.5]], a: [['mov', 30, 30, 34, 26, 0, 1], ['mov', 28, 34, 26, 36, 0, 1], ['pase', 26, 40, 26, 36, 0, 2], ['pase', 26, 36, 34, 26, -1, 3], ['cond', 34, 26, 36.5, 28, 0, 4]] } });
+
+T({ id: 'f7_54', n: 'Pase y control en carrera por parejas', cat: 'tt', tipo: 'Técnica', ed: 'PBA', dif: 1, md: ['MD-4', 'MD-3', 'MD-2', 'MD-1'], int: 2, rpe: '4', carga: 'Activación', fase: 'cal',
+  jug: 'Parejas', np: 2, esp: [30, 8], ser: '6 recorridos', rec: 'Volver andando', dur: 10,
+  obj: 'Pasar y controlar mientras se avanza, con las dos piernas.',
+  desc: 'Parejas separadas 6-8 m avanzan a lo largo del campo pasándose el balón sin pararse. A la vuelta, se cambia de lado para usar la otra pierna.',
+  reglas: ['No pararse.', 'Un control y un pase.', 'Cambio de lado a la vuelta.'],
+  cons: ['Pase por delante del compañero.', 'Controla hacia delante.', 'Mira al compañero antes de pasar.'],
+  var: ['+ A un toque.', '− Andando.'],
+  d: { f7: true, p: [A(16, 16), A(16, 24)], b: [[16.8, 16.6]], a: [['pase', 16, 16, 24, 24, 0, 1], ['mov', 16, 16, 30, 16, 0, 1], ['pase', 24, 24, 32, 16, 0, 2], ['mov', 16, 24, 38, 24, 0, 2]] } });
+
+T({ id: 'f7_55', n: 'Los piratas: protege tu tesoro', cat: 'jue', tipo: 'Juego de activación', ed: 'PB', dif: 1, md: ['MD-4', 'MD-3', 'MD-2', 'MD-1'], int: 2, rpe: '5', carga: 'Activación', fase: 'cal',
+  jug: 'Todo el grupo', np: 12, esp: [20, 20], ser: '4 x 2\'', rec: '30"', dur: 10,
+  obj: 'Proteger el balón con el cuerpo, conducir con la cabeza levantada y regatear.',
+  desc: 'Todos conducen su balón (el tesoro) dentro del cuadrado. Dos o tres piratas sin balón intentan sacar los balones fuera. Quien pierde el balón se convierte en pirata. Gana el último con tesoro.',
+  reglas: ['Si el balón sale del cuadrado, pasas a ser pirata.', 'Los piratas no pueden agarrar.', 'Nueva partida al quedar uno.'],
+  cons: ['Pon el cuerpo entre el pirata y el balón.', 'Busca los espacios libres.', 'Toques cortos.'],
+  var: ['+ Más piratas desde el inicio.', '− Cuadrado más grande.'],
+  d: { f7: true, z: [[20, 10, 20, 20]], p: [C(28, 18), C(34, 24), A(23, 14), A(32, 13), A(37, 18), A(24, 25), A(30, 27), A(36, 28)], b: [[23.8, 14.5], [32.8, 13.5], [37.8, 18.5], [24.8, 25.5], [30.8, 27.5], [36.8, 28.5]], a: [['mov', 28, 18, 31, 15, 0, 1], ['cond', 32, 13, 38, 12, 0, 1]] } });
+
+T({ id: 'f7_56', n: 'Contraataque 3v1 tras robo en medio campo', cat: 'tt', tipo: 'Transición', ed: 'BA', dif: 1, md: ['MD-4', 'MD-3', 'MD-2'], int: 3, rpe: '6-7', carga: 'Velocidad', fase: 'pri',
+  jug: '3v1+P', np: 5, esp: [30, 40], ser: '10-12 ataques', rec: '30"', dur: 14,
+  obj: 'Atacar rápido tras robar: conducir hacia la portería, abrir a los compañeros y finalizar en pocos segundos.',
+  desc: 'El entrenador pasa un balón «robado» a uno de tres jugadores en el medio campo. Atacan en velocidad contra un defensor que repliega y el portero. 6 segundos para tirar.',
+  reglas: ['6 segundos para finalizar.', 'Gol tras pase: 2 puntos.', 'El defensor sale desde el medio campo a la vez.'],
+  cons: ['El que roba conduce rápido hacia la portería.', 'Los compañeros abren y se adelantan.', 'Decide pronto: pasa o tira.'],
+  var: ['+ 3v2.', '− 3v0 con portero.'],
+  d: { f7: true, v: F7H, p: [P(58.5, 20), A(32, 20), A(32, 8), A(32, 32), B(34, 24), E(28, 20)], b: [[29, 20.5]], a: [['pase', 28, 20, 32, 20, 0, 1], ['cond', 32, 20, 44, 20, 0, 2], ['mov', 32, 8, 48, 12, 0, 2], ['mov', 34, 24, 42, 22, 0, 2], ['pase', 44, 20, 48, 12, 0, 3], ['tiro', 48, 12, 59.5, 18, 0, 4]] } });

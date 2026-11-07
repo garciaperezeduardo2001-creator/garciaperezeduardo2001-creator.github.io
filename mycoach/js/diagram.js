@@ -129,6 +129,34 @@
   window.fieldBBox = d => { dims(d); return bbox(d); };
   window.fieldDims = d => (d && d.f7 ? [60, 40] : [105, 68]);
   window.fieldSteps = steps;
+  // Pasa un diagrama de fútbol 11 al campo de fútbol 7. k = escala de la categoría (1 = mismas medidas).
+  // Devuelve null si la tarea ocupa demasiado campo para recolocarla.
+  window.toF7 = function (d, k) {
+    if (!d || d.f7) return d;
+    const xs = [], ys = [], add = (x, y) => { if (isFinite(x) && isFinite(y)) { xs.push(x); ys.push(y); } };
+    (d.p || []).forEach(p => add(p[1], p[2])); (d.a || []).forEach(a => { add(a[1], a[2]); add(a[3], a[4]); });
+    (d.z || []).forEach(z => { add(z[0], z[1]); add(z[0] + z[2], z[1] + z[3]); }); (d.l || []).forEach(l => { add(l[0], l[1]); add(l[2], l[3]); });
+    ['c', 'pk', 'h', 'b', 'mg', 'g', 'esc'].forEach(key => (d[key] || []).forEach(e => add(e[0], e[1])));
+    if (!xs.length) return { ...d, f7: true, v: undefined };
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const goalR = x1 > 88 && (d.p || []).some(p => p[0] === 'P' && p[1] > 98), goalL = x0 < 17 && (d.p || []).some(p => p[0] === 'P' && p[1] < 7);
+    let s = k || 1, fx, fy;
+    if (goalR || (x1 > 99 && !goalL)) { s = Math.min(s, 57 / Math.max(1, 105 - x0), 19.5 / Math.max(1, Math.abs(y0 - 34), Math.abs(y1 - 34))); fx = x => 60 - (105 - x) * s; fy = y => 20 + (y - 34) * s; }
+    else if (goalL || x0 < 6) { s = Math.min(s, 57 / Math.max(1, x1), 19.5 / Math.max(1, Math.abs(y0 - 34), Math.abs(y1 - 34))); fx = x => x * s; fy = y => 20 + (y - 34) * s; }
+    else { const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2; s = Math.min(s, 56 / Math.max(1, x1 - x0), 37 / Math.max(1, y1 - y0)); fx = x => 30 + (x - cx) * s; fy = y => 20 + (y - cy) * s; }
+    if (s < .3) return null;
+    const R = v => Math.round(v * 10) / 10, X = x => R(fx(x)), Y = y => R(fy(y)), S = v => R(v * s);
+    const o = JSON.parse(JSON.stringify(d)); o.f7 = true; delete o.v;
+    (o.p || []).forEach(p => { p[1] = X(p[1]); p[2] = Y(p[2]); });
+    (o.a || []).forEach(a => { a[1] = X(a[1]); a[2] = Y(a[2]); a[3] = X(a[3]); a[4] = Y(a[4]); if (a[5]) a[5] = S(a[5]); });
+    (o.z || []).forEach(z => { const nx = X(z[0]), ny = Y(z[1]); z[0] = nx; z[1] = ny; z[2] = S(z[2]); z[3] = S(z[3]); });
+    (o.l || []).forEach(l => { l[0] = X(l[0]); l[1] = Y(l[1]); l[2] = X(l[2]); l[3] = Y(l[3]); });
+    ['c', 'pk', 'h', 'b', 'mg', 't'].forEach(key => (o[key] || []).forEach(e => { e[0] = X(e[0]); e[1] = Y(e[1]); }));
+    (o.esc || []).forEach(e => { e[0] = X(e[0]); e[1] = Y(e[1]); e[2] = S(e[2]); });
+    // las porterías reglamentarias de F11 se sustituyen por las del campo de F7
+    if (d.g) o.g = d.g.filter(g => !((g[0] < 1.5 || g[0] > 103.5) && Math.abs(g[1] - 34) < 4)).map(g => { const n = g.slice(); n[0] = Math.min(60, Math.max(0, X(g[0]))); n[1] = Y(g[1]); return n; });
+    return o;
+  };
 
   window.drawField = function (d, opt = {}) {
     d = d || {}; dims(d);
@@ -166,7 +194,7 @@
       o.push(s);
     });
     const netFill = mini ? 'rgba(255,255,255,.25)' : `url(#net-${id})`;
-    (d.g || []).forEach(g => o.push(goal(g[0], g[1], g[2], 7.32, 2, lw, netFill)));
+    (d.g || []).forEach(g => o.push(goal(g[0], g[1], g[2], d.f7 ? 6 : 7.32, d.f7 ? 1.6 : 2, lw, netFill)));
     (d.mg || []).forEach(g => o.push(goal(g[0], g[1], g[2], Math.max(2, 1.2 * k), Math.max(.8, .5 * k), lw, netFill)));
     (d.h || []).forEach(h => { const s = 0.5 * k, t = s * .3; o.push(h[2]
       ? `<g><rect x="${h[0] - t / 2 + k * .08}" y="${h[1] - s + k * .1}" width="${t}" height="${s * 2}" fill="rgba(0,0,0,.25)"/><rect x="${h[0] - t / 2}" y="${h[1] - s}" width="${t}" height="${s * 2}" rx="${t / 3}" fill="#fb923c" stroke="#7c2d12" stroke-width="${lw * .4}"/></g>`
@@ -216,7 +244,7 @@
     const k = +svg.getAttribute('data-k') || svg.viewBox.baseVal.width / 40;
     const pl = d.p || [];
     const P0 = pl.map(p => [p[1], p[2]]), B0 = (d.b || []).map(b => [b[0], b[1]]);
-    let P, B, step, playing = false, raf = 0, timer = 0, speed = opts.speed || 1, loop = !!opts.loop, react = opts.react !== false, temps = [], trails = null, fx = null;
+    let P, B, step, playing = false, raf = 0, timer = 0, speed = opts.speed || 1, loop = !!opts.loop, react = opts.react !== false && !d.nr, temps = [], trails = null, fx = null;
     const gp = i => svg.querySelector(`[data-p="${i}"]`), gb = i => svg.querySelector(`[data-b="${i}"]`);
     const arrows = [...svg.querySelectorAll('[data-a]')], badges = [...svg.querySelectorAll('[data-s]')];
     const NAMES = { pase: 'pase', mov: 'desmarque', cond: 'conducción', tiro: 'tiro' };

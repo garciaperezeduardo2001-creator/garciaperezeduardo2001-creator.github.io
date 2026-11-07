@@ -63,6 +63,12 @@
           <button class="btn" id="delsel" disabled>Eliminar seleccionado</button>
           <button class="btn ghost" id="wipe">Limpiar</button>
         </div>
+        <details class="anp" id="anp"><summary>🎬 Animación a tu gusto <small id="ansum"></small></summary>
+          <p class="hint sm">Las flechas se animan en el orden en que las dibujaste. Aquí puedes cambiar el orden, juntar varias en el mismo paso (se mueven a la vez) y decidir si los defensores reaccionan solos.</p>
+          <div id="anl" class="anl"></div>
+          <div class="acts"><label class="chk"><input type="checkbox" id="anr"> Defensores y portero reaccionan al balón</label>
+          <button class="btn" type="button" id="anauto">Orden automático</button><button class="btn pri" type="button" id="anplay">▶ Probar animación</button></div>
+        </details>
         <p class="hint sm">Elige una herramienta y toca el campo. Para zonas y flechas, arrastra. Con <b>Mover</b>: arrastra cualquier elemento, el centro de una flecha la curva, una esquina de la zona la redimensiona y tocar una portería la gira o tocar un jugador le pone texto.</p>
 
         <form id="tf" class="tform" autocomplete="off">
@@ -95,11 +101,38 @@
       const board = $('#board');
 
       // ----- Pizarra -----
+      let anCtl = null;
       function render() {
+        if (anCtl) { anCtl.stop(); anCtl = null; }
         let svg = drawField(d, { label: 'Pizarra' });
         if (sel) svg = svg.replace('</svg>', selMark() + '</svg>');
         board.innerHTML = svg;
         $('#delsel').disabled = !sel;
+        renderAnim();
+      }
+      const ANI = { pase: '➝ Pase', mov: '⤳ Desplazamiento', cond: '〰 Conducción', tiro: '➠ Tiro' };
+      function renderAnim() {
+        const box = $('#anl'); if (!box) return;
+        const a = d.a || [], st = fieldSteps(d), stepOf = i => st.findIndex(g => g.includes(i)) + 1, n = Math.max(st.length, a.length);
+        $('#ansum').textContent = a.length ? `· ${a.length} flechas en ${st.length} pasos${a.some(x => x[6] != null) ? ' (orden propio)' : ''}` : '';
+        $('#anr').checked = !d.nr;
+        box.innerHTML = a.length ? a.map((x, i) => `<div class="anr ${sel && sel.key === 'a' && sel.i === i ? 'on' : ''}" data-i="${i}">
+            <b class="ann">${stepOf(i)}</b><span class="ant" data-pick="${i}">${ANI[x[0]] || x[0]}</span>
+            <select data-st="${i}" aria-label="Paso"><option value="">Auto</option>${[...Array(n)].map((_, k) => `<option value="${k + 1}" ${x[6] === k + 1 ? 'selected' : ''}>Paso ${k + 1}</option>`).join('')}</select>
+            <button type="button" data-up="${i}" ${i ? '' : 'disabled'} aria-label="Subir">▲</button><button type="button" data-dn="${i}" ${i < a.length - 1 ? '' : 'disabled'} aria-label="Bajar">▼</button></div>`).join('')
+          : '<p class="sub">Dibuja flechas (pase, desplazamiento, conducción o tiro) para crear la animación.</p>';
+        box.querySelectorAll('[data-st]').forEach(sl => sl.onchange = () => {
+          snap(); const i = +sl.dataset.st, v = sl.value;
+          // al fijar un paso, las demás flechas sin paso conservan su sitio actual
+          if (v && !a.some(x => x[6] != null)) { const s0 = fieldSteps(d); a.forEach((x, j) => { x[6] = s0.findIndex(g => g.includes(j)) + 1; }); }
+          if (v) a[i][6] = +v; else a[i].length = Math.min(a[i].length, 6);
+          a.forEach(x => { if (x[5] == null && x.length > 6) x[5] = 0; });
+          render();
+        });
+        const swap = (i, j) => { snap(); [a[i], a[j]] = [a[j], a[i]]; if (sel && sel.key === 'a') sel = { key: 'a', i: j }; render(); };
+        box.querySelectorAll('[data-up]').forEach(b => b.onclick = () => swap(+b.dataset.up, +b.dataset.up - 1));
+        box.querySelectorAll('[data-dn]').forEach(b => b.onclick = () => swap(+b.dataset.dn, +b.dataset.dn + 1));
+        box.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { sel = { key: 'a', i: +b.dataset.pick }; setTool('move'); sel = { key: 'a', i: +b.dataset.pick }; render(); });
       }
       const K = () => { const vb = board.querySelector('svg').viewBox.baseVal; return vb.width / 40; };
       function selMark() {
@@ -220,6 +253,14 @@
         d.v = VW().full.v.slice(); viewOpts(); render();
       };
       $('#undo').onclick = () => { if (!hist.length) return; const s = JSON.parse(hist.pop()); Object.keys(d).forEach(k => delete d[k]); Object.assign(d, s); sel = null; $('#pitch').value = d.f7 ? '7' : '11'; viewOpts(); render(); };
+      $('#anr').onchange = e => { snap(); if (e.target.checked) delete d.nr; else d.nr = true; };
+      $('#anauto').onclick = () => { snap(); (d.a || []).forEach(x => { if (x.length > 6) x.length = 6; }); render(); };
+      $('#anplay').onclick = () => {
+        if (!(d.a || []).length) return;
+        if (anCtl) { anCtl.stop(); anCtl = null; }
+        const tmp = JSON.parse(JSON.stringify(d)); board.innerHTML = drawField(tmp, { label: 'Animación' });
+        anCtl = animateField(board, tmp, { autoplay: true, loop: false, speed: 1, react: !d.nr, onState: s => { $('#anplay').textContent = s.done ? '▶ Probar animación' : `⏸ Paso ${s.step}/${s.total}`; if (s.done) setTimeout(() => { if (anCtl && board.isConnected) { anCtl.stop(); anCtl = null; render(); } }, 1500); } });
+      };
       $('#delsel').onclick = () => { if (!sel) return; snap(); d[sel.key].splice(sel.i, 1); sel = null; render(); };
       $('#wipe').onclick = () => { if (!confirm('¿Borrar todo lo dibujado?')) return; snap(); ['p', 'z', 'a', 'l', ...PT_KEYS].forEach(k => d[k] = []); sel = null; render(); };
 
