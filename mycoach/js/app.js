@@ -223,7 +223,7 @@
     <div class="ci"><div class="ct">${catTag(t)}<span class="tipo">${esc(t.tipo)}</span>${t.own ? '<span class="own">MÍA</span>' : ''}${MODE === 'f7' && !isF7t(t) ? '<span class="f7a">Adaptada F7</span>' : ''}${favs.has(t.id) ? '<span class="star">★</span>' : ''}</div>
     <h3>${esc(t.n)}</h3>
     <div class="meta">${mdChips(t)}</div>
-    <div class="meta">${intBadge(t)}<span>⏱ ${t.dur}'</span><span>👥 ${esc(t.jug)}</span>${(notes[t.id] || {}).s ? `<span class="rate">★${notes[t.id].s}</span>` : ''}</div>
+    <div class="meta">${intBadge(t)}<span>⏱ ${t.dur}'</span><span>👥 ${esc(t.jug)}</span>${(notes[t.id] || {}).s ? `<span class="rate">★${notes[t.id].s}</span>` : ''}${evalBadge(t)}</div>
     ${F.nj && !flexible(t) && t.np !== F.nj ? (a => a ? `<div class="adh">Con ${F.nj}: ${a.jug ? `<b>${a.jug}</b> en ` : ''}${a.w}x${a.h} m</div>` : '')(adapt(t, F.nj)) : ''}</div></a>`;
 
   function filtered() {
@@ -339,6 +339,7 @@
         ${t.var && t.var.length ? `<section><h2>Variantes</h2><ul class="var">${li(t.var)}</ul></section>` : ''}
         <section class="notes"><h2>Mis notas</h2>
           <div class="stars" id="stars">${[1, 2, 3, 4, 5].map(i => `<button data-s="${i}" class="${((notes[t.id] || {}).s || 0) >= i ? 'on' : ''}" aria-label="${i} estrellas">★</button>`).join('')}<small class="sub">Valora la tarea</small></div>
+          <div class="evq"><b>¿Cómo fue hoy?</b>${evalForm(t.id, todayEval(t.id))}</div><div id="evtx">${evalText(t)}</div>
           <textarea id="note" rows="3" placeholder="Ej.: con el cadete funcionó mejor en 30x25 y a dos toques">${esc((notes[t.id] || {}).t || '')}</textarea></section>
         ${related(t)}
       </article>`;
@@ -349,6 +350,7 @@
     ced.onchange = cup; cup();
     if ($('#vid')) $('#vid').onclick = () => recordVideo(t);
     $('#stars').onclick = e => { const b = e.target.closest('[data-s]'); if (!b) return; const n = notes[t.id] || {}; n.s = n.s === +b.dataset.s ? 0 : +b.dataset.s; notes[t.id] = n; saveNotes(); $('#stars').querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', +x.dataset.s <= n.s)); };
+    bindEval($('#app'), () => { $('#evtx').innerHTML = evalText(t); });
     let nt; $('#note').oninput = e => { clearTimeout(nt); nt = setTimeout(() => { const n = notes[t.id] || {}; n.t = e.target.value; notes[t.id] = n; saveNotes(); }, 400); };
     $('#img').onclick = () => shareImage(taskCanvas(t), t.n);
     $('#bigd').onclick = () => fullField(t);
@@ -480,9 +482,9 @@
   function pickP(pool, used, maxDur, pf, D) {
     D = D || (t => t.dur);
     const p = pool.filter(t => !used.has(t.id) && (!maxDur || D(t) <= maxDur)); if (!p.length) return null;
-    if (!pf && MODE !== 'f7') return p[Math.floor(Math.random() * p.length)];
+    if (!pf && MODE !== 'f7' && !Object.keys(evals).length) return p[Math.floor(Math.random() * p.length)];
     pf = pf || {};
-    const sc = t => { const pr = prinOf(t); return (MODE === 'f7' && isF7t(t) ? 2.5 : 0) + (pf.p && pr.includes(pf.p) ? 3 : 0) + (pf.s && pr.includes(pf.s) ? 1.5 : 0) + (pf.niv ? (t.dif === pf.niv ? 1 : Math.abs(t.dif - pf.niv) > 1 ? -1.5 : 0) : 0) + (pf.carga && t.carga === pf.carga ? 3 : 0) + Math.random() * 1.6; };
+    const sc = t => { const pr = prinOf(t); return evalBonus(t) + (MODE === 'f7' && isF7t(t) ? 2.5 : 0) + (pf.p && pr.includes(pf.p) ? 3 : 0) + (pf.s && pr.includes(pf.s) ? 1.5 : 0) + (pf.niv ? (t.dif === pf.niv ? 1 : Math.abs(t.dif - pf.niv) > 1 ? -1.5 : 0) : 0) + (pf.carga && t.carga === pf.carga ? 3 : 0) + Math.random() * 1.6; };
     return p.map(t => [sc(t), t]).sort((a, b) => b[0] - a[0])[0][1];
   }
   // o = { md, min, gk (n.º porteros), ed, nj, mat (Set|null), pf, order }
@@ -560,7 +562,7 @@
           <div class="ops"><button data-op="up" data-i="${x.i}" aria-label="Subir">↑</button><button data-op="down" data-i="${x.i}" aria-label="Bajar">↓</button><button data-op="swap" data-i="${x.i}" aria-label="Cambiar">⟳</button><button data-op="del" data-i="${x.i}" aria-label="Quitar">✕</button></div>
         </div>`).join('')}</section>` : ''; }).join('')}
       ${its.length ? '<div class="acts lvl"><button class="btn" id="lvd">⬇ Más sencilla</button><button class="btn" id="lvu">⬆ Más exigente</button><small class="sub">Cambia cada tarea principal por su progresión.</small></div>' : ''}
-      ${its.length ? '<div class="acts"><a class="btn pri" href="#/campo">▶ Modo campo</a><a class="btn pri" href="#/pizarra">📺 Modo vestuario</a><button class="btn" id="save">Guardar sesión</button><a class="btn" href="#/plan">📅 Llevar al plan</a><button class="btn" id="simg">🖼 Imagen</button><button class="btn" id="print">Imprimir / PDF</button></div>' : ''}
+      ${its.length ? '<div class="acts"><a class="btn pri" href="#/campo">▶ Modo campo</a><a class="btn pri" href="#/pizarra">📺 Modo vestuario</a><button class="btn" id="save">Guardar sesión</button><a class="btn" href="#/plan">📅 Llevar al plan</a><button class="btn" id="simg">🖼 Imagen</button><button class="btn" id="print">📄 Ficha en PDF</button><a class="btn" href="#/valorar">⭐ Valorar tareas</a></div>' : ''}
       ${saved.length ? `<section class="blk"><h2>Sesiones guardadas</h2>${saved.map((s, i) => `<div class="saved"><div><b>${esc(s.name)}</b><small>${s.md} · ${s.items.length} tareas · ${s.date}</small></div><button class="btn" data-load="${i}">Abrir</button><button class="btn ghost" data-rm="${i}">✕</button></div>`).join('')}</section>` : ''}`;
     $('#smd').onchange = e => { ses.md = e.target.value; saveSes(); vSes(); };
     $('#smin').onchange = e => { ses.min = +e.target.value; saveSes(); };
@@ -572,7 +574,7 @@
     $('#app').querySelectorAll('[data-alt]').forEach(b => b.onclick = () => { const [i, id] = b.dataset.alt.split('|'); ses.items[+i].id = id; saveSes(); vSes(); });
     $('#gen').onclick = () => { generar(); vSes(); };
     if ($('#clear')) $('#clear').onclick = () => { ses.items = []; saveSes(); vSes(); };
-    if ($('#print')) $('#print').onclick = () => printSes(its);
+    if ($('#print')) $('#print').onclick = () => pdfDialog(its);
     if ($('#simg')) $('#simg').onclick = () => shareImage(sesCanvas(its), 'sesion-' + ses.md);
     if ($('#save')) $('#save').onclick = () => {
       const name = prompt('Nombre de la sesión', `${ses.md} · ${new Date().toLocaleDateString('es-ES')}`); if (!name) return;
@@ -593,22 +595,6 @@
     });
     $('#app').querySelectorAll('[data-load]').forEach(b => b.onclick = () => { const s = saved[+b.dataset.load]; ses = { ...ses, md: s.md, min: s.min || ses.min, items: JSON.parse(JSON.stringify(s.items)) }; saveSes(); vSes(); window.scrollTo(0, 0); });
     $('#app').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { if (confirm('¿Borrar esta sesión guardada?')) { saved.splice(+b.dataset.rm, 1); store.set('saved', saved); vSes(); } });
-  }
-
-  function printSes(its) {
-    let pr = $('#printv'); if (!pr) { pr = document.createElement('div'); pr.id = 'printv'; document.body.appendChild(pr); }
-    const field = its.filter(x => x.b !== 'por');
-    const tot = field.reduce((a, x) => a + x.t.dur, 0), ua = Math.round(field.reduce((a, x) => a + x.t.dur * rpeMid(x.t.rpe), 0));
-    const li = a => a && a.length ? `<ul>${a.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
-    pr.innerHTML = `<header class="ph"><div><h1>Sesión ${ses.md} · ${MDINFO[ses.md].t}</h1><p>Fecha: ____________ &nbsp; Equipo: ______________________</p></div><div class="pk"><b>${tot} min</b><span>${ua} UA estimadas</span><span>${its.length} tareas</span></div></header>` +
-      Object.entries(BLK).map(([b, n]) => { const l = its.filter(x => x.b === b); return l.length ? `<h2>${n}</h2>` + l.map((x, k) => `<article class="pt"><div class="pd">${drawField(DD(x.t))}</div><div class="pi"><h3>${k + 1}. ${esc(x.t.n)}</h3>
-        <p class="pm"><b>${INT[x.t.int].n}</b> (RPE ${esc(x.t.rpe)}) · ${x.t.dur}' · ${esc(x.t.ser)} · rec. ${esc(x.t.rec)} · ${esc(x.t.jug)} · ${x.t.esp[0]}x${x.t.esp[1]} m</p>
-        ${x.t.obj ? `<p><b>Objetivo:</b> ${esc(x.t.obj)}</p>` : ''}${x.t.desc ? `<p>${esc(x.t.desc)}</p>` : ''}${li(x.t.reglas)}</div></article>`).join('') : ''; }).join('') +
-      `<p class="pf2">My Coach · Biblioteca de tareas</p>`;
-    document.body.classList.add('printing');
-    const off = () => { document.body.classList.remove('printing'); window.removeEventListener('afterprint', off); };
-    window.addEventListener('afterprint', off);
-    setTimeout(() => { window.print(); setTimeout(off, 1000); }, 50);
   }
 
   // ---------- Modo campo (cronómetro de series) ----------
@@ -671,7 +657,7 @@
     const fmt = n => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
     const upd = () => {
       const ph = RUN.seq[RUN.i];
-      if (RUN.done) { $('#tph').textContent = '¡TAREA TERMINADA!'; $('#ttime').textContent = '✓'; $('#trep').textContent = RUN.idx < its.length - 1 ? 'Pulsa › para pasar a la siguiente tarea' : 'Fin de la sesión'; }
+      if (RUN.done) { $('#tph').textContent = '¡TAREA TERMINADA!'; $('#ttime').textContent = '✓'; $('#trep').textContent = RUN.idx < its.length - 1 ? 'Pulsa › para pasar a la siguiente tarea' : 'Fin de la sesión'; if (RUN.idx >= its.length - 1) $('#trep').innerHTML = 'Fin de la sesión · <a class="link" href="#/valorar">⭐ Valorar las tareas</a>'; }
       else {
         $('#tph').textContent = ph.k === 'work' ? (c.mode === 'total' ? 'TIEMPO DE TAREA' : ph.s == null ? '¡YA! · REPETICIÓN' : 'TRABAJO') : 'DESCANSO';
         $('#ttime').textContent = ph.s == null ? fmt(RUN.up) : fmt(RUN.left);
@@ -733,7 +719,7 @@
     $('#app').innerHTML = `<section class="intro"><h1>Mis tareas</h1>
         <div class="acts"><a class="btn pri" href="#/nueva">＋ Nueva tarea</a><button class="btn" id="exp">⬇ Copia de seguridad completa</button><button class="btn" id="expt">⬇ Exportar solo mis tareas</button><label class="btn">⬆ Restaurar / importar<input type="file" id="imp" accept=".json,application/json" hidden></label></div>
         <p class="sub">La copia completa guarda todo lo de My Coach en un archivo: tus tareas, notas y valoraciones, sesiones, plan, contenidos de la temporada, metodología, partidos preparados y ajustes. Guárdala en Drive o envíatela por correo para no perder nada si cambias de móvil. «Exportar solo mis tareas» sirve para pasárselas a otro entrenador.</p>
-        ${(() => { const lb = store.get('lastbk', null), dd = lb ? Math.round((new Date() - parseISO(lb)) / 864e5) : null; return `<p class="bkst ${dd == null || dd > 30 ? 'warn' : ''}">${dd == null ? '⚠ Todavía no has hecho ninguna copia completa.' : dd === 0 ? '✓ Última copia: hoy.' : `${dd > 30 ? '⚠' : '✓'} Última copia: hace ${dd} día${dd > 1 ? 's' : ''}.`}</p>`; })()}</section>
+        ${(() => { const lb = store.get('lastbk', null), dd = lb ? Math.floor((new Date() - parseISO(lb)) / 864e5) : null; return `<p class="bkst ${dd == null || dd > 30 ? 'warn' : ''}">${dd == null ? '⚠ Todavía no has hecho ninguna copia completa.' : dd === 0 ? '✓ Última copia: hoy.' : `${dd > 30 ? '⚠' : '✓'} Última copia: hace ${dd} día${dd > 1 ? 's' : ''}.`}</p>`; })()}</section>
       <section><h2>Creadas por mí (${mine.length})</h2>${mine.length ? `<div class="grid">${mine.map(card).join('')}</div>` : '<div class="empty">Todavía no has creado tareas. Pulsa <b>Nueva tarea</b> o abre cualquier tarea de la biblioteca y pulsa <b>Duplicar y editar</b> para adaptarla.</div>'}</section>
       <section><h2>Favoritos (${l.length})</h2>${l.length ? `<div class="grid">${l.map(card).join('')}</div>` : '<div class="empty">Pulsa ☆ en cualquier tarea para guardarla aquí.</div>'}</section>
       <p class="note center"><a href="privacidad.html">Política de privacidad</a> · My Coach</p>`;
@@ -942,7 +928,7 @@
     de: { n: 'Prioridad defensa', w: [['def', 'pos'], ['pre', 'sal'], ['tra', 'fin'], ['def', 'abp']] },
     fo: { n: 'Formación (técnica y juego)', w: [['tec', 'pos'], ['pos', 'fin'], ['tec', 'ban'], ['fin', 'tra']] }
   };
-  let tmpOff = 0;
+  let tmpOff = 0, tmpView = store.get('tmpView', 'cal');
   function vTemporada() {
     const mon0 = addDays(monday(new Date()), (tmpOff - 2) * 7), cur = iso(monday(new Date()));
     const fmtD = d => `${d.getDate()} ${MN[d.getMonth()]}`;
@@ -960,6 +946,8 @@
     }).join('');
     $('#app').innerHTML = `<section class="tmp">
       <div class="ghd"><h1>Temporada por contenidos</h1><a class="btn sm" href="#/metodologia">🏛 Metodología del club</a></div>
+      <div class="tabs2"><button data-tv="cal" class="${tmpView === 'cal' ? 'on' : ''}">📅 Calendario</button><button data-tv="list" class="${tmpView === 'list' ? 'on' : ''}">☰ Semana a semana</button></div>
+      ${tmpView === 'cal' ? calHTML() : ''}
       <p class="sub">Decide qué principio de juego trabajas cada semana y con qué nivel de exigencia. El generador de sesiones, las plantillas y el asistente eligen tareas de ese contenido.</p>
       <div class="cyc"><b>Ciclo automático</b>
         <label>Modelo <select id="cy">${Object.entries(CYCLES).map(([k, v]) => `<option value="${k}">${v.n}</option>`).join('')}</select></label>
@@ -970,6 +958,9 @@
       <div class="wkn"><button class="btn" id="tp" aria-label="Antes">‹</button><b>${fmtD(mon0)} – ${fmtD(addDays(mon0, 15 * 7 + 6))}</b><button class="btn" id="tn" aria-label="Después">›</button></div>
       <div class="tws">${rows}</div>
       <div class="acts"><a class="btn" href="#/plan">📅 Ir al plan semanal</a><button class="btn ghost" id="tclr">Borrar estas 16 semanas</button></div></section>`;
+    $('#app').querySelectorAll('[data-tv]').forEach(b => b.onclick = () => { tmpView = b.dataset.tv; store.set('tmpView', tmpView); vTemporada(); });
+    if (tmpView === 'cal') ['.cyc', '.tmp > .wkn', '.tws', '.tmp > .acts .ghost'].forEach(q => { const e = $(q); if (e) e.remove(); });
+    if (tmpView === 'cal') { $('#app').querySelectorAll('[data-wk]').forEach(b => b.onclick = () => { const w = Math.round((parseISO(b.dataset.wk) - monday(new Date())) / 6048e5); tmpOff = w; tmpView = 'list'; vTemporada(); const r = $(`.tw[data-w="${b.dataset.wk}"]`); if (r) { r.scrollIntoView({ block: 'center' }); r.classList.add('flash'); } }); return; }
     const upd = (k, f) => { cont[k] = Object.assign(cont[k] || {}, f); if (!cont[k].p && !cont[k].s && !cont[k].nota) delete cont[k]; else if (cont[k].p && !cont[k].niv) cont[k].niv = 1; saveCont(); };
     $('#app').querySelectorAll('.tw').forEach(r => {
       const k = r.dataset.w;
@@ -1352,6 +1343,133 @@
     return out;
   }
 
+  // ---------- Evaluación de tareas (aprende qué funciona con tu equipo) ----------
+  let evals = store.get('evals', {});
+  const saveEvals = () => store.set('evals', evals);
+  const EV = {
+    ok: { n: '¿Funcionó?', o: [[2, '👍 Sí'], [1, '😐 Regular'], [0, '👎 No']] },
+    ex: { n: 'Exigencia', o: [[-1, 'Fácil'], [0, 'Justa'], [1, 'Difícil']] },
+    im: { n: 'Implicación', o: [[0, 'Baja'], [1, 'Media'], [2, 'Alta']] }
+  };
+  function evalSum(id) {
+    const l = (evals[id] || []).slice(-6); if (!l.length) return null;
+    const avg = k => { const v = l.filter(x => x[k] != null).map(x => x[k]); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+    return { n: (evals[id] || []).length, ok: avg('ok'), ex: avg('ex'), im: avg('im'), last: l[l.length - 1].f };
+  }
+  // Bonus para el generador: más probabilidad a lo que funciona e implica
+  function evalBonus(t) {
+    const s = evalSum(t.id); if (!s) return 0;
+    return (s.ok != null ? (s.ok - 1) * 1.6 : 0) + (s.im != null ? (s.im - 1) * .8 : 0);
+  }
+  function evalBadge(t) { const s = evalSum(t.id); if (!s || s.ok == null) return ''; return `<span class="evb ${s.ok >= 1.5 ? 'g' : s.ok < .8 ? 'r' : ''}" title="Tu valoración">${s.ok >= 1.5 ? '👍' : s.ok < .8 ? '👎' : '😐'}${s.n > 1 ? s.n : ''}</span>`; }
+  function evalText(t) {
+    const s = evalSum(t.id); if (!s) return '';
+    const okT = s.ok == null ? '' : s.ok >= 1.5 ? 'funciona bien' : s.ok >= .8 ? 'funciona a medias' : 'no está funcionando';
+    const exT = s.ex == null ? '' : s.ex <= -.5 ? 'se queda fácil' : s.ex >= .5 ? 'resulta difícil' : 'exigencia justa';
+    const imT = s.im == null ? '' : s.im >= 1.5 ? 'implicación alta' : s.im < .8 ? 'implicación baja' : 'implicación media';
+    const l = ladder(t), nx = s.ex != null && s.ex <= -.5 ? l[t.dif] : s.ex != null && s.ex >= .5 ? l[t.dif - 2] : null;
+    return `<div class="evs"><b>Tu equipo:</b> ${[okT, exT, imT].filter(Boolean).join(' · ')} <small>(${s.n} valoración${s.n > 1 ? 'es' : ''})</small>${nx ? `<a class="link" href="#/t/${nx.id}">${s.ex < 0 ? '⬆ Prueba la versión más difícil' : '⬇ Prueba la versión más sencilla'}: ${esc(nx.n)}</a>` : ''}</div>`;
+  }
+  const evalForm = (id, cur) => Object.entries(EV).map(([k, e]) => `<div class="evr"><span>${e.n}</span>${e.o.map(([v, l]) => `<button type="button" class="chip ${cur && cur[k] === v ? 'on' : ''}" data-ev="${id}" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('');
+  // Guarda (o corrige) la valoración de hoy de una tarea
+  function setEval(id, k, v) {
+    const today = iso(new Date()), l = evals[id] = evals[id] || [];
+    let e = l.find(x => x.f === today); if (!e) { e = { f: today, ed: fixEd(ses.ed) }; l.push(e); }
+    e[k] = e[k] === v ? null : v; if (e.ok == null && e.ex == null && e.im == null) l.splice(l.indexOf(e), 1);
+    if (!l.length) delete evals[id]; saveEvals();
+  }
+  const todayEval = id => (evals[id] || []).find(x => x.f === iso(new Date())) || null;
+  function bindEval(root, after) { root.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => { setEval(b.dataset.ev, b.dataset.k, +b.dataset.v); const cur = todayEval(b.dataset.ev); b.parentNode.querySelectorAll('[data-ev]').forEach(x => x.classList.toggle('on', !!cur && cur[x.dataset.k] === +x.dataset.v)); if (after) after(b.dataset.ev); }); }
+  function vValorar() {
+    const its = ses.items.map(x => byId[x.id] ? { ...x, t: byId[x.id] } : null).filter(x => x && x.b !== 'cal' && x.b !== 'vc' || (x && x.t.cat === 'jue'));
+    const all = ses.items.map(x => byId[x.id] ? { ...x, t: byId[x.id] } : null).filter(Boolean);
+    const list = its.length ? its : all;
+    $('#app').innerHTML = `<section class="valo"><h1>⭐ Valorar las tareas de hoy</h1>
+      <p class="sub">Tres toques por tarea. Con el tiempo, el generador y el asistente te propondrán más las tareas que funcionan con tu equipo, y te avisará cuando una se quede fácil.</p>
+      ${!list.length ? '<div class="empty">La sesión está vacía.</div>' : list.map(x => `<div class="evc"><div class="evh"><a href="#/t/${x.t.id}" class="thumb s">${drawField(DD(x.t), { mini: true })}</a><div><small>${BLK[x.b]}</small><b>${esc(x.t.n)}</b></div></div>${evalForm(x.t.id, todayEval(x.t.id))}</div>`).join('')}
+      <div class="acts"><a class="btn pri" href="#/sesion">✓ Hecho</a></div></section>`;
+    bindEval($('#app'));
+  }
+
+  // ---------- Ficha de sesión en PDF ----------
+  let club = store.get('club', { name: '', team: '', coach: '', logo: '' });
+  const saveClub = () => store.set('club', club);
+  async function logoFrom(file) {
+    const url = URL.createObjectURL(file), img = new Image(); img.src = url; await img.decode();
+    const s = Math.min(1, 240 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); return c.toDataURL('image/png');
+  }
+  function pdfDialog(its) {
+    if (!club.name && meto && meto.club) club.name = meto.club;
+    const ov = document.createElement('div'); ov.className = 'vidov';
+    ov.innerHTML = `<div class="vidbox pdfbox"><b>📄 Ficha de la sesión</b>
+      <div class="pdfl">${club.logo ? `<img src="${club.logo}" alt="Escudo">` : '<span class="nologo">Escudo</span>'}<label class="btn sm">${club.logo ? 'Cambiar escudo' : 'Añadir escudo'}<input type="file" id="plogo" accept="image/*" hidden></label>${club.logo ? '<button class="link" id="pnolog">Quitar</button>' : ''}</div>
+      <label>Club<input id="pclub" value="${esc(club.name)}" placeholder="Nombre del club"></label>
+      <label>Equipo<input id="pteam" value="${esc(club.team)}" placeholder="Ej.: Juvenil A"></label>
+      <label>Entrenador / preparador<input id="pcoach" value="${esc(club.coach)}"></label>
+      <label>Fecha<input id="pdate" type="date" value="${iso(new Date())}"></label>
+      <label class="chk"><input type="checkbox" id="pcons" checked> Incluir consignas y reglas</label>
+      <p class="sub">Se abre la ventana de imprimir: elige <b>Guardar como PDF</b> para enviarla o déjala en el vestuario.</p>
+      <div class="acts"><button class="btn pri" id="pgo">Generar PDF</button><button class="btn ghost" id="pcan">Cancelar</button></div></div>`;
+    document.body.appendChild(ov);
+    const rd = () => { club.name = ov.querySelector('#pclub').value.trim(); club.team = ov.querySelector('#pteam').value.trim(); club.coach = ov.querySelector('#pcoach').value.trim(); saveClub(); };
+    ov.querySelector('#plogo').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { rd(); club.logo = await logoFrom(f); saveClub(); ov.remove(); pdfDialog(its); } catch (err) { toast('No se pudo leer la imagen'); } };
+    if (ov.querySelector('#pnolog')) ov.querySelector('#pnolog').onclick = () => { rd(); club.logo = ''; saveClub(); ov.remove(); pdfDialog(its); };
+    ov.querySelector('#pcan').onclick = () => ov.remove();
+    ov.querySelector('#pgo').onclick = () => { rd(); const f = ov.querySelector('#pdate').value, cons = ov.querySelector('#pcons').checked; ov.remove(); printSes(its, { f, cons }); };
+  }
+  function printSes(its, o = {}) {
+    let pr = $('#printv'); if (!pr) { pr = document.createElement('div'); pr.id = 'printv'; document.body.appendChild(pr); }
+    const D = t => adjDur(t, ses.ed), field = its.filter(x => x.b !== 'por');
+    const tot = field.reduce((a, x) => a + D(x.t), 0), ua = Math.round(field.reduce((a, x) => a + D(x.t) * rpeMid(x.t.rpe), 0));
+    const fd = o.f ? parseISO(o.f) : new Date(), wc = contOf(fd);
+    const matN = {}; its.forEach(x => mats(x.t).forEach(m => { (matN[m] = matN[m] || []).push(x.t); }));
+    const nCon = its.reduce((a, x) => Math.max(a, ((DD(x.t) || {}).c || []).length), 0);
+    const li = a => a && a.length ? `<ul>${a.slice(0, 2).map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
+    const card = (x, k) => { const t = x.t, f = fitInfo(t, ses.nj, ses.ed), sp = f ? `${f.w}x${f.h}` : t.esp && t.esp[0] ? `${t.esp[0]}x${t.esp[1]}` : '';
+      return `<article class="pt"><div class="pd">${drawField(DD(t))}</div><div class="pi"><p class="pbk">${BLK[x.b]}</p><h3><span class="pn">${k}</span>${esc(t.n)}</h3>
+        <p class="pm"><b style="color:${INT[t.int].c}">● ${INT[t.int].n}</b> · <b>${D(t)}'</b> · ${esc(t.ser)}${t.rec && t.rec !== '—' ? ' · rec. ' + esc(t.rec) : ''}</p>
+        <p class="pm">👥 ${esc(f ? f.jug : t.jug)}${sp ? ' · 📐 ' + sp + ' m' : ''}</p>
+        ${t.obj ? `<p class="po"><b>Objetivo:</b> ${esc(t.obj)}</p>` : ''}
+        ${o.cons !== false ? `${t.reglas && t.reglas.length ? `<p class="pl">Reglas</p>${li(t.reglas)}` : ''}${t.cons && t.cons.length ? `<p class="pl">Consignas</p>${li(t.cons)}` : ''}` : ''}</div></article>`; };
+    let k = 0;
+    pr.innerHTML = `<header class="ph">${club.logo ? `<img class="plg" src="${club.logo}" alt="">` : ''}<div class="pht"><small>${esc(club.name || 'Sesión de entrenamiento')}${club.team ? ' · ' + esc(club.team) : ''}</small>
+        <h1>Sesión ${ses.md} · ${MDINFO[ses.md].t}</h1><p>${fd.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${club.coach ? ' · ' + esc(club.coach) : ''}${ses.ed ? ' · ' + ED[fixEd(ses.ed)] : ''}${ses.nj ? ' · ' + ses.nj + ' jugadores' : ''}</p></div>
+        <div class="pk"><b>${tot}'</b><span>${ua} UA estimadas</span><span>${its.length} tareas</span></div></header>
+      <div class="pbar">${wc && wc.p ? `<span>🎯 <b>${PRIN[wc.p].n}</b>${wc.s ? ' + ' + PRIN[wc.s].n : ''}</span>` : ''}<span>${esc(MDINFO[ses.md].obj)}</span></div>
+      <div class="pmat"><b>Material:</b> ${Object.keys(matN).length ? Object.keys(matN).map(m => `${MAT[m]}${m === 'conos' && nCon ? ' (≈' + nCon + ')' : ''}`).join(' · ') : 'balones y petos'} · balones · petos</div>
+      <div class="pg">${Object.keys(BLK).flatMap(b => its.filter(x => x.b === b)).map(x => card(x, ++k)).join('')}</div>
+      <div class="pobs"><b>Observaciones:</b></div>
+      <p class="pf2">${esc(club.name || '')}${club.name ? ' · ' : ''}Hecho con My Coach</p>`;
+    document.body.classList.add('printing');
+    const off = () => { document.body.classList.remove('printing'); window.removeEventListener('afterprint', off); };
+    window.addEventListener('afterprint', off);
+    const prevT = document.title; document.title = `Sesion-${ses.md}-${o.f || iso(new Date())}`;
+    setTimeout(() => { window.print(); setTimeout(() => { off(); document.title = prevT; }, 1000); }, 80);
+  }
+
+  // ---------- Calendario de contenidos (vista de temporada) ----------
+  const PCOL = { sal: '#0ea5e9', pos: '#22c55e', ban: '#14b8a6', fin: '#ef4444', tra: '#f59e0b', pre: '#f97316', def: '#3b82f6', abp: '#a855f7', tec: '#84cc16' };
+  function weekWork(mon) {
+    const r = {}; for (let i = 0; i < 7; i++) { const e = plan[iso(addDays(mon, i))]; if (!e || e.k !== 'ses') continue; (e.items || []).forEach(x => { const t = byId[x.id]; if (!t || t.fase !== 'pri') return; const pr = prinOf(t); pr.forEach(p => { r[p] = (r[p] || 0) + adjDur(t, ses.ed) / pr.length; }); }); }
+    return r;
+  }
+  function calHTML() {
+    const s0 = monday(seasonStart()), end = new Date(seasonStart().getFullYear() + 1, 5, 30), cur = iso(monday(new Date()));
+    const weeks = []; for (let m = s0; m <= end; m = addDays(m, 7)) weeks.push(m);
+    const cntP = {}, cntS = {}, mins = {}, lastW = {};
+    weeks.forEach((m, i) => { const c = cont[iso(m)] || {}; if (c.p) { cntP[c.p] = (cntP[c.p] || 0) + 1; lastW[c.p] = i; } if (c.s) { cntS[c.s] = (cntS[c.s] || 0) + 1; lastW[c.s] = Math.max(lastW[c.s] ?? -1, i); } const w = weekWork(m); Object.entries(w).forEach(([p, v]) => mins[p] = (mins[p] || 0) + v); });
+    const ci = weeks.findIndex(m => iso(m) === cur), done = Math.max(0, ci);
+    const byMonth = []; weeks.forEach(m => { const k = m.getFullYear() * 12 + m.getMonth(); let g = byMonth[byMonth.length - 1]; if (!g || g.k !== k) byMonth.push(g = { k, m, w: [] }); g.w.push(m); });
+    const maxM = Math.max(1, ...Object.values(mins));
+    const warn = Object.keys(PRIN).filter(p => p !== 'tec' || ['P', 'B', 'A'].includes(fixEd(ses.ed))).map(p => ({ p, gap: lastW[p] == null ? null : ci - lastW[p] })).filter(x => ci >= 0 && (x.gap == null ? done > 6 : x.gap > 6));
+    return `<div class="cal">${byMonth.map(g => `<div class="cm"><small>${MN[g.m.getMonth()]}</small><div class="cw">${g.w.map(m => { const k = iso(m), c = cont[k] || {}, w = weekWork(m), top = Object.entries(w).sort((a, b) => b[1] - a[1])[0];
+        return `<button class="cc ${k === cur ? 'now' : ''} ${c.p ? '' : 'empty'}" data-wk="${k}" title="${m.getDate()} ${MN[m.getMonth()]}${c.p ? ': ' + PRIN[c.p].n + (c.s ? ' + ' + PRIN[c.s].n : '') : ''}${top ? ' · más trabajado: ' + PRIN[top[0]].n : ''}" style="${c.p ? `--a:${PCOL[c.p]};--b:${PCOL[c.s] || PCOL[c.p]}` : ''}">${c.niv ? `<i>${c.niv}</i>` : ''}${top ? `<u style="background:${PCOL[top[0]]}"></u>` : ''}</button>`; }).join('')}</div></div>`).join('')}</div>
+      <p class="sub">Cada cuadro es una semana: color de arriba = contenido principal, abajo = secundario; el número es el nivel; la rayita, lo más trabajado en las sesiones del plan. Toca una semana para editarla.</p>
+      ${warn.length ? `<div class="calw">⚠ ${warn.map(x => `<b>${PRIN[x.p].n}</b> ${x.gap == null ? 'sin trabajar en toda la temporada' : `lleva ${x.gap} semanas sin aparecer`}`).join(' · ')}</div>` : ''}
+      <div class="cleg">${Object.entries(PRIN).map(([p, x]) => `<div class="cl"><span class="sq" style="background:${PCOL[p]}"></span><b>${x.i} ${x.n}</b><span class="cn">${cntP[p] || 0} sem. principal · ${cntS[p] || 0} secundario</span><span class="cb"><i style="width:${Math.round(100 * (mins[p] || 0) / maxM)}%;background:${PCOL[p]}"></i></span><small>${Math.round(mins[p] || 0)}' en sesiones</small></div>`).join('')}</div>`;
+  }
+
   // ---------- Router ----------
   function route() {
     const h = location.hash || '#/';
@@ -1367,6 +1485,7 @@
     else if (h.startsWith('#/asistente')) { r = 'ses'; $('#back').hidden = false; $('#subtitle').textContent = 'Asistente de sesión'; vAsistente(); }
     else if (h.startsWith('#/pizarra/r/')) { r = 'plan'; const f = h.split('/')[3]; vPizarra(rivalSlides(f), '#/partido/' + f); }
     else if (h.startsWith('#/pizarra')) { r = 'ses'; $('#subtitle').textContent = 'Modo vestuario'; vPizarra(); }
+    else if (h.startsWith('#/valorar')) { r = 'ses'; $('#back').hidden = false; $('#subtitle').textContent = 'Valorar tareas'; vValorar(); }
     else if (h.startsWith('#/metodologia')) { r = 'plan'; $('#back').hidden = false; $('#subtitle').textContent = 'Metodología del club'; vMeto(); }
     else if (h.startsWith('#/partido')) { r = 'plan'; $('#back').hidden = false; $('#subtitle').textContent = 'Preparar el partido'; vPartido(h.split('/')[2] || null); }
     else if (h.startsWith('#/micro')) { r = 'micro'; $('#subtitle').textContent = 'Días MD y cargas'; vMicro(); }
