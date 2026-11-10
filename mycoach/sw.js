@@ -1,7 +1,7 @@
-const CACHE = 'mycoach-v15';
+const CACHE = 'mycoach-v16';
 const FILES = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'js/diagram.js', 'js/editor.js', 'js/myteam.js', 'js/app.js',
   'data/helpers.js', 'data/tareas-tactico.js', 'data/tareas-fisico.js', 'data/tareas-prevencion.js', 'data/tareas-porteros.js', 'data/tareas-juegos.js', 'data/tareas-f7.js',
-  'icons/icon-192.png', 'icons/icon-512.png'];
+  'icons/icon-192.png', 'icons/icon-512.png', 'archivo.woff'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x))))); self.clients.claim(); });
 // Red primero (para recibir actualizaciones) y caché si no hay conexión
