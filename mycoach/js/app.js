@@ -212,6 +212,19 @@
 
   const saveSes = () => store.set('ses', ses);
   window.MCtoast = m => toast(m);
+  // ---------- Tema claro / oscuro (como en My Team) ----------
+  const themePref = () => { try { const v = localStorage.getItem('mc_theme'); return v === 'light' || v === 'dark' ? v : 'auto'; } catch (e) { return 'auto'; } };
+  function applyTheme() {
+    const v = themePref(), r = document.documentElement;
+    if (v === 'auto') { r.removeAttribute('data-theme'); r.style.colorScheme = ''; } else { r.setAttribute('data-theme', v); r.style.colorScheme = v; }
+  }
+  const themeSwitch = () => { const cur = themePref(); return `<div class="themesw" role="group" aria-label="Tema">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([v, l]) => `<button type="button" class="btn sm ${cur === v ? 'pri' : ''}" data-theme-v="${v}" aria-pressed="${cur === v}">${l}</button>`).join('')}</div>`; };
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-theme-v]'); if (!b) return;
+    try { if (b.dataset.themeV === 'auto') localStorage.removeItem('mc_theme'); else localStorage.setItem('mc_theme', b.dataset.themeV); } catch (err) { }
+    applyTheme(); const w = b.closest('.themesw'); if (w) w.outerHTML = themeSwitch();
+  });
+  applyTheme();
   const toast = m => { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 1800); };
   const rpeMid = r => { const n = String(r).match(/\d+/g); return n ? n.map(Number).reduce((a, b) => a + b, 0) / n.length : 5; };
 
@@ -718,6 +731,7 @@
     const l = TAREAS.filter(t => favs.has(t.id));
     $('#app').innerHTML = `<section class="intro"><h1>Mis tareas</h1>
         <a class="btn pri xl" href="#/nueva">＋ Crear una tarea nueva</a>
+        <div class="bkcard thcard"><h2>Apariencia</h2><p class="sub">Automático sigue el modo claro u oscuro de tu teléfono. Se guarda solo en este dispositivo.</p>${themeSwitch()}</div>
         <a class="pzcard" href="#/tablero"><span class="bthumb">${drawField({ v: [-4, -4, 113, 76], p: [['A', 30, 25], ['A', 40, 45], ['B', 60, 34], ['P', 4, 34]], c: [[50, 20], [50, 48]], h: [[70, 30, 90]], a: [['pase', 30, 25, 40, 45, 0]] }, { mini: true })}</span><span><b>Pizarra táctica</b><small>Grande, con conos, vallas, escaleras, maniquíes… ${boards.length ? `· ${boards.length} guardada${boards.length > 1 ? 's' : ''}` : ''}</small></span><i>›</i></a>
         <div class="bkcard"><h2>Copia de seguridad</h2><div class="qacts"><button id="exp"><i>💾</i>Copia completa</button><button id="expt"><i>📤</i>Solo mis tareas</button><label><i>📥</i>Restaurar<input type="file" id="imp" accept=".json,application/json" hidden></label></div>
         <p class="sub">La copia completa guarda todo lo de My Coach en un archivo (tareas, valoraciones, sesiones, plan, contenidos, metodología, partidos y ajustes). Guárdala en Drive o envíatela por correo. «Solo mis tareas» sirve para pasárselas a otro entrenador.</p>
