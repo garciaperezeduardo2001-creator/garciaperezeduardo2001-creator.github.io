@@ -16,6 +16,14 @@
         «paso» es opcional: las flechas con el mismo paso se animan a la vez. Si falta, se calcula solo:
         los desplazamientos sin balón se mueven a la vez que la siguiente acción con balón.
    t  : textos [x, y, texto, tamaño?]
+   sp : setas o platillos [x, y, color?]
+   ar : aros [x, y, color?]
+   mq : maniquíes [x, y, ángulo?]
+   cj : cajones pliométricos [x, y, ángulo?]
+   bm : balones medicinales [x, y]
+   sb : sacos de balones [x, y]
+   fh : trazos a mano [color, [x1, y1, x2, y2, …]]
+   (h[2] y l[4]: ángulo de la valla —true = 90°— y color de la línea)
 */
 (function () {
   // Campo de fútbol 11 (105 x 68) o de fútbol 7 (d.f7: 60 x 40, mismas coordenadas en metros)
@@ -33,7 +41,8 @@
     const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
     (d.z || []).forEach(z => { add(z[0], z[1]); add(z[0] + z[2], z[1] + z[3]); });
     (d.p || []).forEach(p => add(p[1], p[2]));
-    ['c', 'pk', 'h', 'b', 'mg', 'g', 't'].forEach(k => (d[k] || []).forEach(e => add(e[0], e[1])));
+    ['c', 'pk', 'h', 'b', 'mg', 'g', 't', 'sp', 'ar', 'mq', 'cj', 'bm', 'sb'].forEach(k => (d[k] || []).forEach(e => add(e[0], e[1])));
+    (d.fh || []).forEach(f => { for (let i = 0; i < f[1].length; i += 2) add(f[1][i], f[1][i + 1]); });
     (d.esc || []).forEach(e => { add(e[0], e[1]); add(e[0] + (e[3] ? 0 : e[2]), e[1] + (e[3] ? e[2] : 0)); });
     (d.a || []).forEach(a => { add(a[1], a[2]); add(a[3], a[4]); });
     (d.l || []).forEach(a => { add(a[0], a[1]); add(a[2], a[3]); });
@@ -136,7 +145,7 @@
     const xs = [], ys = [], add = (x, y) => { if (isFinite(x) && isFinite(y)) { xs.push(x); ys.push(y); } };
     (d.p || []).forEach(p => add(p[1], p[2])); (d.a || []).forEach(a => { add(a[1], a[2]); add(a[3], a[4]); });
     (d.z || []).forEach(z => { add(z[0], z[1]); add(z[0] + z[2], z[1] + z[3]); }); (d.l || []).forEach(l => { add(l[0], l[1]); add(l[2], l[3]); });
-    ['c', 'pk', 'h', 'b', 'mg', 'g', 'esc'].forEach(key => (d[key] || []).forEach(e => add(e[0], e[1])));
+    ['c', 'pk', 'h', 'b', 'mg', 'g', 'esc', 'sp', 'ar', 'mq', 'cj', 'bm', 'sb'].forEach(key => (d[key] || []).forEach(e => add(e[0], e[1])));
     if (!xs.length) return { ...d, f7: true, v: undefined };
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
     const goalR = x1 > 88 && (d.p || []).some(p => p[0] === 'P' && p[1] > 98), goalL = x0 < 17 && (d.p || []).some(p => p[0] === 'P' && p[1] < 7);
@@ -151,7 +160,8 @@
     (o.a || []).forEach(a => { a[1] = X(a[1]); a[2] = Y(a[2]); a[3] = X(a[3]); a[4] = Y(a[4]); if (a[5]) a[5] = S(a[5]); });
     (o.z || []).forEach(z => { const nx = X(z[0]), ny = Y(z[1]); z[0] = nx; z[1] = ny; z[2] = S(z[2]); z[3] = S(z[3]); });
     (o.l || []).forEach(l => { l[0] = X(l[0]); l[1] = Y(l[1]); l[2] = X(l[2]); l[3] = Y(l[3]); });
-    ['c', 'pk', 'h', 'b', 'mg', 't'].forEach(key => (o[key] || []).forEach(e => { e[0] = X(e[0]); e[1] = Y(e[1]); }));
+    ['c', 'pk', 'h', 'b', 'mg', 't', 'sp', 'ar', 'mq', 'cj', 'bm', 'sb'].forEach(key => (o[key] || []).forEach(e => { e[0] = X(e[0]); e[1] = Y(e[1]); }));
+    (o.fh || []).forEach(f => { f[1] = f[1].map((v, i) => i % 2 ? Y(v) : X(v)); });
     (o.esc || []).forEach(e => { e[0] = X(e[0]); e[1] = Y(e[1]); e[2] = S(e[2]); });
     // las porterías reglamentarias de F11 se sustituyen por las del campo de F7
     if (d.g) o.g = d.g.filter(g => !((g[0] < 1.5 || g[0] > 103.5) && Math.abs(g[1] - 34) < 4)).map(g => { const n = g.slice(); n[0] = Math.min(60, Math.max(0, X(g[0]))); n[1] = Y(g[1]); return n; });
@@ -186,23 +196,49 @@
       o.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${k * .35}" fill="${col || '#fff'}" fill-opacity="${col ? .26 : .09}" stroke="${col || '#fff'}" stroke-opacity=".95" stroke-width="${lw * 1.3}" stroke-dasharray="${k * .9} ${k * .5}" stroke-linecap="round"/>`);
       if (lab && !mini) o.push(`<text x="${x + w / 2}" y="${y + h - k * .5}" font-size="${k * 1.1}" text-anchor="middle" fill="#fff" fill-opacity=".9" font-weight="800" font-family="system-ui,sans-serif" paint-order="stroke" stroke="rgba(0,0,0,.35)" stroke-width="${k * .18}">${lab}</text>`);
     });
-    (d.l || []).forEach(l => o.push(`<line x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" stroke="#fff" stroke-opacity=".8" stroke-width="${lw * 1.2}" stroke-dasharray="${k * .6} ${k * .5}" stroke-linecap="round"/>`));
+    (d.fh || []).forEach(f => { const pts = f[1], pp = []; for (let i = 0; i < pts.length; i += 2) pp.push(pts[i] + ' ' + pts[i + 1]); if (pp.length < 2) return; const pd = 'M' + pp.join(' L');
+      o.push(`<g>${mini ? '' : `<path d="${pd}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="${k * .42}" stroke-linecap="round" stroke-linejoin="round"/>`}<path d="${pd}" fill="none" stroke="${f[0] || '#fff'}" stroke-width="${k * .24}" stroke-linecap="round" stroke-linejoin="round"/></g>`); });
+    (d.l || []).forEach(l => o.push(`<line x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" stroke="${l[4] || '#fff'}" stroke-opacity=".9" stroke-width="${lw * 1.2}" stroke-dasharray="${k * .6} ${k * .5}" stroke-linecap="round"/>`));
     (d.esc || []).forEach(e => {
-      const [x, y, len, vert] = e, wd = 0.8, n = Math.round(len / 0.5);
-      let s = `<rect x="${x}" y="${y}" width="${vert ? wd : len}" height="${vert ? len : wd}" fill="rgba(250,204,21,.12)" stroke="#facc15" stroke-width="${lw}"/>`;
-      for (let i = 1; i < n; i++) s += vert ? `<line x1="${x}" y1="${y + i * .5}" x2="${x + wd}" y2="${y + i * .5}" stroke="#facc15" stroke-width="${lw * .8}"/>` : `<line x1="${x + i * .5}" y1="${y}" x2="${x + i * .5}" y2="${y + wd}" stroke="#facc15" stroke-width="${lw * .8}"/>`;
+      // se dibuja centrada en su sitio y con tamaño legible en cualquier vista
+      const [x0, y0, len, vert] = e, n = Math.max(2, Math.round(len / 0.5)), gap = Math.max(.5, .3 * k), wd = Math.max(.8, .72 * k), L2 = gap * n;
+      const cx = vert ? x0 + .4 : x0 + len / 2, cy = vert ? y0 + len / 2 : y0 + .4;
+      const x = vert ? cx - wd / 2 : cx - L2 / 2, y = vert ? cy - L2 / 2 : cy - wd / 2, W2 = vert ? wd : L2, H2 = vert ? L2 : wd, sh = mini ? 0 : k * .12, rw = Math.max(lw * 1.1, k * .1), sw = Math.max(lw * 1.3, k * .13);
+      let s = mini ? '' : `<rect x="${x + sh}" y="${y + sh * 1.3}" width="${W2}" height="${H2}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="${sw * 1.4}"/>`;
+      s += `<rect x="${x}" y="${y}" width="${W2}" height="${H2}" fill="rgba(250,204,21,.14)"/>`;
+      for (let i = 1; i < n; i++) s += vert ? `<line x1="${x}" y1="${y + i * gap}" x2="${x + wd}" y2="${y + i * gap}" stroke="#facc15" stroke-width="${rw}"/>` : `<line x1="${x + i * gap}" y1="${y}" x2="${x + i * gap}" y2="${y + wd}" stroke="#facc15" stroke-width="${rw}"/>`;
+      s += vert ? `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + L2}" stroke="#1f2937" stroke-width="${sw}"/><line x1="${x + wd}" y1="${y}" x2="${x + wd}" y2="${y + L2}" stroke="#1f2937" stroke-width="${sw}"/>`
+        : `<line x1="${x}" y1="${y}" x2="${x + L2}" y2="${y}" stroke="#1f2937" stroke-width="${sw}"/><line x1="${x}" y1="${y + wd}" x2="${x + L2}" y2="${y + wd}" stroke="#1f2937" stroke-width="${sw}"/>`;
       o.push(s);
     });
     const netFill = mini ? 'rgba(255,255,255,.25)' : `url(#net-${id})`;
     (d.g || []).forEach(g => o.push(goal(g[0], g[1], g[2], d.f7 ? 6 : 7.32, d.f7 ? 1.6 : 2, lw, netFill)));
     (d.mg || []).forEach(g => o.push(goal(g[0], g[1], g[2], Math.max(2, 1.2 * k), Math.max(.8, .5 * k), lw, netFill)));
-    (d.h || []).forEach(h => { const s = 0.5 * k, t = s * .3; o.push(h[2]
-      ? `<g><rect x="${h[0] - t / 2 + k * .08}" y="${h[1] - s + k * .1}" width="${t}" height="${s * 2}" fill="rgba(0,0,0,.25)"/><rect x="${h[0] - t / 2}" y="${h[1] - s}" width="${t}" height="${s * 2}" rx="${t / 3}" fill="#fb923c" stroke="#7c2d12" stroke-width="${lw * .4}"/></g>`
-      : `<g><rect x="${h[0] - s + k * .08}" y="${h[1] - t / 2 + k * .1}" width="${s * 2}" height="${t}" fill="rgba(0,0,0,.25)"/><rect x="${h[0] - s}" y="${h[1] - t / 2}" width="${s * 2}" height="${t}" rx="${t / 3}" fill="#fb923c" stroke="#7c2d12" stroke-width="${lw * .4}"/></g>`); });
-    (d.pk || []).forEach(p => o.push(`<g><circle cx="${p[0] + k * .1}" cy="${p[1] + k * .12}" r="${.34 * k}" fill="rgba(0,0,0,.28)"/><circle cx="${p[0]}" cy="${p[1]}" r="${.34 * k}" fill="#fde047" stroke="#713f12" stroke-width="${lw * .6}"/><circle cx="${p[0]}" cy="${p[1]}" r="${.12 * k}" fill="#713f12"/></g>`));
+    (d.h || []).forEach(h => {
+      const a = h[2] === true ? 90 : (+h[2] || 0), s = .62 * k, t = .16 * k, f = .42 * k, x = h[0], y = h[1];
+      o.push(`<g transform="rotate(${a} ${x} ${y})">${mini ? '' : `<g transform="translate(${k * .14} ${k * .2})" fill="rgba(0,0,0,.28)"><rect x="${x - s}" y="${y - t / 2}" width="${s * 2}" height="${t}"/><rect x="${x - s - t * .4}" y="${y - f / 2}" width="${t * .8}" height="${f}"/><rect x="${x + s - t * .4}" y="${y - f / 2}" width="${t * .8}" height="${f}"/></g>`}`
+        + `<rect x="${x - s - t * .4}" y="${y - f / 2}" width="${t * .8}" height="${f}" rx="${t * .3}" fill="#1f2937"/><rect x="${x + s - t * .4}" y="${y - f / 2}" width="${t * .8}" height="${f}" rx="${t * .3}" fill="#1f2937"/>`
+        + `<rect x="${x - s}" y="${y - t / 2}" width="${s * 2}" height="${t}" rx="${t / 2}" fill="#fb923c" stroke="#7c2d12" stroke-width="${lw * .35}"/>`
+        + (mini ? '' : `<rect x="${x - s * .9}" y="${y - t * .32}" width="${s * 1.8}" height="${t * .22}" rx="${t * .1}" fill="#fff" fill-opacity=".45"/>`) + '</g>');
+    });
+    (d.pk || []).forEach(p => o.push(`<g>${mini ? '' : `<line x1="${p[0]}" y1="${p[1]}" x2="${p[0] + k * 1.1}" y2="${p[1] + k * .7}" stroke="rgba(0,0,0,.3)" stroke-width="${k * .2}" stroke-linecap="round"/>`}<circle cx="${p[0] + k * .1}" cy="${p[1] + k * .12}" r="${.34 * k}" fill="rgba(0,0,0,.28)"/><circle cx="${p[0]}" cy="${p[1]}" r="${.34 * k}" fill="#fde047" stroke="#713f12" stroke-width="${lw * .6}"/><circle cx="${p[0]}" cy="${p[1]}" r="${.12 * k}" fill="#713f12"/></g>`));
     (d.c || []).forEach(c => { const s = 0.44 * k, col = c[2] || '#f97316';
       o.push(`<g><path d="M${c[0] + k * .1} ${c[1] - s + k * .14} L${c[0] + s * .9 + k * .1} ${c[1] + s * .7 + k * .14} L${c[0] - s * .9 + k * .1} ${c[1] + s * .7 + k * .14} z" fill="rgba(0,0,0,.25)"/><path d="M${c[0]} ${c[1] - s} L${c[0] + s * .9} ${c[1] + s * .7} L${c[0] - s * .9} ${c[1] + s * .7} z" fill="${col}" stroke="rgba(0,0,0,.35)" stroke-width="${lw * .45}" stroke-linejoin="round"/>`
         + (mini ? '' : `<path d="M${c[0] - s * .45} ${c[1] + s * .05} L${c[0] + s * .45} ${c[1] + s * .05}" stroke="#fff" stroke-opacity=".85" stroke-width="${s * .22}"/><path d="M${c[0]} ${c[1] - s} L${c[0] + s * .9} ${c[1] + s * .7} L${c[0] - s * .9} ${c[1] + s * .7} z" fill="url(#cone-${id})"/>`) + '</g>'); });
+    (d.ar || []).forEach(r => { const R = .95 * k, col = r[2] || '#ef4444';
+      o.push(`<g>${mini ? '' : `<circle cx="${r[0] + k * .12}" cy="${r[1] + k * .16}" r="${R}" fill="none" stroke="rgba(0,0,0,.3)" stroke-width="${k * .2}"/>`}<circle cx="${r[0]}" cy="${r[1]}" r="${R}" fill="none" stroke="${col}" stroke-width="${k * .2}"/>${mini ? '' : `<circle cx="${r[0]}" cy="${r[1]}" r="${R}" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="${k * .05}" stroke-dasharray="${k * .5} ${k * .9}"/>`}</g>`); });
+    (d.sp || []).forEach(c => { const R = .42 * k, col = c[2] || '#facc15';
+      o.push(`<g>${mini ? '' : `<ellipse cx="${c[0] + k * .1}" cy="${c[1] + k * .13}" rx="${R}" ry="${R * .9}" fill="rgba(0,0,0,.28)"/>`}<circle cx="${c[0]}" cy="${c[1]}" r="${R}" fill="${col}" stroke="rgba(0,0,0,.35)" stroke-width="${lw * .4}"/><circle cx="${c[0]}" cy="${c[1]}" r="${R * .62}" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="${lw * .4}"/><circle cx="${c[0]}" cy="${c[1]}" r="${R * .3}" fill="#14632f" fill-opacity=".85"/></g>`); });
+    (d.cj || []).forEach(c => { const w = 1.5 * k, h = 1.1 * k, x = c[0], y = c[1];
+      o.push(`<g transform="rotate(${+c[2] || 0} ${x} ${y})">${mini ? '' : `<rect x="${x - w / 2 + k * .16}" y="${y - h / 2 + k * .22}" width="${w}" height="${h}" rx="${k * .12}" fill="rgba(0,0,0,.3)"/>`}<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="${k * .12}" fill="#92400e"/><rect x="${x - w / 2 + k * .14}" y="${y - h / 2 + k * .14}" width="${w - k * .28}" height="${h - k * .28}" rx="${k * .06}" fill="#d97706"/>${mini ? '' : `<path d="M${x - w / 2 + k * .3} ${y - h * .12} H${x + w / 2 - k * .3} M${x - w / 2 + k * .3} ${y + h * .16} H${x + w / 2 - k * .3}" stroke="#b45309" stroke-width="${lw * .5}"/><rect x="${x - k * .28}" y="${y - h / 2 + k * .22}" width="${k * .56}" height="${k * .16}" rx="${k * .08}" fill="#451a03" fill-opacity=".6"/>`}</g>`); });
+    (d.sb || []).forEach(b => { const R = .85 * k, r = .3 * k, x = b[0], y = b[1];
+      o.push(`<g>${mini ? '' : `<circle cx="${x + k * .14}" cy="${y + k * .2}" r="${R}" fill="rgba(0,0,0,.3)"/>`}<circle cx="${x}" cy="${y}" r="${R}" fill="#0f172a" fill-opacity=".55" stroke="#111827" stroke-width="${lw * .6}"/>`
+        + [[-.38, -.3], [.36, -.32], [-.02, .1], [-.4, .42], [.4, .4]].map(([a, c]) => `<circle cx="${x + a * R}" cy="${y + c * R}" r="${r}" fill="${mini ? '#fff' : `url(#ball-${id})`}" stroke="#111" stroke-width="${lw * .4}"/>`).join('')
+        + (mini ? '' : `<circle cx="${x}" cy="${y}" r="${R}" fill="none" stroke="#e5e7eb" stroke-opacity=".7" stroke-width="${lw * .45}" stroke-dasharray="${k * .18} ${k * .14}"/><path d="M${x - R * .2} ${y - R} q${R * .2} ${-R * .35} ${R * .4} 0" fill="none" stroke="#e5e7eb" stroke-width="${lw * .6}"/>`) + '</g>'); });
+    (d.bm || []).forEach(b => { const R = .5 * k, x = b[0], y = b[1];
+      o.push(`<g>${mini ? '' : `<ellipse cx="${x + R * .3}" cy="${y + R * .45}" rx="${R}" ry="${R * .82}" fill="rgba(0,0,0,.35)"/>`}<circle cx="${x}" cy="${y}" r="${R}" fill="#374151" stroke="#030712" stroke-width="${lw * .5}"/>${mini ? '' : `<path d="M${x - R} ${y} Q${x} ${y - R * .5} ${x + R} ${y} M${x} ${y - R} Q${x + R * .45} ${y} ${x} ${y + R}" fill="none" stroke="#ef4444" stroke-width="${lw * .55}"/><circle cx="${x - R * .35}" cy="${y - R * .38}" r="${R * .22}" fill="#fff" fill-opacity=".22"/>`}</g>`); });
+    (d.mq || []).forEach(m => { const x = m[0], y = m[1], a = +m[2] || 0;
+      o.push(`<g transform="rotate(${a} ${x} ${y})">${mini ? '' : `<ellipse cx="${x + k * .16}" cy="${y + k * .24}" rx="${k * .95}" ry="${k * .5}" fill="rgba(0,0,0,.3)"/>`}<ellipse cx="${x}" cy="${y}" rx="${k * .95}" ry="${k * .48}" fill="#facc15" stroke="#713f12" stroke-width="${lw * .5}"/>${mini ? '' : `<ellipse cx="${x}" cy="${y + k * .08}" rx="${k * .7}" ry="${k * .28}" fill="#ca8a04" fill-opacity=".55"/>`}<circle cx="${x}" cy="${y}" r="${k * .34}" fill="#1f2937" stroke="#facc15" stroke-width="${lw * .4}"/><path d="M${x - k * .2} ${y + k * .5} L${x} ${y + k * .78} L${x + k * .2} ${y + k * .5}z" fill="#713f12"/></g>`); });
     const pl = d.p || [];
     const st = steps(d), stepOf = {}; st.forEach((g, i) => g.forEach(j => { stepOf[j] = i + 1; }));
     const badges = [];

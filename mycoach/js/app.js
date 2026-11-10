@@ -211,6 +211,7 @@
   const fromHash = () => { const m = location.hash.match(/[?&]md=([^&]+)/); if (m) F.md = decodeURIComponent(m[1]); };
 
   const saveSes = () => store.set('ses', ses);
+  window.MCtoast = m => toast(m);
   const toast = m => { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 1800); };
   const rpeMid = r => { const n = String(r).match(/\d+/g); return n ? n.map(Number).reduce((a, b) => a + b, 0) / n.length : 5; };
 
@@ -717,6 +718,7 @@
     const l = TAREAS.filter(t => favs.has(t.id));
     $('#app').innerHTML = `<section class="intro"><h1>Mis tareas</h1>
         <a class="btn pri xl" href="#/nueva">＋ Crear una tarea nueva</a>
+        <a class="pzcard" href="#/tablero"><span class="bthumb">${drawField({ v: [-4, -4, 113, 76], p: [['A', 30, 25], ['A', 40, 45], ['B', 60, 34], ['P', 4, 34]], c: [[50, 20], [50, 48]], h: [[70, 30, 90]], a: [['pase', 30, 25, 40, 45, 0]] }, { mini: true })}</span><span><b>Pizarra táctica</b><small>Grande, con conos, vallas, escaleras, maniquíes… ${boards.length ? `· ${boards.length} guardada${boards.length > 1 ? 's' : ''}` : ''}</small></span><i>›</i></a>
         <div class="bkcard"><h2>Copia de seguridad</h2><div class="qacts"><button id="exp"><i>💾</i>Copia completa</button><button id="expt"><i>📤</i>Solo mis tareas</button><label><i>📥</i>Restaurar<input type="file" id="imp" accept=".json,application/json" hidden></label></div>
         <p class="sub">La copia completa guarda todo lo de My Coach en un archivo (tareas, valoraciones, sesiones, plan, contenidos, metodología, partidos y ajustes). Guárdala en Drive o envíatela por correo. «Solo mis tareas» sirve para pasárselas a otro entrenador.</p>
         ${(() => { const lb = store.get('lastbk', null), dd = lb ? Math.floor((new Date() - parseISO(lb)) / 864e5) : null; return `<p class="bkst ${dd == null || dd > 30 ? 'warn' : ''}">${dd == null ? '⚠ Todavía no has hecho ninguna copia completa.' : dd === 0 ? '✓ Última copia: hoy.' : `${dd > 30 ? '⚠' : '✓'} Última copia: hace ${dd} día${dd > 1 ? 's' : ''}.`}</p>`; })()}</div></section>
@@ -758,8 +760,9 @@
   const BLANK = { n: '', cat: 'tt', tipo: '', md: [], int: 2, rpe: '', carga: 'Tensión', fase: 'pri', dif: 2, ed: 'ICJS', jug: '', np: '', esp: null, ser: '', rec: '', dur: '', obj: '', desc: '', reglas: [], cons: [], var: [], d: { v: [27.5, 11, 50, 46] } };
   function vEdit(mode, id) {
     let t;
-    const rp = rivPend; rivPend = null;
-    if (mode === 'nueva' && rp && rivals[rp]) t = planTaskFor(rivals[rp]);
+    const rp = rivPend; rivPend = null; const bp = boardPend; boardPend = null;
+    if (mode === 'nueva' && bp) { t = JSON.parse(JSON.stringify(BLANK)); t.d = JSON.parse(JSON.stringify(bp.d)); t.n = bp.n || ''; if (t.d.f7) t.ed = 'PBA'; }
+    else if (mode === 'nueva' && rp && rivals[rp]) t = planTaskFor(rivals[rp]);
     else if (mode === 'nueva') { t = JSON.parse(JSON.stringify(BLANK)); if (MODE === 'f7') { t.d = { f7: true }; t.ed = 'PBA'; } }
     else { const src = byId[id]; if (!src) { $('#app').innerHTML = '<div class="empty">Tarea no encontrada.</div>'; return; } t = JSON.parse(JSON.stringify(src)); if (mode === 'duplicar' && MODE === 'f7' && !isF7t(src)) { t.d = JSON.parse(JSON.stringify(DD(src))); const c = catAdapt(src, fixEd(ses.ed)); if (c && c.w) t.esp = [c.w, c.h]; if (c) t.dur = c.dur; } if (mode === 'duplicar') { delete t.id; t.n = t.n + ' (copia)'; } }
     TaskEditor.mount($('#app'), t, {
@@ -774,6 +777,57 @@
       onCancel() { history.length > 1 ? history.back() : (location.hash = '#/mis'); }
     });
     window.scrollTo(0, 0);
+  }
+
+  // ---------- Pizarra táctica libre ----------
+  let boardPend = null, boards = store.get('boards', []);
+  const saveBoards = () => store.set('boards', boards);
+  const fmtDT = ts => { const d = new Date(ts); return `${d.getDate()} ${MN[d.getMonth()]} · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const BSTART = {
+    f11: { n: 'Campo completo F11', d: { v: [-4, -4, 113, 76] } },
+    half: { n: 'Último tercio F11', d: { v: [57, 8, 50, 52] } },
+    f7: { n: 'Campo de fútbol 7', d: { f7: true, v: [-3, -3, 66, 46] } },
+    f11s: { n: '1-4-3-3 contra 1-4-4-2', d: { v: [-4, -4, 113, 76] }, sis: ['1-4-3-3', '1-4-4-2'] },
+    f7s: { n: 'F7 · 1-3-3 contra 1-2-3-1', d: { f7: true, v: [-3, -3, 66, 46] }, sis: ['1-3-3', '1-2-3-1'] }
+  };
+  function newBoard(k) {
+    const b = BSTART[k], d = JSON.parse(JSON.stringify(b.d));
+    if (b.sis) { const S = d.f7 ? SIS7 : SIS11, [FL, FW] = d.f7 ? [60, 40] : [105, 68]; d.p = [];
+      b.sis.forEach((nm, t) => S[nm].forEach(([x, y], i) => { const X = t ? FL - x : x, Y = t ? FW - y : y; d.p.push(i ? [t ? 'B' : 'A', X, Y, String(i + 1)] : ['P', X, Y]); })); }
+    const o = { id: 'pz' + Date.now().toString(36), n: 'Pizarra ' + (boards.length + 1), d, ts: Date.now() };
+    boards.unshift(o); saveBoards(); location.hash = '#/tablero/' + o.id;
+  }
+  function vTableros() {
+    $('#app').innerHTML = `<section class="intro"><h1>Pizarra táctica</h1><p class="sub">Grande, a pantalla completa y con todo el material: conos, setas, picas, vallas, escaleras, aros, maniquíes, cajones, balones… Se guarda sola.</p></section>
+      <section><h2>Nueva pizarra</h2><div class="bnew">${Object.entries(BSTART).filter(([k]) => MODE === 'f7' ? /f7/.test(k) || k === 'f11' : true).map(([k, b]) => `<button data-nb="${k}"><span class="bthumb">${drawField(b.sis ? (() => { const d = JSON.parse(JSON.stringify(b.d)); const S = d.f7 ? SIS7 : SIS11, [FL, FW] = d.f7 ? [60, 40] : [105, 68]; d.p = []; b.sis.forEach((nm, t) => S[nm].forEach(([x, y], i) => d.p.push([i ? (t ? 'B' : 'A') : 'P', t ? FL - x : x, t ? FW - y : y]))); return d; })() : b.d, { mini: true })}</span><b>${b.n}</b></button>`).join('')}</div></section>
+      <section><h2>Mis pizarras (${boards.length})</h2>${boards.length ? `<div class="blist">${boards.map(b => `<div class="bitem"><a href="#/tablero/${b.id}" class="bthumb">${drawField(b.d, { mini: true })}</a><div class="bi"><a href="#/tablero/${b.id}"><b>${esc(b.n)}</b></a><small>${fmtDT(b.ts)}</small></div><button class="btn sm" data-bdup="${b.id}" aria-label="Duplicar">⧉</button><button class="btn sm danger" data-brm="${b.id}" aria-label="Borrar">🗑</button></div>`).join('')}</div>` : '<div class="empty">Aún no tienes pizarras. Empieza con una de arriba.</div>'}</section>`;
+    $('#app').querySelectorAll('[data-nb]').forEach(b => b.onclick = () => newBoard(b.dataset.nb));
+    $('#app').querySelectorAll('[data-brm]').forEach(b => b.onclick = () => { const o = boards.find(x => x.id === b.dataset.brm); if (!o || !confirm(`¿Borrar «${o.n}»?`)) return; boards = boards.filter(x => x !== o); saveBoards(); vTableros(); });
+    $('#app').querySelectorAll('[data-bdup]').forEach(b => b.onclick = () => { const o = boards.find(x => x.id === b.dataset.bdup); if (!o) return; boards.unshift({ ...JSON.parse(JSON.stringify(o)), id: 'pz' + Date.now().toString(36), n: o.n + ' (copia)', ts: Date.now() }); saveBoards(); vTableros(); });
+  }
+  async function boardCanvas(b) {
+    const W = 1800, M = 40, iw = W - 2 * M, ih = iw / 1.5, c = document.createElement('canvas'), ctx = c.getContext('2d');
+    c.width = W; c.height = ih + 2 * M + 70; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = '#101a15'; ctx.font = `700 40px ${FONT}`; ctx.fillText(b.n, M, M + 34);
+    ctx.fillStyle = '#6b7972'; ctx.font = `500 26px ${FONT}`; ctx.textAlign = 'right'; ctx.fillText('My Coach · Pizarra táctica', W - M, M + 32); ctx.textAlign = 'left';
+    const img = await svgImg(b.d, iw); ctx.save(); rr(ctx, M, M + 70, iw, ih, 22); ctx.clip(); if (img) ctx.drawImage(img, M, M + 70, iw, ih); ctx.restore();
+    return c;
+  }
+  function vTablero(id) {
+    const b = boards.find(x => x.id === id);
+    if (!b) { location.replace('#/tablero'); return; }
+    let tSave = 0;
+    const ed = TaskEditor.mount($('#app'), { n: b.n, d: JSON.parse(JSON.stringify(b.d)) }, {
+      title: 'Pizarra táctica', fsTitle: b.n, boardOnly: true, startFS: matchMedia('(pointer: coarse)').matches || innerWidth < 900,
+      onChange(d) { clearTimeout(tSave); tSave = setTimeout(() => { b.d = ed ? ed.clean() : d; b.ts = Date.now(); saveBoards(); const s = $('#bsaved'); if (s) s.textContent = '✓ Guardada'; }, 300); },
+      onCancel() { location.hash = '#/tablero'; }
+    });
+    $('#bx').innerHTML = `<div class="bxbar"><input id="bname" value="${esc(b.n)}" maxlength="60" aria-label="Nombre de la pizarra"><span id="bsaved" class="bsaved">✓ Guardada</span></div>
+      <div class="qacts"><button id="bimg"><i>🖼</i>Imagen</button><button id="btask"><i>📋</i>Crear tarea</button><button id="bdup2"><i>⧉</i>Duplicar</button><a href="#/tablero"><i>🗂</i>Mis pizarras</a></div>`;
+    $('#bname').oninput = e => { b.n = e.target.value.trim() || 'Pizarra'; b.ts = Date.now(); saveBoards(); const t = document.querySelector('.fsbar b'); if (t) t.textContent = b.n; };
+    $('#bimg').onclick = () => { b.d = ed.clean(); shareImage(boardCanvas(b), b.n); };
+    $('#btask').onclick = () => { b.d = ed.clean(); saveBoards(); boardPend = { d: b.d, n: b.n }; location.hash = '#/nueva'; };
+    $('#bdup2').onclick = () => { b.d = ed.clean(); const o = { ...JSON.parse(JSON.stringify(b)), id: 'pz' + Date.now().toString(36), n: b.n + ' (copia)', ts: Date.now() }; boards.unshift(o); saveBoards(); location.hash = '#/tablero/' + o.id; };
   }
 
   // ---------- Planificador ----------
@@ -1220,6 +1274,7 @@
     '1-3-2-1': [[2, 20], [9, 8], [8, 20], [9, 32], [18, 14], [18, 26], [27, 20]],
     '1-2-1-2-1': [[2, 20], [9, 13], [9, 27], [15, 20], [21, 9], [21, 31], [28, 20]]
   };
+  window.MC_SIS = { 11: SIS11, 7: SIS7 };
   const RV = {
     pres: { alta: 'Presiona alto', media: 'Bloque medio', baja: 'Espera atrás (bloque bajo)' },
     est: { comb: 'Combinativo', dir: 'Juego directo', con: 'Al contraataque' },
@@ -1475,6 +1530,7 @@
     const h = location.hash || '#/';
     if (!h.startsWith('#/campo')) stopTimer();
     if (PZ && !h.startsWith('#/pizarra')) { PZ.stop(); PZ = null; }
+    if (document.body.classList.contains('fsb')) { document.body.classList.remove('fsb'); try { if (document.fullscreenElement) document.exitFullscreen(); if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) { } }
     let r = 'lib';
     $('#back').hidden = true; $('#title').textContent = 'My Coach'; $('#subtitle').textContent = (MODE === 'f7' ? 'Fútbol 7 · ' : 'Biblioteca de tareas · ') + TAREAS.filter(vis).length + ' ejercicios';
     if (h.startsWith('#/t/')) { r = 'task'; $('#back').hidden = false; $('#subtitle').textContent = 'Ficha de la tarea'; vTask(h.slice(4)); }
@@ -1485,6 +1541,8 @@
     else if (h.startsWith('#/asistente')) { r = 'ses'; $('#back').hidden = false; $('#subtitle').textContent = 'Asistente de sesión'; vAsistente(); }
     else if (h.startsWith('#/pizarra/r/')) { r = 'plan'; const f = h.split('/')[3]; vPizarra(rivalSlides(f), '#/partido/' + f); }
     else if (h.startsWith('#/pizarra')) { r = 'ses'; $('#subtitle').textContent = 'Modo vestuario'; vPizarra(); }
+    else if (h.startsWith('#/tablero/')) { r = 'tab'; $('#back').hidden = false; $('#subtitle').textContent = 'Pizarra táctica'; vTablero(h.slice(10)); }
+    else if (h.startsWith('#/tablero')) { r = 'tab'; $('#subtitle').textContent = 'Pizarra táctica'; vTableros(); }
     else if (h.startsWith('#/valorar')) { r = 'ses'; $('#back').hidden = false; $('#subtitle').textContent = 'Valorar tareas'; vValorar(); }
     else if (h.startsWith('#/metodologia')) { r = 'plan'; $('#back').hidden = false; $('#subtitle').textContent = 'Metodología del club'; vMeto(); }
     else if (h.startsWith('#/partido')) { r = 'plan'; $('#back').hidden = false; $('#subtitle').textContent = 'Preparar el partido'; vPartido(h.split('/')[2] || null); }
@@ -1495,6 +1553,7 @@
     else if (h.startsWith('#/duplicar/')) { r = 'mis'; $('#back').hidden = false; $('#subtitle').textContent = 'Pizarra y ficha'; vEdit('duplicar', h.slice(11)); }
     else { fromHash(); vLib(); }
     document.querySelectorAll('nav.bottom a').forEach(a => a.classList.toggle('on', a.dataset.r === r));
+    const hb = $('#pzb'); if (hb) hb.classList.toggle('on', r === 'tab');
     if (r !== 'task') window.scrollTo(0, 0);
   }
   function setMode(m) {
