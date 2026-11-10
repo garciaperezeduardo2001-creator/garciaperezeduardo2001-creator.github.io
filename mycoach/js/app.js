@@ -1570,5 +1570,10 @@
   route();
   bridge();
 
-  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
+  if ('serviceWorker' in navigator) {
+    // si llega una versión nueva mientras la app está abierta, se recarga sola una vez
+    const had = !!navigator.serviceWorker.controller; let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !reloaded) { reloaded = true; location.reload(); } });
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then(r => r.update && r.update()).catch(() => { }));
+  }
 })();
