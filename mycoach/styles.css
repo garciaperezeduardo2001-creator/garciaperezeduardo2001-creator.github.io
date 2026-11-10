@@ -462,10 +462,10 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
 .aq.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));align-items:end}.aq.two label b{font-size:13px;line-height:1.2}
 .aq.two input,.aq.two select{width:100%}
 /* ===== v17 · pizarra táctica grande ===== */
-.pzb{margin-left:auto;flex:none;width:40px!important;padding:0!important;display:grid;place-items:center;width:40px;height:40px;border:1px solid var(--ln);border-radius:var(--rs);color:var(--tx);background:var(--card)}
-.pzb svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.pzb.on,.pzb:hover{border-color:var(--acc);color:var(--acc)}
-.pzb+.modeb{margin-left:0}
+.hpz{margin-left:auto;flex:none;padding:0 10px 0 8px;display:inline-flex;align-items:center;gap:5px;height:40px;font:650 .82rem var(--font);border:1px solid var(--ln);border-radius:var(--rs);color:var(--tx);background:var(--card)}
+.hpz svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.hpz.on,.hpz:hover{border-color:var(--acc);color:var(--acc)}
+.hpz+.modeb{margin-left:0}
 /* barra de herramientas */
 .bwrap{display:flex;flex-direction:column;gap:8px}
 .bside{display:contents}
@@ -552,3 +552,8 @@ body.fsb .top,body.fsb nav.bottom,body.fsb .fab{display:none!important}
 @media (orientation:portrait){.editor.edfs .rot{display:inline}}
 .editor.edfs .bopts select{font-size:.8rem}
 @media (orientation:landscape){.editor.edfs .bopts{display:grid;grid-template-columns:1fr 1fr;gap:6px}.editor.edfs .bopts .zbtn{grid-column:1/-1}.editor.edfs .bopts .zbtn .btn{flex:1}.editor.edfs .bopts .btn{justify-content:center}}
+
+.hpz b{font-weight:650}
+@media (max-width:370px){.hpz b{display:none}.hpz{padding:0 8px}}
+.brand>div{min-width:0}.brand small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hpz svg{width:24px;height:24px}
