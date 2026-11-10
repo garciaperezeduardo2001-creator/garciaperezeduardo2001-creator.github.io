@@ -383,7 +383,7 @@
     const H = 150 + title.length * 60 + 30 + 720 + 40 + 220 + (desc.length ? 30 + desc.length * 42 : 0) + (rules.length ? 70 + rules.length * 42 : 0) + 90;
     c.width = W; c.height = H;
     ctx.fillStyle = '#f3f6f4'; ctx.fillRect(0, 0, W, H);
-    const g = ctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, '#15803d'); g.addColorStop(1, '#16a34a'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 150 + title.length * 60);
+    const g = ctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, '#1e40af'); g.addColorStop(1, '#2563eb'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 150 + title.length * 60);
     ctx.fillStyle = '#dcfce7'; ctx.font = `700 28px ${FONT}`; ctx.fillText(`${CAT[t.cat].n.toUpperCase()} · ${t.tipo}`, M, 70);
     ctx.fillStyle = '#fff'; ctx.font = `800 50px ${FONT}`; title.forEach((l, i) => ctx.fillText(l, M, 135 + i * 60));
     let y = 150 + title.length * 60 + 30;
@@ -395,7 +395,7 @@
     y += 178;
     ctx.fillStyle = '#0f1f17'; ctx.font = `700 30px ${FONT}`; wrap(ctx, `👥 ${t.jug}  ·  ${t.esp[0]}x${t.esp[1]} m  ·  ${t.dur} min  ·  Rec. ${t.rec}`, W - 2 * M).slice(0, 2).forEach((l, i) => ctx.fillText(l, M, y + i * 40)); y += 20;
     if (desc.length) { y += 30; ctx.font = `400 30px ${FONT}`; ctx.fillStyle = '#26352d'; desc.forEach(l => { y += 42; ctx.fillText(l, M, y); }); }
-    if (rules.length) { y += 60; ctx.fillStyle = '#15803d'; ctx.font = `800 26px ${FONT}`; ctx.fillText('REGLAS', M, y); y += 10; ctx.fillStyle = '#26352d'; ctx.font = `400 30px ${FONT}`; rules.forEach(l => { y += 42; ctx.fillText(l, M + 6, y); }); }
+    if (rules.length) { y += 60; ctx.fillStyle = '#1d4ed8'; ctx.font = `800 26px ${FONT}`; ctx.fillText('REGLAS', M, y); y += 10; ctx.fillStyle = '#26352d'; ctx.font = `400 30px ${FONT}`; rules.forEach(l => { y += 42; ctx.fillText(l, M + 6, y); }); }
     ctx.fillStyle = '#5b6b62'; ctx.font = `600 24px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('My Coach · Biblioteca de tareas', W / 2, H - 36);
     return c;
   }
@@ -404,7 +404,7 @@
     const field = its.filter(x => x.b !== 'por'), tot = field.reduce((a, x) => a + x.t.dur, 0), ua = Math.round(field.reduce((a, x) => a + x.t.dur * rpeMid(x.t.rpe), 0));
     const H = 210 + its.length * RH + 80; c.width = W; c.height = H;
     ctx.fillStyle = '#f3f6f4'; ctx.fillRect(0, 0, W, H);
-    const g = ctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, '#15803d'); g.addColorStop(1, '#16a34a'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 180);
+    const g = ctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, '#1e40af'); g.addColorStop(1, '#2563eb'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 180);
     ctx.fillStyle = '#fff'; ctx.font = `800 52px ${FONT}`; ctx.fillText(`Sesión ${ses.md}`, M, 85);
     ctx.font = `600 30px ${FONT}`; ctx.fillStyle = '#dcfce7'; ctx.fillText(`${MDINFO[ses.md].t} · ${tot} min · ${ua} UA · ${its.length} tareas`, M, 140);
     let y = 210;
@@ -413,7 +413,7 @@
       ctx.fillStyle = '#fff'; rr(ctx, M, y, W - 2 * M, RH - 20, 20); ctx.fill();
       const img = await svgImg(DD(t), iw); ctx.save(); rr(ctx, M + 15, y + 15, iw, ih, 14); ctx.clip(); if (img) ctx.drawImage(img, M + 15, y + 15, iw, ih); ctx.restore();
       const x = M + iw + 40, mw = W - M - x - 20;
-      ctx.fillStyle = '#15803d'; ctx.font = `800 22px ${FONT}`; ctx.fillText(BLK[its[i].b].toUpperCase(), x, y + 52);
+      ctx.fillStyle = '#1d4ed8'; ctx.font = `800 22px ${FONT}`; ctx.fillText(BLK[its[i].b].toUpperCase(), x, y + 52);
       ctx.fillStyle = '#0f1f17'; ctx.font = `800 34px ${FONT}`; const tl = wrap(ctx, `${i + 1}. ${t.n}`, mw).slice(0, 2); tl.forEach((l, k) => ctx.fillText(l, x, y + 96 + k * 40));
       let yy = y + 96 + tl.length * 40 + 10;
       ctx.fillStyle = INT[t.int].c; ctx.beginPath(); ctx.arc(x + 10, yy - 9, 10, 0, 7); ctx.fill();
@@ -1135,7 +1135,7 @@
     const c = cv0; c.width = W; c.height = H; const ctx = c.getContext('2d');
     let st = { step: 0, total: fieldSteps(DD(t)).length }, cap = '', busy = false, live = true, ctl = null, fin = false;
     const paint = img => {
-      const g = ctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, '#15803d'); g.addColorStop(1, '#16a34a'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, TH);
+      const g = ctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, '#1e40af'); g.addColorStop(1, '#2563eb'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, TH);
       ctx.fillStyle = '#dcfce7'; ctx.font = `700 26px ${FONT}`; ctx.fillText(`${CAT[t.cat].n.toUpperCase()} · ${t.jug}${t.esp && t.esp[0] ? ` · ${t.esp[0]}x${t.esp[1]} m` : ''}`, 36, 44);
       ctx.fillStyle = '#fff'; ctx.font = `800 42px ${FONT}`; ctx.fillText(wrap(ctx, t.n, W - 72)[0], 36, 96);
       ctx.fillStyle = '#0b2614'; ctx.fillRect(0, TH, W, FH); if (img) ctx.drawImage(img, 0, TH, W, FH);

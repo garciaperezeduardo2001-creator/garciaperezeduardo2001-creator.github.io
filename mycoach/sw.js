@@ -1,4 +1,4 @@
-const CACHE = 'mycoach-v20';
+const CACHE = 'mycoach-v21';
 const FILES = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'js/diagram.js', 'js/editor.js', 'js/myteam.js', 'js/app.js',
   'data/helpers.js', 'data/tareas-tactico.js', 'data/tareas-fisico.js', 'data/tareas-prevencion.js', 'data/tareas-porteros.js', 'data/tareas-juegos.js', 'data/tareas-f7.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'archivo.woff'];
