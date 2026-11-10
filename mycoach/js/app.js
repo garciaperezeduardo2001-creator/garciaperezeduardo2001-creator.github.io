@@ -41,7 +41,7 @@
   const f7Cache = {};
   function DD(t) {
     if (MODE !== 'f7' || !t || !t.d || isF7t(t)) return t && t.d;
-    const k = (EDF[fixEd(ses.ed)] || EDF.A).k, key = t.id + '|' + k, c = f7Cache[key];
+    const k = (EDF[fixEd(ses.ed)] || { k: 1 }).k, key = t.id + '|' + k, c = f7Cache[key];
     if (c && c.v === t.d) return c.o;
     const o = window.toF7(t.d, k) || t.d; f7Cache[key] = { v: t.d, o }; return o;
   }
@@ -49,9 +49,9 @@
   const f7ok = t => isF7t(t) || t.own || t.cat !== 'tt' || !((t.np > 14 && !/todo|grupo|pareja|filas/i.test(t.jug)) || F11ONLY.test(nz(t.n + ' ' + t.tipo + ' ' + t.obj)));
   const vis = t => MODE === 'f7' ? f7ok(t) : !isF7t(t) || t.own;
   const EDM = () => MODE === 'f7' ? ['A', 'B', 'P'] : ['S', 'J', 'C', 'I', 'A'];
-  const edOpts = cur => EDM().map(k => `<option value="${k}" ${cur === k ? 'selected' : ''}>${ED[k]}</option>`).join('');
+  const edOpts = (cur, none) => (none ? `<option value="" ${!cur ? 'selected' : ''}>${none}</option>` : '') + EDM().map(k => `<option value="${k}" ${cur === k ? 'selected' : ''}>${ED[k]}</option>`).join('');
   const defEd = () => MODE === 'f7' ? 'A' : 'S';
-  const fixEd = e => EDM().includes(e) ? e : defEd();
+  const fixEd = e => EDM().includes(e) ? e : '';
   let favs = new Set(store.get('favs', []));
   let ses = store.get('ses', { md: 'MD-4', min: 75, gk: false, items: [] });
   let saved = store.get('saved', []);
@@ -218,7 +218,7 @@
   const intBadge = t => `<span class="int" style="--c:${INT[t.int].c}"><i></i>${INT[t.int].n}</span>`;
   const mdChips = t => t.md.map(m => `<span class="md">${m}</span>`).join('');
   const catTag = t => `<span class="cat" style="--c:${CAT[t.cat].c}">${CAT[t.cat].s}</span>`;
-  const card = t => `<a class="card" href="#/t/${t.id}">
+  const card = t => `<a class="card" href="#/t/${t.id}" style="--c:${(CAT[t.cat] || {}).c || '#16a34a'}">
     <div class="thumb">${drawField(DD(t), { mini: true })}</div>
     <div class="ci"><div class="ct">${catTag(t)}<span class="tipo">${esc(t.tipo)}</span>${t.own ? '<span class="own">MÍA</span>' : ''}${MODE === 'f7' && !isF7t(t) ? '<span class="f7a">Adaptada F7</span>' : ''}${favs.has(t.id) ? '<span class="star">★</span>' : ''}</div>
     <h3>${esc(t.n)}</h3>
@@ -305,14 +305,13 @@
         <div class="ct">${catTag(t)}<span class="tipo">${esc(t.tipo)}</span>${prinChips(t)}</div>
         <h1>${esc(t.n)}</h1>
         ${t.obj ? `<p class="objt">🎯 ${esc(t.obj)}</p>` : ''}
-        <div class="acts">
-          <button class="btn ${favs.has(t.id) ? 'on' : ''}" id="fav">${favs.has(t.id) ? '★ En favoritos' : '☆ Favorito'}</button>
-          <button class="btn pri" id="add">+ Añadir a sesión</button>
-          <button class="btn" id="share">Compartir texto</button>
-          <button class="btn" id="img">🖼 Imagen para WhatsApp</button>
-          ${(t.d.a || []).length ? '<button class="btn" id="vid">🎬 Vídeo de la animación</button>' : ''}
-          ${t.own ? '<a class="btn" href="#/editar/' + t.id + '">✏️ Editar</a><button class="btn ghost" id="rm">🗑 Borrar</button>' : ''}
-          <a class="btn" href="#/duplicar/${t.id}">⧉ ${t.own ? 'Duplicar' : 'Duplicar y editar'}</a>
+        <div class="tmain"><button class="btn ${favs.has(t.id) ? 'on' : ''}" id="fav">${favs.has(t.id) ? '★ En favoritos' : '☆ Favorito'}</button><button class="btn pri" id="add">＋ Añadir a sesión</button></div>
+        <div class="qacts">
+          <button id="share"><i>💬</i>Texto</button>
+          <button id="img"><i>🖼</i>Imagen</button>
+          ${(t.d.a || []).length ? '<button id="vid"><i>🎬</i>Vídeo</button>' : ''}
+          <a href="#/duplicar/${t.id}"><i>⧉</i>${t.own ? 'Duplicar' : 'Duplicar y editar'}</a>
+          ${t.own ? '<a href="#/editar/' + t.id + '"><i>✏️</i>Editar</a><button id="rm" class="dng"><i>🗑</i>Borrar</button>' : ''}
         </div>
         <section class="pf">
           <h2>Datos para el preparador físico</h2>
@@ -331,7 +330,7 @@
           </div>
         </section>
         ${t.np && t.esp && t.esp[0] ? `<section class="adapt"><h2>Adaptar a mis jugadores</h2><div class="adrow"><label>Tengo <input id="adn" type="number" min="2" max="40" inputmode="numeric" value="${F.nj || t.np}"> jugadores</label><div id="adout"></div></div></section>` : ''}
-        <section class="adapt"><h2>Adaptar a la categoría</h2><div class="adrow"><label>Categoría <select id="ced">${edOpts(fixEd(ses.ed))}</select></label><div id="cedout"></div></div></section>
+        <section class="adapt"><h2>Adaptar a la categoría</h2><div class="adrow"><label>Categoría <select id="ced">${edOpts('', 'Sin adaptar')}</select></label><div id="cedout"></div></div></section>
         ${progHTML(t)}
         ${t.desc ? `<section><h2>Descripción</h2><p>${esc(t.desc).replace(/\n/g, '<br>')}</p></section>` : ''}
         ${t.reglas && t.reglas.length ? `<section><h2>Reglas</h2><ul>${li(t.reglas)}</ul></section>` : ''}
@@ -346,7 +345,7 @@
     const adn = $('#adn');
     if (adn) { const up = () => { const n = +adn.value, a = adapt(t, n); $('#adout').innerHTML = !a ? '' : a.same ? `<span class="sub">Es el número original: ${esc(t.jug)} en ${t.esp[0]}x${t.esp[1]} m (≈ ${a.m2} m²/jug.).</span>` : `<b>${a.jug ? esc(a.jug) + ' · ' : ''}${a.w} x ${a.h} m</b><span class="sub">Mantiene ≈ ${a.m2} m²/jugador (original: ${esc(t.jug)} en ${t.esp[0]}x${t.esp[1]} m). ${n > t.np * 1.6 ? 'Con tantos jugadores, plantéate hacer dos grupos.' : ''}</span>`; }; adn.oninput = up; up(); }
     const stopAnim = bindAnim('ab', $('#bigd'), DD(t));
-    const ced = $('#ced'), cup = () => { const c = catAdapt(t, ced.value); $('#cedout').innerHTML = !c ? `<span class="sub">Tarea tal cual: ${t.esp && t.esp[0] ? `${t.esp[0]}x${t.esp[1]} m · ` : ''}${t.dur}' · ${esc(t.ser)}.</span>` : `<ul class="cad">${c.notes.map(n => `<li>${esc(n)}</li>`).join('') || '<li>Se puede hacer igual que en sénior.</li>'}</ul>${c.alt ? `<a class="btn sm" href="#/t/${c.alt.id}">Alternativa: ${esc(c.alt.n)}</a>` : ''}`; };
+    const ced = $('#ced'), cup = () => { const c = catAdapt(t, ced.value); const f7 = !c && MODE === 'f7' && !isF7t(t) ? fitInfo(t, null, '') : null; $('#cedout').innerHTML = !c ? `<span class="sub">${f7 ? `Adaptada al campo de fútbol 7: ${f7.w}x${f7.h} m` : `Tarea tal cual${t.esp && t.esp[0] ? `: ${t.esp[0]}x${t.esp[1]} m` : ''}`} · ${t.dur}' · ${esc(t.ser)}. Elige una categoría para ver cómo adaptarla.</span>` : `<ul class="cad">${c.notes.map(n => `<li>${esc(n)}</li>`).join('') || '<li>Se puede hacer igual que en sénior.</li>'}</ul>${c.alt ? `<a class="btn sm" href="#/t/${c.alt.id}">Alternativa: ${esc(c.alt.n)}</a>` : ''}`; };
     ced.onchange = cup; cup();
     if ($('#vid')) $('#vid').onclick = () => recordVideo(t);
     $('#stars').onclick = e => { const b = e.target.closest('[data-s]'); if (!b) return; const n = notes[t.id] || {}; n.s = n.s === +b.dataset.s ? 0 : +b.dataset.s; notes[t.id] = n; saveNotes(); $('#stars').querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', +x.dataset.s <= n.s)); };
@@ -541,7 +540,7 @@
         <div class="form">
           <label>Día<select id="smd">${opt(MDS, ses.md)}</select></label>
           <label>Duración<select id="smin">${opt([45, 60, 75, 90, 105], ses.min)}</select></label>
-          <label>Categoría<select id="sed">${edOpts(fixEd(ses.ed))}</select></label>
+          <label>Categoría<select id="sed">${edOpts(fixEd(ses.ed), 'Sin categoría')}</select></label>
           <label>Jugadores<input id="snj" type="number" min="4" max="40" inputmode="numeric" placeholder="—" value="${ses.nj || ''}"></label>
           <label class="chk"><input type="checkbox" id="sgk" ${ses.gk ? 'checked' : ''}> Porteros</label>
         </div>
@@ -717,9 +716,10 @@
   function vMis() {
     const l = TAREAS.filter(t => favs.has(t.id));
     $('#app').innerHTML = `<section class="intro"><h1>Mis tareas</h1>
-        <div class="acts"><a class="btn pri" href="#/nueva">＋ Nueva tarea</a><button class="btn" id="exp">⬇ Copia de seguridad completa</button><button class="btn" id="expt">⬇ Exportar solo mis tareas</button><label class="btn">⬆ Restaurar / importar<input type="file" id="imp" accept=".json,application/json" hidden></label></div>
-        <p class="sub">La copia completa guarda todo lo de My Coach en un archivo: tus tareas, notas y valoraciones, sesiones, plan, contenidos de la temporada, metodología, partidos preparados y ajustes. Guárdala en Drive o envíatela por correo para no perder nada si cambias de móvil. «Exportar solo mis tareas» sirve para pasárselas a otro entrenador.</p>
-        ${(() => { const lb = store.get('lastbk', null), dd = lb ? Math.floor((new Date() - parseISO(lb)) / 864e5) : null; return `<p class="bkst ${dd == null || dd > 30 ? 'warn' : ''}">${dd == null ? '⚠ Todavía no has hecho ninguna copia completa.' : dd === 0 ? '✓ Última copia: hoy.' : `${dd > 30 ? '⚠' : '✓'} Última copia: hace ${dd} día${dd > 1 ? 's' : ''}.`}</p>`; })()}</section>
+        <a class="btn pri xl" href="#/nueva">＋ Crear una tarea nueva</a>
+        <div class="bkcard"><h2>Copia de seguridad</h2><div class="qacts"><button id="exp"><i>💾</i>Copia completa</button><button id="expt"><i>📤</i>Solo mis tareas</button><label><i>📥</i>Restaurar<input type="file" id="imp" accept=".json,application/json" hidden></label></div>
+        <p class="sub">La copia completa guarda todo lo de My Coach en un archivo (tareas, valoraciones, sesiones, plan, contenidos, metodología, partidos y ajustes). Guárdala en Drive o envíatela por correo. «Solo mis tareas» sirve para pasárselas a otro entrenador.</p>
+        ${(() => { const lb = store.get('lastbk', null), dd = lb ? Math.floor((new Date() - parseISO(lb)) / 864e5) : null; return `<p class="bkst ${dd == null || dd > 30 ? 'warn' : ''}">${dd == null ? '⚠ Todavía no has hecho ninguna copia completa.' : dd === 0 ? '✓ Última copia: hoy.' : `${dd > 30 ? '⚠' : '✓'} Última copia: hace ${dd} día${dd > 1 ? 's' : ''}.`}</p>`; })()}</div></section>
       <section><h2>Creadas por mí (${mine.length})</h2>${mine.length ? `<div class="grid">${mine.map(card).join('')}</div>` : '<div class="empty">Todavía no has creado tareas. Pulsa <b>Nueva tarea</b> o abre cualquier tarea de la biblioteca y pulsa <b>Duplicar y editar</b> para adaptarla.</div>'}</section>
       <section><h2>Favoritos (${l.length})</h2>${l.length ? `<div class="grid">${l.map(card).join('')}</div>` : '<div class="empty">Pulsa ☆ en cualquier tarea para guardarla aquí.</div>'}</section>
       <p class="note center"><a href="privacidad.html">Política de privacidad</a> · My Coach</p>`;
@@ -988,12 +988,12 @@
     $('#app').innerHTML = `<section class="asis">
       <h1>✨ ¿Qué entreno hoy?</h1>
       <p class="sub">Responde y te preparo una sesión completa, adaptada a tu categoría, tus jugadores y tu material.</p>
-      <div class="aq"><b>1 · Categoría</b><div class="row wrap">${EDM().map(k => chip('ed', k, ED[k], A.ed === k)).join('')}</div></div>
+      <div class="aq"><b>1 · Categoría</b><div class="row wrap">${chip('ed', '', 'Cualquiera', !A.ed)}${EDM().map(k => chip('ed', k, ED[k], A.ed === k)).join('')}</div></div>
       <div class="aq"><b>2 · ¿Qué día es?</b><div class="row wrap">${MDS.map(m => chip('md', m, `${m}<small>${MDINFO[m].carga}</small>`, A.md === m)).join('')}</div></div>
       <div class="aq two"><label><b>3 · Jugadores de campo</b><input id="anj" type="number" min="4" max="40" inputmode="numeric" value="${A.nj}"></label><label><b>Porteros</b><input id="agk" type="number" min="0" max="4" inputmode="numeric" value="${A.gk}"></label><label><b>4 · Tiempo</b><select id="amin">${[45, 60, 75, 90, 105].map(v => `<option ${v === A.min ? 'selected' : ''} value="${v}">${v} min</option>`).join('')}</select></label></div>
       <div class="aq"><b>5 · Material que tienes</b><div class="row wrap">${Object.entries(MAT).map(([k, v]) => chip('mat', k, v, A.mat.includes(k))).join('')}</div><small class="sub">Balones y petos se dan por hechos.</small></div>
       <div class="aq"><b>6 · Objetivo</b><div class="row wrap">${chip('obj', '', wc && wc.p ? `🎯 Contenido de la semana (${PRIN[wc.p].n})` : '🎯 Lo que toca según el día', !A.obj)}${Object.entries(PRIN).map(([k, p]) => chip('obj', k, p.i + ' ' + p.n, A.obj === k)).join('')}${Object.entries(FIS).map(([k, v]) => chip('obj', 'F:' + k, '⚡ ' + v, A.obj === 'F:' + k)).join('')}</div></div>
-      <div class="acts"><button class="btn pri big" id="ago">⚡ Prepárame la sesión</button></div>
+      <div class="acts"><button class="btn pri xl" id="ago">⚡ Prepárame la sesión</button></div>
       <div id="ares"></div></section>`;
     const save = () => store.set('as', AS);
     $('#app').querySelectorAll('.chip[data-g]').forEach(b => b.onclick = () => {
@@ -1156,7 +1156,7 @@
   const saveMeto = () => store.set('meto', meto);
   const metoBase = () => { const c = {}; Object.entries(META_BASE).forEach(([e, v]) => { c[e] = {}; TRIM.forEach(tr => { const [a, b, s] = v[tr.k]; c[e][tr.k] = { a, b, s, obj: '' }; }); }); return c; };
   function vMeto() {
-    if (!meto) meto = { club: '', autor: '', cats: {}, mi: fixEd(ses.ed), notas: '' };
+    if (!meto) meto = { club: '', autor: '', cats: {}, mi: fixEd(ses.ed) || defEd(), notas: '' };
     const M = meto, eds = ['P', 'B', 'A', 'I', 'C', 'J', 'S'];
     const sel = (v, k, e, t, empty) => `<select data-e="${e}" data-t="${t}" data-k="${k}"><option value="">${empty}</option>${Object.entries(PRIN).map(([p, x]) => `<option value="${p}" ${v === p ? 'selected' : ''}>${x.i} ${x.n}</option>`).join('')}</select>`;
     const filled = eds.filter(e => M.cats[e] && TRIM.some(tr => M.cats[e][tr.k] && M.cats[e][tr.k].a));
@@ -1165,9 +1165,9 @@
       <p class="sub">Qué se trabaja en cada categoría y trimestre. Compártela con los entrenadores del club: al importarla, cada uno rellena con un toque los contenidos de su temporada.</p>
       <div class="mhd"><label>Club<input id="mclub" value="${esc(M.club)}" placeholder="Nombre del club"></label><label>Coordinador/a<input id="maut" value="${esc(M.autor)}" placeholder="Quién la firma"></label></div>
       ${!filled.length ? `<div class="hint">Empieza desde cero o carga una propuesta base (de la técnica en prebenjamín al juego completo en sénior) y ajústala a tu club. <button class="btn sm pri" id="mbase">Cargar propuesta base</button></div>` : ''}
-      <div class="mtabs">${eds.map(e => `<button data-tab="${e}" class="${M.tab === e || (!M.tab && e === fixEd(M.mi)) ? 'on' : ''}">${ED[e]}${filled.includes(e) ? ' ✓' : ''}</button>`).join('')}</div>
+      <div class="mtabs">${eds.map(e => `<button data-tab="${e}" class="${M.tab === e || (!M.tab && e === (M.mi || defEd())) ? 'on' : ''}">${ED[e]}${filled.includes(e) ? ' ✓' : ''}</button>`).join('')}</div>
       ${(() => {
-        const e = M.tab || fixEd(M.mi); const c = M.cats[e] = M.cats[e] || {};
+        const e = M.tab || M.mi || defEd(); const c = M.cats[e] = M.cats[e] || {};
         return `<div class="mcat"><h2>${ED[e]}</h2>${TRIM.map(tr => { const x = c[tr.k] = c[tr.k] || { a: '', b: '', s: '', obj: '' }; return `<div class="mtr"><div class="mtt"><b>${tr.n}</b><small>${tr.s}</small></div>
           <div class="mts"><label>Contenido 1${sel(x.a, 'a', e, tr.k, '—')}</label><label>Contenido 2${sel(x.b, 'b', e, tr.k, '—')}</label><label>Secundario${sel(x.s, 's', e, tr.k, '—')}</label>
           <label class="w">Objetivos del trimestre<textarea data-e="${e}" data-t="${tr.k}" data-k="obj" rows="2" placeholder="Ej.: salir jugando desde el portero; defender juntos">${esc(x.obj || '')}</textarea></label></div></div>`; }).join('')}</div>`;
@@ -1434,7 +1434,7 @@
         ${o.cons !== false ? `${t.reglas && t.reglas.length ? `<p class="pl">Reglas</p>${li(t.reglas)}` : ''}${t.cons && t.cons.length ? `<p class="pl">Consignas</p>${li(t.cons)}` : ''}` : ''}</div></article>`; };
     let k = 0;
     pr.innerHTML = `<header class="ph">${club.logo ? `<img class="plg" src="${club.logo}" alt="">` : ''}<div class="pht"><small>${esc(club.name || 'Sesión de entrenamiento')}${club.team ? ' · ' + esc(club.team) : ''}</small>
-        <h1>Sesión ${ses.md} · ${MDINFO[ses.md].t}</h1><p>${fd.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${club.coach ? ' · ' + esc(club.coach) : ''}${ses.ed ? ' · ' + ED[fixEd(ses.ed)] : ''}${ses.nj ? ' · ' + ses.nj + ' jugadores' : ''}</p></div>
+        <h1>Sesión ${ses.md} · ${MDINFO[ses.md].t}</h1><p>${fd.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${club.coach ? ' · ' + esc(club.coach) : ''}${fixEd(ses.ed) ? ' · ' + ED[fixEd(ses.ed)] : ''}${ses.nj ? ' · ' + ses.nj + ' jugadores' : ''}</p></div>
         <div class="pk"><b>${tot}'</b><span>${ua} UA estimadas</span><span>${its.length} tareas</span></div></header>
       <div class="pbar">${wc && wc.p ? `<span>🎯 <b>${PRIN[wc.p].n}</b>${wc.s ? ' + ' + PRIN[wc.s].n : ''}</span>` : ''}<span>${esc(MDINFO[ses.md].obj)}</span></div>
       <div class="pmat"><b>Material:</b> ${Object.keys(matN).length ? Object.keys(matN).map(m => `${MAT[m]}${m === 'conos' && nCon ? ' (≈' + nCon + ')' : ''}`).join(' · ') : 'balones y petos'} · balones · petos</div>
@@ -1504,6 +1504,7 @@
     const b = $('#modeb'); if (b) b.dataset.m = m;
   }
   setMode(MODE);
+  if (!store.get('edfix', false)) { ses.ed = ''; saveSes(); if (AS) { AS.ed = ''; store.set('as', AS); } store.set('edfix', true); }
   $('#modeb').onclick = () => { setMode(MODE === 'f7' ? 'f11' : 'f7'); route(); toast(MODE === 'f7' ? `Fútbol 7: ${TAREAS.filter(vis).length} tareas (propias y adaptadas)` : `Fútbol 11: ${TAREAS.filter(vis).length} tareas`); };
   $('#back').onclick = () => history.length > 1 ? history.back() : (location.hash = '#/');
   window.addEventListener('hashchange', route);
