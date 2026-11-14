@@ -48,6 +48,8 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
 .rpe button b{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:16px;flex:none}
 .rpe.done button:not(.on){opacity:.45}
 .rpe button.on{border-color:var(--ink);background:var(--card);box-shadow:0 3px 10px rgba(0,0,0,.15)}
+.card.miss{border-color:#e4572e;box-shadow:0 0 0 2px rgba(228,87,46,.25)}
+.send.pending{background:var(--line);color:var(--ink);box-shadow:none}
 .tip{font-size:13.5px;color:var(--ink2);background:var(--soft);border-radius:10px;padding:8px 10px;margin:-2px 0 12px}
 .qr{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:10px 0}
 .qr img{width:min(86vw,420px);height:auto;image-rendering:pixelated;background:#fff;padding:10px;border-radius:12px}
@@ -109,7 +111,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
       var q = qrcode(0, 'L'); q.addData(url); q.make();
       box.append(h('img', { src: q.createDataURL(8, 2), alt: T('Código QR del cuestionario', 'Questionnaire QR code') }),
         h('div', { class: 'q' }, T('Escanéalo con la cámara', 'Scan it with your camera')),
-        h('div', { class: 'sub' }, T('Antes de entrenar: bienestar (4 preguntas) · Después: RPE · Se envía por WhatsApp', 'Before training: wellness (4 questions) · After: RPE · Sent via WhatsApp')),
+        h('div', { class: 'sub' }, T('Después de entrenar: bienestar y RPE en 5 toques · Se envía por WhatsApp', 'After training: wellness and RPE in 5 taps · Sent via WhatsApp')),
         h('button', { class: 'btn2 noprint', onclick: function () { print(); } }, T('Imprimir', 'Print')));
     };
     s.onerror = function () { box.append(h('p', { class: 'sub' }, T('No se pudo generar el QR. Comprueba la conexión.', 'Could not create the QR code. Check your connection.'))); };
@@ -125,7 +127,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
     ['dolor', T('¿Agujetas o dolor muscular?', 'Muscle soreness?'), T('Nada', 'None'), T('Muchísimo', 'Extreme'), T('Dolor', 'Soreness')]
   ];
   var COLORS = ['#16a34a', '#4fae3b', '#8bbb2e', '#d4b106', '#ee8a12', '#e4572e', '#c81e1e'];
-  var ans = {}, note = '', rpe = null, mode = null;
+  var ans = {}, note = '', rpe = null;
   var RPE = [[0, T('Reposo', 'Rest')], [1, T('Muy, muy suave', 'Very, very easy')], [2, T('Suave', 'Easy')], [3, T('Moderado', 'Moderate')], [4, T('Algo duro', 'Somewhat hard')],
     [5, T('Duro', 'Hard')], [6, T('Duro +', 'Hard +')], [7, T('Muy duro', 'Very hard')], [8, T('Muy duro +', 'Very hard +')], [9, T('Casi máximo', 'Almost maximal')], [10, T('Máximo', 'Maximal')]];
   var RCOL = ['#7fb7d6', '#16a34a', '#3fa63d', '#78b52f', '#b7b81f', '#d4a106', '#e98b12', '#e8691f', '#e04a27', '#cf2a1f', '#a4161a'];
@@ -141,82 +143,70 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
   }
   function me() { var st = store.get(); return data.players.filter(function (p) { return p.id === st.me; })[0] || null; }
   function message(p) {
-    if (mode === 'rpe') {
-      var rl = ['RPE · ' + dShort, p.name + (p.dorsal ? ' (' + p.dorsal + ')' : ''), 'RPE ' + rpe + ' · ' + RPE[rpe][1]];
-      if (note.trim()) rl.push(T('Comentario: ', 'Comment: ') + note.trim().replace(/[\[\]\n]/g, ' '));
-      rl.push('[MT ' + p.id + ' R' + rpe + ' ' + dShort + ']');
-      return rl.join('\n');
-    }
-    var lines = [T('Bienestar', 'Wellness') + ' · ' + dShort, p.name + (p.dorsal ? ' (' + p.dorsal + ')' : ''),
-      Q.map(function (q) { return q[4] + ' ' + ans[q[0]]; }).join(' · ')];
-    if (note.trim()) lines.push(T('Molestias: ', 'Niggles: ') + note.trim().replace(/[\[\]\n]/g, ' '));
+    var lines = [T('Bienestar y RPE', 'Wellness & RPE') + ' · ' + dShort, p.name + (p.dorsal ? ' (' + p.dorsal + ')' : ''),
+      Q.map(function (q) { return q[4] + ' ' + ans[q[0]]; }).join(' · '), 'RPE ' + rpe + ' · ' + RPE[rpe][1]];
+    if (note.trim()) lines.push(T('Comentario: ', 'Comment: ') + note.trim().replace(/[\[\]\n]/g, ' '));
     lines.push('[MT ' + p.id + ' ' + Q.map(function (q) { return ans[q[0]]; }).join('-') + ' ' + dShort + ']');
+    lines.push('[MT ' + p.id + ' R' + rpe + ' ' + dShort + ']');
     return lines.join('\n');
   }
-  function tabs() {
-    var mk = function (m, t, sub) { return h('button', { type: 'button', class: mode === m ? 'on' : '', 'aria-pressed': mode === m ? 'true' : 'false', onclick: function () { if (mode !== m) { mode = m; form(); } } }, t, h('small', null, sub)); };
-    return h('div', { class: 'tabs' }, mk('well', T('Bienestar', 'Wellness'), T('antes de entrenar', 'before training')), mk('rpe', 'RPE', T('después de entrenar', 'after training')));
-  }
-  function rpeForm(p, st) {
-    rpe = null; note = '';
-    var list = h('div', { class: 'rpe', role: 'radiogroup', 'aria-label': T('Esfuerzo de la sesión', 'Session effort') });
-    RPE.forEach(function (r) {
-      var b = h('button', { type: 'button', role: 'radio', 'aria-checked': 'false' }, h('b', { style: 'background:' + RCOL[r[0]] }, r[0]), r[1]);
-      b.onclick = function () { rpe = r[0]; list.classList.add('done'); [].forEach.call(list.children, function (x) { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b ? 'true' : 'false'); }); upd(); };
-      list.append(b);
-    });
-    var ta = h('textarea', { rows: 2, maxlength: 140, placeholder: T('Ej.: me retiré antes por una molestia', 'e.g. left early with a niggle') });
-    ta.oninput = function () { note = ta.value; };
-    app.replaceChildren.apply(app, [head(T('¿Cómo de dura ha sido la sesión?', 'How hard was the session?')),
-      h('div', { class: 'who' }, h('div', null, h('div', { class: 'sub' }, T('Respondes como', 'Answering as')), h('strong', null, (p.dorsal ? p.dorsal + ' · ' : '') + p.name)),
-        h('button', { class: 'link', type: 'button', onclick: pickPlayer }, T('No soy yo', 'Not me'))),
-      tabs(),
-      h('div', { class: 'tip' }, T('Contesta entre 15 y 30 minutos después de terminar, pensando en la sesión entera, no solo en el final.', 'Answer 15–30 minutes after finishing, thinking about the whole session, not just the end.')),
-      h('div', { class: 'card' }, h('div', { class: 'q' }, T('Esfuerzo de toda la sesión (0–10)', 'Effort for the whole session (0–10)')), list),
-      h('div', { class: 'card' }, h('div', { class: 'q' }, T('¿Algo que comentar? (opcional)', 'Anything to add? (optional)')), ta),
-      st.lastR === dShort ? h('p', { class: 'sub', style: 'text-align:center' }, T('Ya enviaste el RPE hoy. Si lo vuelves a enviar, cuenta el último.', 'You already sent your RPE today. If you send it again, the latest one counts.')) : null].filter(Boolean));
-    bar.hidden = false; upd(); window.scrollTo(0, 0);
-  }
+  var cardsAll = [];
   function form() {
     var p = me(); if (!p) return pickPlayer();
-    var st = store.get(); ans = {}; note = '';
-    if (!mode) mode = st.last === dShort && st.lastR !== dShort ? 'rpe' : 'well';
-    if (mode === 'rpe') return rpeForm(p, st);
+    var st = store.get(); ans = {}; note = ''; rpe = null;
     var cards = Q.map(function (q, qi) {
       var sc = h('div', { class: 'scale', role: 'radiogroup', 'aria-label': q[1] });
       for (var v = 1; v <= 7; v++) (function (v) {
         var b = h('button', { type: 'button', role: 'radio', 'aria-checked': 'false', 'aria-label': v + (v === 1 ? ' · ' + q[2] : v === 7 ? ' · ' + q[3] : ''), style: 'background:' + COLORS[v - 1] }, v);
         b.onclick = function () {
-          ans[q[0]] = v; sc.classList.add('done');
+          ans[q[0]] = v; sc.classList.add('done'); card.classList.remove('miss');
           [].forEach.call(sc.children, function (x) { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b ? 'true' : 'false'); });
-          upd();
-          var next = cards[qi + 1]; if (next && ans[Q[qi + 1][0]] == null) setTimeout(function () { next.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 120);
+          upd(); goNext(qi);
         };
         sc.append(b);
       })(v);
-      return h('div', { class: 'card' }, h('div', { class: 'q' }, (qi + 1) + '. ' + q[1]), sc, h('div', { class: 'ends' }, h('span', null, '1 · ' + q[2]), h('span', null, q[3] + ' · 7')));
+      var card = h('div', { class: 'card' }, h('div', { class: 'q' }, (qi + 1) + '. ' + q[1]), sc, h('div', { class: 'ends' }, h('span', null, '1 · ' + q[2]), h('span', null, q[3] + ' · 7')));
+      return card;
     });
+    var list = h('div', { class: 'rpe', role: 'radiogroup', 'aria-label': T('Esfuerzo de la sesión', 'Session effort') });
+    var rcard = h('div', { class: 'card' }, h('div', { class: 'q' }, '5. ' + T('¿Cómo de dura ha sido la sesión? (RPE 0–10)', 'How hard was the session? (RPE 0–10)')),
+      h('div', { class: 'sub', style: 'margin:-4px 0 10px' }, T('Piensa en la sesión entera, no solo en el final.', 'Think about the whole session, not just the end.')), list);
+    RPE.forEach(function (r) {
+      var b = h('button', { type: 'button', role: 'radio', 'aria-checked': 'false' }, h('b', { style: 'background:' + RCOL[r[0]] }, r[0]), r[1]);
+      b.onclick = function () { rpe = r[0]; list.classList.add('done'); rcard.classList.remove('miss'); [].forEach.call(list.children, function (x) { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b ? 'true' : 'false'); }); upd(); };
+      list.append(b);
+    });
+    cardsAll = cards.concat([rcard]);
     var ta = h('textarea', { rows: 2, maxlength: 140, placeholder: T('Ej.: carga en el isquio derecho', 'e.g. tight right hamstring') });
     ta.oninput = function () { note = ta.value; };
-    app.replaceChildren.apply(app, [head(T('¿Cómo estás hoy?', 'How are you today?')),
+    app.replaceChildren.apply(app, [head(T('Bienestar y esfuerzo de hoy', "Today's wellness and effort")),
       h('div', { class: 'who' }, h('div', null, h('div', { class: 'sub' }, T('Respondes como', 'Answering as')), h('strong', null, (p.dorsal ? p.dorsal + ' · ' : '') + p.name)),
         h('button', { class: 'link', type: 'button', onclick: pickPlayer }, T('No soy yo', 'Not me'))),
-      tabs(), cards[0], cards[1], cards[2], cards[3],
-      h('div', { class: 'card' }, h('div', { class: 'q' }, T('¿Alguna molestia? (opcional)', 'Any niggles? (optional)')), ta),
-      st.last === dShort ? h('p', { class: 'sub', style: 'text-align:center' }, T('Ya enviaste el cuestionario hoy. Si lo vuelves a enviar, cuenta el último.', 'You already sent it today. If you send it again, the latest one counts.')) : null].filter(Boolean));
+      h('div', { class: 'tip' }, T('Rellénalo entre 15 y 30 minutos después de entrenar. Son 5 preguntas: cómo has llegado hoy y cómo de dura ha sido la sesión.', 'Fill it in 15–30 minutes after training. 5 questions: how you came in today and how hard the session was.')),
+      cards[0], cards[1], cards[2], cards[3], rcard,
+      h('div', { class: 'card' }, h('div', { class: 'q' }, T('¿Alguna molestia o algo que comentar? (opcional)', 'Any niggles or anything to add? (optional)')), ta),
+      st.last === dShort ? h('p', { class: 'sub', style: 'text-align:center' }, T('Ya lo enviaste hoy. Si lo vuelves a enviar, cuenta el último.', 'You already sent it today. If you send it again, the latest one counts.')) : null].filter(Boolean));
     bar.hidden = false; upd(); window.scrollTo(0, 0);
   }
+  function goNext(qi) { var next = cardsAll[qi + 1]; if (next && !answered(qi + 1)) setTimeout(function () { next.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 120); }
+  function answered(i) { return i < 4 ? ans[Q[i][0]] != null : rpe != null; }
+  function nDone() { var n = 0; for (var i = 0; i < 5; i++) if (answered(i)) n++; return n; }
   function upd() {
-    if (mode === 'rpe') { sendBtn.disabled = rpe == null; sendBtn.textContent = rpe == null ? T('Elige un número del 0 al 10', 'Pick a number from 0 to 10') : T('Enviar RPE por WhatsApp', 'Send RPE via WhatsApp'); return; }
-    var n = Q.filter(function (q) { return ans[q[0]] != null; }).length;
-    sendBtn.disabled = n < 4;
-    sendBtn.textContent = n < 4 ? T('Responde las 4 preguntas (' + n + '/4)', 'Answer all 4 questions (' + n + '/4)') : T('Enviar por WhatsApp', 'Send via WhatsApp');
+    var n = nDone();
+    sendBtn.disabled = false; sendBtn.classList.toggle('pending', n < 5);
+    sendBtn.textContent = n < 5 ? T('Te faltan ' + (5 - n) + ' de 5 preguntas', (5 - n) + ' of 5 questions left') : T('Enviar por WhatsApp', 'Send via WhatsApp');
   }
   sendBtn.onclick = function () {
     var p = me(); if (!p) return;
+    if (nDone() < 5) {
+      var k = 0; while (k < 5 && answered(k)) k++;
+      cardsAll.forEach(function (c, i) { c.classList.toggle('miss', !answered(i)); });
+      cardsAll[k].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     var msg = message(p), phone = (data.phone || '').replace(/\D/g, '');
     var url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
-    var st = store.get(); if (mode === 'rpe') st.lastR = dShort; else st.last = dShort; store.set(st);
+    var st = store.get(); st.last = dShort; st.lastR = dShort; store.set(st);
     done(msg);
     var w = window.open(url, '_blank');
     if (w) { try { w.opener = null; } catch (e) {} } else location.href = url;
