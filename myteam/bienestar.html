@@ -49,6 +49,9 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
 .rpe.done button:not(.on){opacity:.45}
 .rpe button.on{border-color:var(--ink);background:var(--card);box-shadow:0 3px 10px rgba(0,0,0,.15)}
 .card.miss{border-color:#e4572e;box-shadow:0 0 0 2px rgba(228,87,46,.25)}
+.send.cloud{background:var(--accent);color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+a.btn2{display:inline-block;text-decoration:none}
+a.btn2.wa{background:#25d366;border-color:#25d366;color:#06301a}
 .send.pending{background:var(--line);color:var(--ink);box-shadow:none}
 .tip{font-size:13.5px;color:var(--ink2);background:var(--soft);border-radius:10px;padding:8px 10px;margin:-2px 0 12px}
 .qr{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:10px 0}
@@ -65,6 +68,8 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
   var EN = !/^es\b/i.test(navigator.language || 'es');
   var T = function (es, en) { return EN ? en : es; };
   document.documentElement.lang = EN ? 'en' : 'es';
+  // buzón en Firebase: si el enlace trae &k=…, las respuestas van directas a la app del entrenador
+  var NUBE = { apiKey: '', projectId: '' };
   var app = document.getElementById('app'), bar = document.getElementById('bar'), sendBtn = document.getElementById('send');
   var h = function (tag, attrs) {
     var el = document.createElement(tag), kids = [].slice.call(arguments, 2);
@@ -82,6 +87,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
     var lines = txt.split('\n');
     if (lines[0] === 'MT1') data = { team: lines[1], color: lines[2], phone: lines[3], players: lines.slice(4).filter(Boolean).map(function (l) { var a = l.split('\t'); return { id: a[0], dorsal: a[1], name: a[2] }; }) };
   } catch (e) { data = null; }
+  var KEYW = /^[A-Za-z0-9_-]{16,40}$/.test(params.k || '') && NUBE.apiKey && NUBE.projectId ? params.k : null;
   if (!data || !data.players.length) {
     app.append(h('div', { class: 'card ok' }, h('div', { class: 'big' }, '🔗'), h('h1', null, T('Enlace incompleto', 'Incomplete link')),
       h('p', { class: 'sub' }, T('Pide a tu entrenador el enlace del cuestionario de bienestar.', 'Ask your coach for the wellness questionnaire link.'))));
@@ -111,7 +117,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
       var q = qrcode(0, 'L'); q.addData(url); q.make();
       box.append(h('img', { src: q.createDataURL(8, 2), alt: T('Código QR del cuestionario', 'Questionnaire QR code') }),
         h('div', { class: 'q' }, T('Escanéalo con la cámara', 'Scan it with your camera')),
-        h('div', { class: 'sub' }, T('Después de entrenar: bienestar y RPE en 5 toques · Se envía por WhatsApp', 'After training: wellness and RPE in 5 taps · Sent via WhatsApp')),
+        h('div', { class: 'sub' }, KEYW ? T('Después de entrenar: bienestar y RPE en 5 toques', 'After training: wellness and RPE in 5 taps') : T('Después de entrenar: bienestar y RPE en 5 toques · Se envía por WhatsApp', 'After training: wellness and RPE in 5 taps · Sent via WhatsApp')),
         h('button', { class: 'btn2 noprint', onclick: function () { print(); } }, T('Imprimir', 'Print')));
     };
     s.onerror = function () { box.append(h('p', { class: 'sub' }, T('No se pudo generar el QR. Comprueba la conexión.', 'Could not create the QR code. Check your connection.'))); };
@@ -146,9 +152,14 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
     var lines = [T('Bienestar y RPE', 'Wellness & RPE') + ' · ' + dShort, p.name + (p.dorsal ? ' (' + p.dorsal + ')' : ''),
       Q.map(function (q) { return q[4] + ' ' + ans[q[0]]; }).join(' · '), 'RPE ' + rpe + ' · ' + RPE[rpe][1]];
     if (note.trim()) lines.push(T('Comentario: ', 'Comment: ') + note.trim().replace(/[\[\]\n]/g, ' '));
-    lines.push('[MT ' + p.id + ' ' + Q.map(function (q) { return ans[q[0]]; }).join('-') + ' ' + dShort + ']');
-    lines.push('[MT ' + p.id + ' R' + rpe + ' ' + dShort + ']');
-    return lines.join('\n');
+    return lines.concat(codes(p)).join('\n');
+  }
+  function codes(p) { return ['[MT ' + p.id + ' ' + Q.map(function (q) { return ans[q[0]]; }).join('-') + ' ' + dShort + ']', '[MT ' + p.id + ' R' + rpe + ' ' + dShort + ']']; }
+  function sendCloud(p) {
+    var ymd = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate());
+    var url = 'https://firestore.googleapis.com/v1/projects/' + NUBE.projectId + '/databases/(default)/documents/buzon/' + KEYW + '/r/' + p.id + '-' + ymd + '?key=' + NUBE.apiKey;
+    var body = { fields: { m: { stringValue: codes(p).join('\n') }, c: { stringValue: note.trim().replace(/[\[\]\n\r]/g, ' ').slice(0, 140) }, t: { timestampValue: new Date().toISOString() } } };
+    return fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); });
   }
   var cardsAll = [];
   function form() {
@@ -194,7 +205,8 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
   function upd() {
     var n = nDone();
     sendBtn.disabled = false; sendBtn.classList.toggle('pending', n < 5);
-    sendBtn.textContent = n < 5 ? T('Te faltan ' + (5 - n) + ' de 5 preguntas', (5 - n) + ' of 5 questions left') : T('Enviar por WhatsApp', 'Send via WhatsApp');
+    sendBtn.classList.toggle('cloud', !!KEYW);
+    sendBtn.textContent = n < 5 ? T('Te faltan ' + (5 - n) + ' de 5 preguntas', (5 - n) + ' of 5 questions left') : KEYW ? T('Enviar al entrenador', 'Send to coach') : T('Enviar por WhatsApp', 'Send via WhatsApp');
   }
   sendBtn.onclick = function () {
     var p = me(); if (!p) return;
@@ -206,19 +218,35 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
     }
     var msg = message(p), phone = (data.phone || '').replace(/\D/g, '');
     var url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
-    var st = store.get(); st.last = dShort; st.lastR = dShort; store.set(st);
-    done(msg);
+    var st = store.get();
+    if (KEYW) {
+      if (sendBtn.disabled) return;
+      sendBtn.disabled = true; sendBtn.textContent = T('Enviando…', 'Sending…');
+      sendCloud(p).then(function () { st.last = dShort; st.lastR = dShort; store.set(st); doneCloud(); },
+        function () { sendBtn.disabled = false; upd(); done(msg, url, true); });
+      return;
+    }
+    st.last = dShort; st.lastR = dShort; store.set(st);
+    done(msg, url);
     var w = window.open(url, '_blank');
     if (w) { try { w.opener = null; } catch (e) {} } else location.href = url;
   };
-  function done(msg) {
+  function doneCloud() {
+    bar.hidden = true;
+    app.replaceChildren(head(T('¡Gracias!', 'Thanks!')), h('div', { class: 'card ok' }, h('div', { class: 'big' }, '✅'),
+      h('div', { class: 'q', style: 'margin-top:10px' }, T('Enviado. Tu entrenador ya lo tiene.', 'Sent. Your coach has it.')),
+      h('div', { class: 'sub', style: 'margin-bottom:14px' }, T('No hace falta que mandes nada por WhatsApp.', 'No need to send anything on WhatsApp.')),
+      h('button', { class: 'btn2', type: 'button', onclick: form }, T('Cambiar respuestas', 'Change answers'))));
+    window.scrollTo(0, 0);
+  }
+  function done(msg, url, failed) {
     bar.hidden = true;
     var copyBtn = h('button', { class: 'btn2', type: 'button' }, T('Copiar mensaje', 'Copy message'));
     copyBtn.onclick = function () { (navigator.clipboard ? navigator.clipboard.writeText(msg) : Promise.reject()).then(function () { copyBtn.textContent = T('Copiado ✓', 'Copied ✓'); }, function () { copyBtn.textContent = T('Mantén pulsado el texto para copiarlo', 'Long-press the text to copy it'); }); };
     app.replaceChildren(head(T('¡Gracias!', 'Thanks!')), h('div', { class: 'card ok' }, h('div', { class: 'big' }, '✅'),
-      h('div', { class: 'q', style: 'margin-top:10px' }, T('Envía el mensaje en WhatsApp', 'Send the message in WhatsApp')),
-      h('div', { class: 'sub' }, T('Si no se ha abierto WhatsApp, copia el mensaje y mándaselo a tu entrenador sin cambiarlo.', "If WhatsApp didn't open, copy the message and send it to your coach as it is.")),
-      h('div', { class: 'msg' }, msg), copyBtn, ' ',
+      h('div', { class: 'q', style: 'margin-top:10px' }, failed ? T('No se ha podido enviar por internet', 'Could not send it over the internet') : T('Envía el mensaje en WhatsApp', 'Send the message in WhatsApp')),
+      h('div', { class: 'sub' }, failed ? T('Mándaselo a tu entrenador por WhatsApp, sin cambiar el mensaje.', 'Send it to your coach on WhatsApp, without changing the message.') : T('Si no se ha abierto WhatsApp, copia el mensaje y mándaselo a tu entrenador sin cambiarlo.', "If WhatsApp didn't open, copy the message and send it to your coach as it is.")),
+      h('div', { class: 'msg' }, msg), url ? h('a', { class: 'btn2 wa', href: url, target: '_blank', rel: 'noopener' }, T('Abrir WhatsApp', 'Open WhatsApp')) : null, ' ', copyBtn, ' ',
       h('button', { class: 'btn2', type: 'button', onclick: form }, T('Cambiar respuestas', 'Change answers'))));
   }
   form();
