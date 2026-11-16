@@ -5970,7 +5970,7 @@ async function nubeAuth(force) {
     if (r.ok) { const j = await r.json(); return keep({ uid: j.user_id, tok: j.id_token, rt: j.refresh_token, exp: Date.now() + (+j.expires_in || 3600) * 1000 }); }
   }
   const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + NUBE.apiKey, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ returnSecureToken: true }) });
-  if (!r.ok) throw new Error('auth ' + r.status);
+  if (!r.ok) { let m = ''; try { m = ((await r.json()).error || {}).message || ''; } catch (_) {} throw new Error('auth ' + r.status + ' ' + m); }
   const j = await r.json(); return keep({ uid: j.localId, tok: j.idToken, rt: j.refreshToken, exp: Date.now() + (+j.expiresIn || 3600) * 1000 });
 }
 async function nubeReq(path, opts = {}, retry = true) {
@@ -5982,7 +5982,7 @@ async function nubeReq(path, opts = {}, retry = true) {
 async function nubeEnable() {
   const w = nubeRnd(16), r = nubeRnd(24), a = await nubeAuth();
   const res = await nubeReq('/llaves?documentId=' + w, { method: 'POST', body: JSON.stringify({ fields: { rh: { stringValue: await nubeSha(r) }, lectores: { mapValue: { fields: { [a.uid]: { booleanValue: true } } } } } }) });
-  if (!res.ok) throw new Error('llave ' + res.status);
+  if (!res.ok) { let m = ''; try { const j = await res.json(); m = ((Array.isArray(j) ? j[0] : j).error || {}).message || ''; } catch (_) {} throw new Error('llave ' + res.status + ' ' + m); }
   const c = { ...(store.cache.config.get('main') || {}) };
   await writeDoc('config', 'main', { ...c, nube: { w, r } });
 }
@@ -6008,6 +6008,20 @@ async function nubeList(k) {
   docs.filter(d => (d.id.split('-')[1] || '99999999') < lim).forEach(d => { nubeReq('/buzon/' + k.w + '/r/' + d.id, { method: 'DELETE' }).catch(() => {}); });
   nubeCache = { w: k.w, at: Date.now(), docs };
   return docs;
+}
+// explica en claro por qué no se pudo conectar con Firebase
+function nubeExplain(err, where) {
+  const m = String((err && err.message) || err || '');
+  let t;
+  if (/OPERATION_NOT_ALLOWED|ADMIN_ONLY_OPERATION/i.test(m)) t = WL('Falta activar el acceso «Anónimo» en Firebase: Seguridad → Authentication → Método de acceso → Anónimo → Habilitar → Guardar.', 'Anonymous sign-in is not enabled in Firebase (Authentication → Sign-in method → Anonymous).');
+  else if (/CONFIGURATION_NOT_FOUND/i.test(m)) t = WL('Authentication no está iniciado en Firebase: Seguridad → Authentication → pulsa «Comenzar» y activa «Anónimo».', 'Authentication is not set up in Firebase: open Authentication, press Get started and enable Anonymous.');
+  else if (/API_KEY|API key|referer|blocked|PERMISSION_DENIED.*identitytoolkit/i.test(m) || /^auth 403/.test(m)) t = WL('La clave de Firebase no tiene permiso para iniciar sesión. Mándale a Claude una captura de este aviso.', 'The Firebase key is not allowed to sign in. Send a screenshot of this message.');
+  else if (/^llave 403|insufficient permissions|PERMISSION_DENIED/i.test(m)) t = WL('Firebase ha rechazado el permiso: revisa que las reglas de Firestore estén publicadas (Firestore → Reglas → pegar las reglas → Publicar).', 'Firebase denied permission: check the Firestore rules are published.');
+  else if (/^llave 404|NOT_FOUND|database.*does not exist/i.test(m)) t = WL('No se encuentra la base de datos: revisa que Firestore esté creado en Firebase.', 'Database not found: check Firestore is created.');
+  else if (/Failed to fetch|NetworkError|Load failed/i.test(m)) t = WL('No hay conexión con Firebase. Comprueba que tienes internet y vuelve a probar.', 'Cannot reach Firebase. Check your internet connection.');
+  else t = WL('No se pudo activar.', 'Could not turn it on.');
+  toast(t, true);
+  if (where) { const old = where.querySelector('.nube-err'); if (old) old.remove(); where.append(h('div', { class: 'nube-err', style: 'margin-top:8px;font-size:.85rem;color:var(--z-bad);overflow-wrap:anywhere' }, t, h('br'), h('small', { style: 'color:var(--ink-3)' }, WL('Detalle: ', 'Detail: ') + m.slice(0, 160)))); }
 }
 const nubeYmd = serial => isoOf(serial).replace(/-/g, '');
 function wellBaseUrl() {
@@ -6182,7 +6196,7 @@ function wellAskPanel(M, plist, getDate) {
       h('button', { class: 'btn sm primary', type: 'button', onclick: async e => {
         const b = e.currentTarget; b.disabled = true; b.textContent = WL('Activando…', 'Turning on…');
         try { await nubeEnable(); toast(WL('Activado. Comparte otra vez el enlace con el equipo.', 'Done. Share the link with the team again.')); window.__wellOpen = true; route(); }
-        catch (err) { console.error(err); toast(WL('No se pudo activar. Comprueba la conexión.', 'Could not turn it on. Check your connection.'), true); b.disabled = false; b.textContent = WL('Activar', 'Turn on'); }
+        catch (err) { console.error(err); nubeExplain(err, b.parentNode); b.disabled = false; b.textContent = WL('Activar', 'Turn on'); }
       } }, WL('Activar', 'Turn on'))) : null;
     box.append(header, offer, ...step1, ...pasteZone, res);
   }
