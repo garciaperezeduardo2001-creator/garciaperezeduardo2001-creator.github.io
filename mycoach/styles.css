@@ -561,3 +561,74 @@ body.fsb .top,body.fsb nav.bottom,body.fsb .fab{display:none!important}
 :root[data-theme="light"]{color-scheme:light}
 .themesw{display:flex;gap:6px;flex-wrap:wrap}.themesw .btn{flex:1;justify-content:center}
 .thcard h2{margin-top:0}.thcard .sub{margin:-4px 0 10px;font-size:.85rem}
+/* ===== v18 · pulido general ===== */
+/* zonas táctiles cómodas (mín. ~40 px) */
+.back{display:grid;place-items:center;min-width:40px;height:40px;padding:0 0 3px;margin-left:-8px;font-size:30px}
+.chip{min-height:36px;display:inline-flex;align-items:center;gap:4px}
+.aq .chip{min-height:40px;flex-direction:column;justify-content:center;gap:0}
+.md.mdl{min-height:32px;display:inline-flex;align-items:center}
+.ops{flex-direction:row;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.ops button{width:38px;height:38px;border-radius:var(--rs);background:var(--card);color:var(--tx);font-size:15px}
+.ops button:hover{border-color:var(--acc);color:var(--acc)}
+.sit{flex-wrap:wrap}.sit .ops{flex-basis:100%}
+.form .chk input,input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
+label.chk{min-height:40px;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.tgrp button{min-height:34px}
+.bitem .btn.sm{min-width:40px;min-height:40px;justify-content:center}
+.note a,.rnew{display:inline-block;padding:10px 4px}
+.evr .chip{min-height:38px}
+/* textos mínimos legibles */
+.cat{font-size:11px}
+.tools button{font-size:11px}
+.aq .chip small,.niv button small,.cc i{font-size:11px}
+.f7a{font-size:11px}
+.cal small,.calm small,.tmp small{font-size:11.5px}
+/* generador de sesión: rejilla ordenada */
+.gen .form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;align-items:end}
+.gen .form label{min-width:0}
+.gen .form select,.gen .form input{width:100%;min-width:0}
+.gen .form .chk{grid-column:1/-1;padding:0}
+@media (min-width:700px){.gen .form{grid-template-columns:repeat(4,minmax(0,1fr))}.gen .form .chk{grid-column:auto;align-self:end;min-height:42px}}
+/* metodología: no desborda en el móvil */
+.mts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px}
+.mts label{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:12px;font-weight:650;color:var(--mu)}
+.mts select,.mts textarea{width:100%;min-width:0;max-width:100%}
+.mts .w{grid-column:1/-1}
+.mnot{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:650;color:var(--mu);margin:12px 0}.mnot textarea{width:100%}
+.mtabs button{min-height:38px}.mtabs button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.meto input,.meto select,.meto textarea{max-width:100%}
+.mapl .row{gap:10px;align-items:end}
+/* temporada: mismo control segmentado que el resto */
+.tabs2{background:var(--card);border:1px solid var(--ln);border-radius:var(--rs);padding:3px;gap:2px}
+.tabs2 button{border:0;background:none;border-radius:7px;padding:8px 6px;font:650 .85rem var(--font);color:var(--mu)}
+.tabs2 button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.niv button{color:var(--acc)}.niv button.on{background:var(--acc);border-color:var(--acc)}.niv button.on small{color:#fff;opacity:.85}
+.cc{border-radius:7px}
+.cc.empty{background:var(--chip);outline:0;box-shadow:inset 0 0 0 1px var(--ln)}
+.cc.now{outline:2px solid var(--acc);outline-offset:2px}
+.calw{border-radius:var(--rs);line-height:1.45}
+.calw b{font-weight:700}
+/* cabecera en pantallas internas de móviles estrechos: más sitio para el título */
+@media (max-width:420px){.top:has(#back:not([hidden])) .brand img{display:none}}
+/* escritorio: barra inferior compacta y centrada */
+@media (min-width:900px){nav.bottom{justify-content:center}nav.bottom a{flex:0 1 120px}}
+/* modo oscuro para los botones activos con acento claro */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tabs2 button.on,:root:not([data-theme="light"]) .mtabs button.on,:root:not([data-theme="light"]) .niv button.on{color:#0b1220}:root:not([data-theme="light"]) .niv button.on small{color:#0b1220}}
+:root[data-theme="dark"] .tabs2 button.on,:root[data-theme="dark"] .mtabs button.on,:root[data-theme="dark"] .niv button.on{color:#0b1220}:root[data-theme="dark"] .niv button.on small{color:#0b1220}
+.lmore{height:1px}
+.empty .link{background:none;border:0;padding:6px 4px;font:inherit;font-weight:650;color:var(--acc);cursor:pointer;text-decoration:underline}
+.more{min-height:40px;display:inline-flex;align-items:center;padding:0 4px}
+#sort,.sort{min-height:40px}
+.stars button{min-width:38px;min-height:38px}
+.abar select,.abar .btn{min-height:38px}
+.abl{min-height:38px;display:inline-flex;align-items:center;gap:6px}
+.rsel .chip{min-height:40px}.rsel .chip input{min-height:36px}
+.tfix button{font-size:11px}
+.bitem .bi a{display:block;padding:6px 0}
+.hint.sm,small.sub,.topts small{font-size:12px}
+.tabs2 button{min-height:38px}.topts select{min-height:36px}
+.back[hidden]{display:none}
+.gen .form .chk{justify-content:flex-start;min-height:40px;font-size:14px;color:var(--tx)}
+.gen .form .chk input{width:20px;height:20px;min-height:0;flex:none;padding:0}
+.gen .ghd{margin-bottom:8px}
+@media (min-width:700px){.sit{flex-wrap:nowrap}.sit .ops{flex-basis:auto;flex-wrap:nowrap}}

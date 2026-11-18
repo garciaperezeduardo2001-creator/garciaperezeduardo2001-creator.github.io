@@ -267,6 +267,7 @@
   }
 
   // ---------- Vistas ----------
+  const LIBSTEP = 24; let libN = LIBSTEP;
   function vLib() {
     const nf = F.int.size + F.dif.size + F.ed.size + F.mat.size + (F.nj ? 1 : 0) + (F.prin ? 1 : 0);
     const chip = (grp, v, lab, on) => `<button class="chip ${on ? 'on' : ''}" data-f="${grp}" data-v="${v}">${lab}</button>`;
@@ -286,9 +287,23 @@
         ${nf || F.cat.size || F.md || F.q || F.own ? '<button class="link" id="clr">Quitar todos los filtros</button>' : ''}
       </div>
       <div id="res"></div><a class="fab" href="#/nueva" aria-label="Nueva tarea">＋ Nueva tarea</a></div>`;
-    const res = () => { const r = sorted(filtered()); $('#res').innerHTML = `<p class="count">${r.length} tarea${r.length === 1 ? '' : 's'}${F.md ? ` para <b>${F.md}</b> · ${MDINFO[F.md].t}` : ''}</p>` + (r.length ? `<div class="grid">${r.map(card).join('')}</div>` : '<div class="empty">No hay tareas con esos filtros.</div>'); };
-    res();
-    $('#q').addEventListener('input', e => { F.q = e.target.value; res(); });
+    // se dibujan por tandas al hacer scroll: la biblioteca abre al instante aunque haya cientos de tareas
+    const res = keep => {
+      if (!keep) libN = LIBSTEP;
+      const r = sorted(filtered());
+      $('#res').innerHTML = `<p class="count">${r.length} tarea${r.length === 1 ? '' : 's'}${F.md ? ` para <b>${F.md}</b> · ${MDINFO[F.md].t}` : ''}</p>` + (r.length ? `<div class="grid">${r.slice(0, libN).map(card).join('')}</div>${r.length > libN ? '<div class="lmore" id="lmore" aria-hidden="true"></div>' : ''}` : '<div class="empty">No hay tareas con esos filtros. <button class="link" id="fclr">Quitar filtros</button></div>');
+      const fc = $('#fclr'); if (fc) fc.onclick = () => { F.q = ''; F.own = false; F.tipo = ''; F.prin = ''; F.nj = 0; F.md = ''; ['mat', 'cat', 'int', 'dif', 'ed'].forEach(k => F[k].clear()); if (location.hash.length > 2) location.hash = '#/'; else vLib(); };
+      const sen = $('#lmore'); if (!sen || !('IntersectionObserver' in window)) { if (sen) { libN = r.length; res(true); } return; }
+      const io = new IntersectionObserver(en => {
+        if (!en[0].isIntersecting || !sen.isConnected) return;
+        const from = libN; libN = Math.min(r.length, libN + LIBSTEP * 2);
+        $('#res .grid').insertAdjacentHTML('beforeend', r.slice(from, libN).map(card).join(''));
+        if (libN >= r.length) { io.disconnect(); sen.remove(); }
+      }, { rootMargin: '900px 0px' });
+      io.observe(sen);
+    };
+    res(true);
+    let qT = 0; $('#q').addEventListener('input', e => { F.q = e.target.value; clearTimeout(qT); qT = setTimeout(() => res(), 140); });
     $('#sort').onchange = e => { F.sort = e.target.value; res(); };
     $('#nj').onchange = e => { const v = Math.max(0, +e.target.value || 0); if (v === F.nj) return; F.nj = v; setTimeout(vLib, 0); };
     $('#lib').addEventListener('click', e => {
@@ -570,7 +585,7 @@
         <div class="full barl">${byInt.map((m, k) => m ? `<span><i style="background:${INT[k + 1].c}"></i>${INT[k + 1].n} ${m}'</span>` : '').join('')}</div>
       </section>` : '<div class="empty">Elige el día y la duración y pulsa <b>Generar sesión</b>, o añade tareas desde la biblioteca.</div>'}
       ${Object.entries(BLK).map(([b, n]) => { const l = its.filter(x => x.b === b); return l.length ? `<section class="blk"><h2>${n}</h2>${l.map(x => `
-        <div class="sit"><a href="#/t/${x.t.id}" class="thumb s">${drawField(DD(x.t), { mini: true })}</a>
+        <div class="sit"><a href="#/t/${x.t.id}" class="thumb s" tabindex="-1" aria-hidden="true">${drawField(DD(x.t), { mini: true })}</a>
           <div class="ci"><a href="#/t/${x.t.id}"><h3>${esc(x.t.n)}</h3></a><div class="meta">${intBadge(x.t)}<span>⏱ ${D(x.t)}'${D(x.t) !== x.t.dur ? ` <s>${x.t.dur}'</s>` : ''}</span><span>${esc(x.t.ser)}</span><span class="dif d${x.t.dif}">${DIF[x.t.dif]}</span></div>${itemFit(x.t, x.i)}</div>
           <div class="ops"><button data-op="up" data-i="${x.i}" aria-label="Subir">↑</button><button data-op="down" data-i="${x.i}" aria-label="Bajar">↓</button><button data-op="swap" data-i="${x.i}" aria-label="Cambiar">⟳</button><button data-op="del" data-i="${x.i}" aria-label="Quitar">✕</button></div>
         </div>`).join('')}</section>` : ''; }).join('')}
@@ -814,7 +829,7 @@
   function vTableros() {
     $('#app').innerHTML = `<section class="intro"><h1>Pizarra táctica</h1><p class="sub">Grande, a pantalla completa y con todo el material: conos, setas, picas, vallas, escaleras, aros, maniquíes, cajones, balones… Se guarda sola.</p></section>
       <section><h2>Nueva pizarra</h2><div class="bnew">${Object.entries(BSTART).filter(([k]) => MODE === 'f7' ? /f7/.test(k) || k === 'f11' : true).map(([k, b]) => `<button data-nb="${k}"><span class="bthumb">${drawField(b.sis ? (() => { const d = JSON.parse(JSON.stringify(b.d)); const S = d.f7 ? SIS7 : SIS11, [FL, FW] = d.f7 ? [60, 40] : [105, 68]; d.p = []; b.sis.forEach((nm, t) => S[nm].forEach(([x, y], i) => d.p.push([i ? (t ? 'B' : 'A') : 'P', t ? FL - x : x, t ? FW - y : y]))); return d; })() : b.d, { mini: true })}</span><b>${b.n}</b></button>`).join('')}</div></section>
-      <section><h2>Mis pizarras (${boards.length})</h2>${boards.length ? `<div class="blist">${boards.map(b => `<div class="bitem"><a href="#/tablero/${b.id}" class="bthumb">${drawField(b.d, { mini: true })}</a><div class="bi"><a href="#/tablero/${b.id}"><b>${esc(b.n)}</b></a><small>${fmtDT(b.ts)}</small></div><button class="btn sm" data-bdup="${b.id}" aria-label="Duplicar">⧉</button><button class="btn sm danger" data-brm="${b.id}" aria-label="Borrar">🗑</button></div>`).join('')}</div>` : '<div class="empty">Aún no tienes pizarras. Empieza con una de arriba.</div>'}</section>`;
+      <section><h2>Mis pizarras (${boards.length})</h2>${boards.length ? `<div class="blist">${boards.map(b => `<div class="bitem"><a href="#/tablero/${b.id}" class="bthumb" tabindex="-1" aria-hidden="true">${drawField(b.d, { mini: true })}</a><div class="bi"><a href="#/tablero/${b.id}"><b>${esc(b.n)}</b></a><small>${fmtDT(b.ts)}</small></div><button class="btn sm" data-bdup="${b.id}" aria-label="Duplicar">⧉</button><button class="btn sm danger" data-brm="${b.id}" aria-label="Borrar">🗑</button></div>`).join('')}</div>` : '<div class="empty">Aún no tienes pizarras. Empieza con una de arriba.</div>'}</section>`;
     $('#app').querySelectorAll('[data-nb]').forEach(b => b.onclick = () => newBoard(b.dataset.nb));
     $('#app').querySelectorAll('[data-brm]').forEach(b => b.onclick = () => { const o = boards.find(x => x.id === b.dataset.brm); if (!o || !confirm(`¿Borrar «${o.n}»?`)) return; boards = boards.filter(x => x !== o); saveBoards(); vTableros(); });
     $('#app').querySelectorAll('[data-bdup]').forEach(b => b.onclick = () => { const o = boards.find(x => x.id === b.dataset.bdup); if (!o) return; boards.unshift({ ...JSON.parse(JSON.stringify(o)), id: 'pz' + Date.now().toString(36), n: o.n + ' (copia)', ts: Date.now() }); saveBoards(); vTableros(); });
@@ -1014,7 +1029,7 @@
     }).join('');
     $('#app').innerHTML = `<section class="tmp">
       <div class="ghd"><h1>Temporada por contenidos</h1><a class="btn sm" href="#/metodologia">🏛 Metodología del club</a></div>
-      <div class="tabs2"><button data-tv="cal" class="${tmpView === 'cal' ? 'on' : ''}">📅 Calendario</button><button data-tv="list" class="${tmpView === 'list' ? 'on' : ''}">☰ Semana a semana</button></div>
+      <div class="tabs2"><button data-tv="cal" class="${tmpView === 'cal' ? 'on' : ''}">Calendario</button><button data-tv="list" class="${tmpView === 'list' ? 'on' : ''}">Semana a semana</button></div>
       ${tmpView === 'cal' ? calHTML() : ''}
       <p class="sub">Decide qué principio de juego trabajas cada semana y con qué nivel de exigencia. El generador de sesiones, las plantillas y el asistente eligen tareas de ese contenido.</p>
       <div class="cyc"><b>Ciclo automático</b>
@@ -1054,7 +1069,7 @@
     A.ed = fixEd(A.ed);
     const chip = (g, v, lab, on) => `<button class="chip ${on ? 'on' : ''}" data-g="${g}" data-v="${v}">${lab}</button>`;
     $('#app').innerHTML = `<section class="asis">
-      <h1>✨ ¿Qué entreno hoy?</h1>
+      <h1>¿Qué entreno hoy?</h1>
       <p class="sub">Responde y te preparo una sesión completa, adaptada a tu categoría, tus jugadores y tu material.</p>
       <div class="aq"><b>1 · Categoría</b><div class="row wrap">${chip('ed', '', 'Cualquiera', !A.ed)}${EDM().map(k => chip('ed', k, ED[k], A.ed === k)).join('')}</div></div>
       <div class="aq"><b>2 · ¿Qué día es?</b><div class="row wrap">${MDS.map(m => chip('md', m, `${m}<small>${MDINFO[m].carga}</small>`, A.md === m)).join('')}</div></div>
@@ -1229,7 +1244,7 @@
     const sel = (v, k, e, t, empty) => `<select data-e="${e}" data-t="${t}" data-k="${k}"><option value="">${empty}</option>${Object.entries(PRIN).map(([p, x]) => `<option value="${p}" ${v === p ? 'selected' : ''}>${x.i} ${x.n}</option>`).join('')}</select>`;
     const filled = eds.filter(e => M.cats[e] && TRIM.some(tr => M.cats[e][tr.k] && M.cats[e][tr.k].a));
     $('#app').innerHTML = `<section class="meto">
-      <h1>🏛 Metodología del club</h1>
+      <h1>Metodología del club</h1>
       <p class="sub">Qué se trabaja en cada categoría y trimestre. Compártela con los entrenadores del club: al importarla, cada uno rellena con un toque los contenidos de su temporada.</p>
       <div class="mhd"><label>Club<input id="mclub" value="${esc(M.club)}" placeholder="Nombre del club"></label><label>Coordinador/a<input id="maut" value="${esc(M.autor)}" placeholder="Quién la firma"></label></div>
       ${!filled.length ? `<div class="hint">Empieza desde cero o carga una propuesta base (de la técnica en prebenjamín al juego completo en sénior) y ajústala a tu club. <button class="btn sm pri" id="mbase">Cargar propuesta base</button></div>` : ''}
@@ -1354,7 +1369,7 @@
     const keys = r ? rivalKeys(r) : [];
     const ptask = r && r.tid ? byId[r.tid] : null;
     $('#app').innerHTML = `<section class="riv">
-      <h1>⚔️ Preparar el partido</h1>
+      <h1>Preparar el partido</h1>
       <div class="row wrap rsel">${all.map(k => `<a class="chip ${k === f ? 'on' : ''}" href="#/partido/${k}">${fmt(k)}${rivals[k] && rivals[k].rival ? ' · ' + esc(rivals[k].rival) : (plan[k] && plan[k].name ? ' · ' + esc(plan[k].name.replace(/^Partido( vs )?/, '')) : '')}</a>`).join('')}<label class="chip">＋ Otro partido <input type="date" id="rnew"></label></div>
       ${!r ? '<div class="empty">No hay partidos próximos en el plan. Marca uno en «Plan» o elige la fecha arriba.</div>' : `
       <div class="aq two"><label><b>Rival</b><input id="rname" value="${esc(r.rival || '')}" placeholder="Nombre del rival"></label><label><b>Su sistema</b><select id="rsis">${Object.keys(S).map(k => `<option ${r.sis === k ? 'selected' : ''}>${k}</option>`).join('')}</select></label><label><b>Nuestro sistema</b><select id="rnos">${Object.keys(S).map(k => `<option ${r.nos === k ? 'selected' : ''}>${k}</option>`).join('')}</select></label></div>
@@ -1453,9 +1468,9 @@
     const its = ses.items.map(x => byId[x.id] ? { ...x, t: byId[x.id] } : null).filter(x => x && x.b !== 'cal' && x.b !== 'vc' || (x && x.t.cat === 'jue'));
     const all = ses.items.map(x => byId[x.id] ? { ...x, t: byId[x.id] } : null).filter(Boolean);
     const list = its.length ? its : all;
-    $('#app').innerHTML = `<section class="valo"><h1>⭐ Valorar las tareas de hoy</h1>
+    $('#app').innerHTML = `<section class="valo"><h1>Valorar las tareas de hoy</h1>
       <p class="sub">Tres toques por tarea. Con el tiempo, el generador y el asistente te propondrán más las tareas que funcionan con tu equipo, y te avisará cuando una se quede fácil.</p>
-      ${!list.length ? '<div class="empty">La sesión está vacía.</div>' : list.map(x => `<div class="evc"><div class="evh"><a href="#/t/${x.t.id}" class="thumb s">${drawField(DD(x.t), { mini: true })}</a><div><small>${BLK[x.b]}</small><b>${esc(x.t.n)}</b></div></div>${evalForm(x.t.id, todayEval(x.t.id))}</div>`).join('')}
+      ${!list.length ? '<div class="empty">La sesión está vacía.</div>' : list.map(x => `<div class="evc"><div class="evh"><a href="#/t/${x.t.id}" class="thumb s" tabindex="-1" aria-hidden="true">${drawField(DD(x.t), { mini: true })}</a><div><small>${BLK[x.b]}</small><b>${esc(x.t.n)}</b></div></div>${evalForm(x.t.id, todayEval(x.t.id))}</div>`).join('')}
       <div class="acts"><a class="btn pri" href="#/sesion">✓ Hecho</a></div></section>`;
     bindEval($('#app'));
   }
@@ -1535,13 +1550,19 @@
     return `<div class="cal">${byMonth.map(g => `<div class="cm"><small>${MN[g.m.getMonth()]}</small><div class="cw">${g.w.map(m => { const k = iso(m), c = cont[k] || {}, w = weekWork(m), top = Object.entries(w).sort((a, b) => b[1] - a[1])[0];
         return `<button class="cc ${k === cur ? 'now' : ''} ${c.p ? '' : 'empty'}" data-wk="${k}" title="${m.getDate()} ${MN[m.getMonth()]}${c.p ? ': ' + PRIN[c.p].n + (c.s ? ' + ' + PRIN[c.s].n : '') : ''}${top ? ' · más trabajado: ' + PRIN[top[0]].n : ''}" style="${c.p ? `--a:${PCOL[c.p]};--b:${PCOL[c.s] || PCOL[c.p]}` : ''}">${c.niv ? `<i>${c.niv}</i>` : ''}${top ? `<u style="background:${PCOL[top[0]]}"></u>` : ''}</button>`; }).join('')}</div></div>`).join('')}</div>
       <p class="sub">Cada cuadro es una semana: color de arriba = contenido principal, abajo = secundario; el número es el nivel; la rayita, lo más trabajado en las sesiones del plan. Toca una semana para editarla.</p>
-      ${warn.length ? `<div class="calw">⚠ ${warn.map(x => `<b>${PRIN[x.p].n}</b> ${x.gap == null ? 'sin trabajar en toda la temporada' : `lleva ${x.gap} semanas sin aparecer`}`).join(' · ')}</div>` : ''}
+      ${warn.length ? (() => { const nun = warn.filter(x => x.gap == null), lej = warn.filter(x => x.gap != null), lst = a => a.map(x => `<b>${PRIN[x.p].n}</b>`).join(', ').replace(/, ([^,]*)$/, ' y $1');
+        return nun.length === Object.keys(PRIN).length || nun.length >= 6 && !Object.keys(cont).length ? `<div class="calw">Aún no has repartido contenidos en la temporada. Toca una semana del calendario o usa la <b>Metodología del club</b> para rellenarla de golpe.</div>`
+          : `<div class="calw">${nun.length ? `⚠ Sin trabajar en toda la temporada: ${lst(nun)}.` : ''}${nun.length && lej.length ? '<br>' : ''}${lej.map(x => `⚠ <b>${PRIN[x.p].n}</b> lleva ${x.gap} semanas sin aparecer.`).join('<br>')}</div>`; })() : ''}
       <div class="cleg">${Object.entries(PRIN).map(([p, x]) => `<div class="cl"><span class="sq" style="background:${PCOL[p]}"></span><b>${x.i} ${x.n}</b><span class="cn">${cntP[p] || 0} sem. principal · ${cntS[p] || 0} secundario</span><span class="cb"><i style="width:${Math.round(100 * (mins[p] || 0) / maxM)}%;background:${PCOL[p]}"></i></span><small>${Math.round(mins[p] || 0)}' en sesiones</small></div>`).join('')}</div>`;
   }
 
   // ---------- Router ----------
+  let lastR = '', libY = 0;
   function route() {
     const h = location.hash || '#/';
+    // al volver de una ficha a la biblioteca se recupera el punto donde estabas
+    if (lastR === 'lib' && h.startsWith('#/t/')) libY = window.scrollY;
+    else if (!h.startsWith('#/t/') && lastR !== 'task') { libY = 0; libN = LIBSTEP; }
     if (!h.startsWith('#/campo')) stopTimer();
     if (PZ && !h.startsWith('#/pizarra')) { PZ.stop(); PZ = null; }
     if (document.body.classList.contains('fsb')) { document.body.classList.remove('fsb'); try { if (document.fullscreenElement) document.exitFullscreen(); if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) { } }
@@ -1568,7 +1589,9 @@
     else { fromHash(); vLib(); }
     document.querySelectorAll('nav.bottom a').forEach(a => a.classList.toggle('on', a.dataset.r === r));
     const hb = $('#pzb'); if (hb) hb.classList.toggle('on', r === 'tab');
-    if (r !== 'task') window.scrollTo(0, 0);
+    if (r === 'lib' && libY) { const y = libY; libY = 0; requestAnimationFrame(() => window.scrollTo(0, y)); }
+    else if (r !== 'task') window.scrollTo(0, 0);
+    lastR = r;
   }
   function setMode(m) {
     MODE = m; store.set('mode', m); document.body.classList.toggle('f7', m === 'f7');
