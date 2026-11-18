@@ -432,7 +432,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
     if (!CFG.apiKey || !CFG.projectId) throw new Error('cfg');
     if (!fk) throw new Error('key');
     sessionStorage.setItem('mt-ver-k-' + id, fk);
-    const r = await fetch(`https://firestore.googleapis.com/v1/projects/${CFG.projectId}/databases/(default)/documents/compartido/${id}?key=${CFG.apiKey}`);
+    const r = await fetch(`https://firestore.googleapis.com/v1/projects/${CFG.projectId}/databases/(default)/documents/compartido/${id}?key=${CFG.apiKey}&quotaUser=t${Date.now()}`, { cache: 'no-store' });
     if (r.status === 404) throw new Error('gone');
     if (!r.ok) throw new Error('http ' + r.status);
     const f = (await r.json()).fields || {};
@@ -5286,14 +5286,21 @@ deleteDoc = async function (col, id) { const r = await deleteDoc30(col, id); cbD
 let cbDirty = false;
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && cbDirty && cbGet(cbCodeKey)) { cbDirty = false; cloudBackup(); } });
 setTimeout(() => { const at = Date.parse(cbGet(cbCodeKey) ? (cbGet(cbAtKey) || 0) : NaN); if (cbGet(cbCodeKey) && (!at || Date.now() - at > 12 * 3600000)) cloudBackup(); }, 6000);
+// borra el contenido de la copia (las reglas no permiten borrar el documento sin demostrar el código, así que se vacía)
+async function cloudWipe(code) {
+  try { const d0 = await cbDerive(code); await nubeAuth();
+    const r = await nubeReq('/copias/' + d0.id, { method: 'PATCH', body: JSON.stringify({ fields: { d: { stringValue: '' }, at: { timestampValue: new Date().toISOString() }, sh: { stringValue: d0.sh }, s: { stringValue: d0.s } } }) });
+    return r.ok; } catch (e) { console.error(e); return false; }
+}
 async function cloudRestore(code, btn) {
   const t0 = btn && btn.textContent;
   try {
     if (btn) { btn.disabled = true; btn.textContent = CB('Buscando…', 'Looking…'); }
     const d0 = await cbDerive(code);
-    const r = await fetch(`${nubeFS()}/copias/${d0.id}?key=${NUBE.apiKey}`);
+    const r = await fetch(`${nubeFS()}/copias/${d0.id}?key=${NUBE.apiKey}&quotaUser=t${Date.now()}`, { cache: 'no-store' });
     if (r.status === 404) throw new Error('notfound'); if (!r.ok) throw new Error('http ' + r.status);
     const f = (await r.json()).fields || {};
+    if (!f.d || !f.d.stringValue) throw new Error('notfound');
     const txt = await cbOpen(d0.key, f.d.stringValue);
     const bk = JSON.parse(txt), teams = bk.teams || [{ id: 'main', docs: bk.docs }];
     const names = teams.map(t => (t.docs && t.docs.meta && t.docs.meta.name) || (t.docs && t.docs.config && t.docs.config.team) || t.id);
@@ -5351,7 +5358,8 @@ function cloudPanel() {
       h('details', { class: 'wa-more', style: 'margin-top:10px' }, h('summary', null, CB('Recuperar o desactivar', 'Restore or turn off')),
         h('div', { class: 'sub', style: 'margin:8px 0' }, CB('Recuperar sustituye lo que hay en este móvil por la copia.', 'Restoring replaces what is on this device with the backup.')),
         restoreBox(true),
-        h('div', { class: 'controls', style: 'margin-top:10px' }, h('button', { class: 'btn sm danger', type: 'button', onclick: () => { if (!confirm(CB('¿Desactivar la copia en este móvil? La última copia sigue guardada y puedes recuperarla con tu código.', 'Turn off backup on this device? The last backup stays available with your code.'))) return; cbSet(cbCodeKey, null); cbSet(cbAtKey, null); UI.cbShow = false; route(); } }, CB('Desactivar en este móvil', 'Turn off on this device')))));
+        h('div', { class: 'controls', style: 'margin-top:10px;flex-wrap:wrap' }, h('button', { class: 'btn sm', type: 'button', onclick: () => { if (!confirm(CB('¿Desactivar la copia en este móvil? La última copia sigue guardada y puedes recuperarla con tu código.', 'Turn off backup on this device? The last backup stays available with your code.'))) return; cbSet(cbCodeKey, null); cbSet(cbAtKey, null); UI.cbShow = false; route(); } }, CB('Desactivar en este móvil', 'Turn off on this device')),
+          h('button', { class: 'btn sm danger', type: 'button', onclick: async e => { if (!confirm(CB('¿Borrar la copia de la nube? Ya no se podrá recuperar con el código. Los datos de este móvil no se tocan.', 'Delete the cloud backup? It can no longer be restored. Data on this device is not affected.'))) return; const b = e.currentTarget; b.disabled = true; const ok = await cloudWipe(code); if (!ok) { b.disabled = false; toast(CB('No se pudo borrar. Comprueba la conexión.', 'Could not delete. Check the connection.'), true); return; } cbSet(cbCodeKey, null); cbSet(cbAtKey, null); UI.cbShow = false; toast(CB('Copia de la nube borrada', 'Cloud backup deleted')); route(); } }, CB('Borrar la copia de la nube', 'Delete cloud backup')))));
   }
   return h('div', { class: 'panel section-gap', id: 'nubecopia', 'data-noi18n': '' }, h('h3', null, CB('☁️ Copia en la nube', '☁️ Cloud backup')), ...body);
 }
@@ -6349,7 +6357,8 @@ async function nubeAuth(force) {
 }
 async function nubeReq(path, opts = {}, retry = true) {
   const a = await nubeAuth();
-  const r = await fetch(nubeFS() + path, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + a.tok } });
+  const fresh = !opts.method || opts.method === 'GET' ? (path.includes('?') ? '&' : '?') + 'quotaUser=t' + Date.now() : ''; // nunca una respuesta guardada
+  const r = await fetch(nubeFS() + path + fresh, { ...opts, cache: 'no-store', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + a.tok } });
   if (r.status === 401 && retry) { await nubeAuth(true); return nubeReq(path, opts, false); }
   return r;
 }
