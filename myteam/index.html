@@ -6545,7 +6545,7 @@ function wellAskPanel(M, plist, getDate) {
       const other = new Map(); docs.forEach(x => { const y = x.id.split('-')[1] || ''; if (/^\d{8}$/.test(y) && y !== ymd) other.set(y, (other.get(y) || 0) + 1); });
       const recent = [...other].sort((a, b) => a[0] < b[0] ? 1 : -1).slice(0, 4);
       const toIso = y => y.slice(0, 4) + '-' + y.slice(4, 6) + '-' + y.slice(6, 8);
-      cloudHelp.replaceChildren();
+      cloudHelp.replaceChildren(h('div', { style: 'opacity:.8' }, WL(`Buzón ${k.w.slice(0, 6)} · ${docs.length} respuesta${docs.length === 1 ? '' : 's'} guardada${docs.length === 1 ? '' : 's'} en total.`, `Inbox ${k.w.slice(0, 6)} · ${docs.length} answer${docs.length === 1 ? '' : 's'} stored in total.`)));
       if (recent.length) cloudHelp.append(WL('También hay respuestas de: ', 'There are also answers for: '), ...recent.map(([y, n]) => h('button', { class: 'btn sm', type: 'button', style: 'margin:4px 6px 0 0', onclick: () => { const di = document.getElementById('s-date'); if (di) { di.value = toIso(y); di.dispatchEvent(new Event('input', { bubbles: true })); di.dispatchEvent(new Event('change', { bubbles: true })); } } }, y.slice(6, 8) + '/' + y.slice(4, 6) + ' · ' + n)));
       if (!docs.length) cloudHelp.append(h('div', { style: 'margin-top:4px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb, var(--z-warn) 12%, var(--panel))' },
         WL('Todavía no ha llegado ninguna respuesta. Si en el enlace de los jugadores pone «Enviar por WhatsApp» en vez de «Enviar al entrenador», tienen un enlace antiguo (de antes de activar la recepción automática): mándales el de «Enlace para los jugadores», aquí abajo.',
