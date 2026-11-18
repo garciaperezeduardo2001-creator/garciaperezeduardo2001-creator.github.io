@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Política de privacidad · My Team</title>
+<style>
+:root{--bg:#f4f6f3;--ink:#12201a;--muted:#4a5a52;--accent:#23408e;--panel:#fff;--line:#dde4df}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1613;--ink:#e8efe9;--muted:#b2c0b7;--accent:#8ea6ec;--panel:#16201b;--line:#26332c}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:720px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:1.8rem;margin:0 0 4px}h2{font-size:1.15rem;margin:28px 0 6px;color:var(--accent)}
+h3{font-size:1rem;margin:18px 0 4px}
+p,li{color:var(--muted)}.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+a{color:var(--accent)}ul{padding-left:20px}
+</style></head>
+<body><main>
+<h1>Política de privacidad de My Team</h1>
+<p>Última actualización: 18 de noviembre de 2026</p>
+<div class="box"><p style="margin:0"><strong>En resumen:</strong> My Team guarda los datos en tu dispositivo. Hay cuatro funciones opcionales que usan la nube (Google Firebase, servidores en Madrid): el buzón de respuestas de los jugadores, el enlace para el cuerpo técnico, los cambios del fisio y la copia en la nube. Ninguna está activa hasta que tú la activas. Salvo las respuestas del buzón, todo lo que va a la nube viaja <strong>cifrado de extremo a extremo</strong>: ni el desarrollador ni Google pueden leerlo. No creamos cuentas, no usamos publicidad ni herramientas de análisis y no vendemos datos.</p></div>
+
+<h2>1. Qué datos maneja la app</h2>
+<p>La app sirve para que un preparador físico o entrenador registre información de sus equipos: nombres y dorsales de jugadores, posiciones, valores de esfuerzo percibido (RPE), cuestionarios de bienestar, minutos y estadísticas de partidos, lesiones y fases de vuelta a la actividad, ausencias, notas, resultados de tests físicos (peso, altura, saltos, velocidad, resistencia), objetivos y resultados de liga, además del nombre, escudo y color de cada equipo. Algunos de estos datos (lesiones, bienestar, peso) se refieren a la salud y merecen especial cuidado.</p>
+
+<h2>2. Dónde se guardan</h2>
+<p>Por defecto, todos los datos se almacenan solo en el almacenamiento interno de la app en tu dispositivo. Si desinstalas la app o borras sus datos, la información de ese dispositivo se elimina.</p>
+
+<h2>3. Funciones opcionales en la nube</h2>
+<p>Estas funciones usan Google Firebase (Cloud Firestore y autenticación anónima), con los datos alojados en la región europe-southwest1 (Madrid, Unión Europea). La app no pide tu nombre, correo ni teléfono para usarlas: Firebase asigna a cada dispositivo un identificador anónimo aleatorio.</p>
+
+<h3>3.1 Buzón de respuestas de los jugadores</h3>
+<p>Si lo activas, los jugadores pueden enviar su cuestionario de bienestar y su RPE desde una página web sin instalar nada. Cada respuesta contiene solo un código del jugador (por ejemplo, «p04», nunca su nombre), las puntuaciones, la fecha y, si el jugador quiere, un comentario breve. Se guarda sin cifrar en Firebase para que tu app pueda recogerla; solo el dispositivo del entrenador puede leerla, y la app del entrenador borra de la nube las respuestas con más de 3 semanas. La relación entre códigos y nombres solo existe en tu dispositivo. Recomienda a los jugadores no escribir datos de salud detallados en el comentario.</p>
+
+<h3>3.2 Enlace para el cuerpo técnico</h3>
+<p>Si creas un enlace para el cuerpo técnico, la app sube una copia de los datos del equipo cifrada en tu dispositivo (AES-256). La clave va únicamente dentro del enlace (en la parte que el navegador no envía a ningún servidor), así que solo quien tenga el enlace completo puede leer los datos. No se comparten las claves del buzón. Puedes cambiar o quitar el enlace cuando quieras; al quitarlo, la copia se borra de la nube.</p>
+
+<h3>3.3 Cambios del fisio</h3>
+<p>Si das permiso de edición, la persona con el enlace del fisio puede apuntar lesiones y fases de vuelta a la actividad. Esos cambios también viajan cifrados, junto con el nombre que esa persona indique para identificarse, y se borran de la nube en cuanto tu app los recoge. Puedes retirar el permiso en cualquier momento.</p>
+
+<h3>3.4 Copia en la nube</h3>
+<p>Si activas la copia en la nube, la app guarda periódicamente una copia de seguridad de todos tus equipos, cifrada en tu dispositivo con una clave que se obtiene de tu <strong>código de recuperación</strong>. Ese código solo lo tienes tú: no se envía a ningún sitio y el desarrollador no puede recuperarlo. Si lo pierdes, la copia no se puede abrir. Puedes borrar la copia de la nube en cualquier momento desde la app («Borrar la copia de la nube»).</p>
+
+<h2>4. Quién es responsable de los datos</h2>
+<p>El entrenador o el club que usa la app decide qué datos registra y con quién los comparte, por lo que es el <strong>responsable del tratamiento</strong>. El desarrollador de My Team proporciona la herramienta y, en las funciones en la nube, actúa como <strong>encargado del tratamiento</strong>, usando Google (Firebase) como subencargado. Google trata los datos conforme a sus condiciones de tratamiento de datos de Google Cloud y Firebase.</p>
+
+<h2>5. Datos de menores</h2>
+<p>La app está dirigida a adultos (preparadores físicos y entrenadores). Si registras datos de jugadores menores de edad, o les pides usar el buzón, eres responsable de contar con el consentimiento de sus padres o tutores y la autorización de su club, conforme a la normativa aplicable (RGPD y LOPDGDD en España; en España, los menores de 14 años necesitan el consentimiento de sus padres o tutores).</p>
+
+<h2>6. Copias, archivos exportados y enlaces</h2>
+<p>Puedes descargar una copia de seguridad (.json), un Excel, un informe PDF o una página .html. Esos archivos se crean en tu dispositivo y solo salen de él si tú decides compartirlos (por correo, WhatsApp o una nube de tu elección); a partir de ese momento se rigen por la privacidad del servicio que elijas. Lo mismo ocurre con los enlaces que envías: trátalos como una llave y no los publiques en grupos abiertos.</p>
+
+<h2>7. Otras conexiones a internet</h2>
+<p>Cuando hay internet, la app descarga recursos técnicos públicos (tipografías de Google Fonts y librerías de cdnjs.cloudflare.com para leer Excel y crear PDF). Como en cualquier visita web, esos proveedores pueden registrar datos técnicos como la dirección IP. La app nunca les envía datos de tus equipos o jugadores.</p>
+
+<h2>8. Cuánto tiempo se conservan</h2>
+<ul>
+<li>En el dispositivo: hasta que los borres o desinstales la app.</li>
+<li>Respuestas del buzón: la app borra las que tienen más de 3 semanas.</li>
+<li>Enlace del cuerpo técnico: mientras el enlace esté activo.</li>
+<li>Cambios del fisio: hasta que tu app los recoge.</li>
+<li>Copia en la nube: hasta que la borres desde la app.</li>
+</ul>
+
+<h2>9. Tus derechos</h2>
+<p>Puedes consultar, corregir, exportar o eliminar los datos en cualquier momento desde la propia app: desactivando el buzón, quitando el enlace del cuerpo técnico o el permiso del fisio, o borrando la copia en la nube. Los jugadores (o sus padres o tutores) pueden ejercer sus derechos de acceso, rectificación, supresión, oposición, limitación y portabilidad ante el entrenador o club que registra sus datos. También puedes contactar con el desarrollador (punto 11) y presentar una reclamación ante la Agencia Española de Protección de Datos (aepd.es).</p>
+
+<h2>10. Cambios en esta política</h2>
+<p>Si cambian las funciones que usan la nube, esta política se actualizará y se indicará la fecha de la última actualización al principio.</p>
+
+<h2>11. Contacto</h2>
+<p>Para cualquier consulta sobre privacidad, escribe al correo de soporte que aparece en la ficha de My Team en Google Play.</p>
+
+<hr style="border:0;border-top:1px solid var(--line);margin:32px 0">
+<h2>Privacy policy (English summary)</h2>
+<p>My Team stores data on your device. Four optional cloud features use Google Firebase (servers in Madrid, EU) and are off until you turn them on: the players' answer inbox, the coaching-staff link, physio edits and cloud backup. Inbox answers contain only a player code (never a name), scores and an optional short comment; they are stored unencrypted, readable only by the coach's device, and the coach's app deletes those older than 3 weeks. Everything else is end-to-end encrypted on your device: the key travels only inside the link or comes from your recovery code, so neither the developer nor Google can read it. No accounts, ads or analytics; Firebase assigns anonymous device identifiers. The coach or club is the data controller; the developer is a processor using Google as sub-processor. If you record data about minors, you must have parental or guardian consent. Cloud backups are kept until you delete them from the app. Contact: the support email listed on the app's Google Play page.</p>
+</main></body></html>

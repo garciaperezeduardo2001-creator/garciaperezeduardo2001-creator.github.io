@@ -416,9 +416,14 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
 (function () {
   const q = new URLSearchParams(location.search), id = q.get('ver');
   if (!id || !/^[A-Za-z0-9_-]{16,40}$/.test(id)) return;
-  const fk = new URLSearchParams(location.hash.replace(/^#/, '').split('&').filter(x => x.startsWith('k=')).join('&')).get('k') || sessionStorage.getItem('mt-ver-k-' + id);
+  const hp = new URLSearchParams(location.hash.replace(/^#/, '').split('&').filter(x => /^(k|e)=/.test(x)).join('&'));
+  const fk = hp.get('k') || sessionStorage.getItem('mt-ver-k-' + id);
+  const fe = hp.get('e') || sessionStorage.getItem('mt-ver-e-' + id);
+  if (hp.get('e')) sessionStorage.setItem('mt-ver-e-' + id, hp.get('e'));
+  // quita las claves de la barra de direcciones (se quedan solo en esta pestaña)
+  if (hp.get('k') || hp.get('e')) { try { sessionStorage.setItem('mt-ver-k-' + id, hp.get('k') || fk); history.replaceState(null, '', location.pathname + location.search + '#resumen'); } catch (_) {} }
   const CFG = window.NUBE_CFG || {};
-  window.__VIEWER = { id };
+  window.__VIEWER = { id, k: fk, e: /^[A-Za-z0-9_-]{20,40}$/.test(fe || '') ? fe : null };
   const KEY = 'mt-ver-' + id;
   const orig = window.claude && window.claude.use;
   let cached = null; try { cached = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch (_) {}
@@ -874,7 +879,7 @@ function updateStatus() {
     ...(outdated ? [h('a', { href: '#plantilla', style: 'margin-left:8px;color:var(--z-warn);font-weight:700' }, '· Vista pública sin actualizar')] : []));
   $('#newSessionBtn').hidden = !(store.db && store.canWrite && MODEL);
 }
-const canEdit = () => !!(store.db && store.canWrite && !store.local);
+let canEdit = () => !!(store.db && store.canWrite && !store.local);
 
 /* ================= routing ================= */
 const UI = { week: null, j: null, player: null, sort: { k: 'min', d: -1 }, editing: false, editSession: null, editMatch: null, editTable: false };
@@ -5220,6 +5225,277 @@ VIEWS.plantilla = function (main) {
 setTimeout(() => { if (staffCfg() && nubeOn() && !store.fromSnap) staffUpload(); }, 8000);
 
 /* ==F29-END== */
+/* ==F30-START== */
+
+/* ================= copia automática cifrada en la nube + cuerpo técnico que apunta lesiones ================= */
+const CB = (es, en) => LANG === 'en' ? en : es;
+const CROCK = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+const cbCodeKey = 'mt-cloud-code', cbAtKey = 'mt-cloud-at';
+function cbGet(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
+function cbSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (_) {} }
+function cbNewCode() { const r = crypto.getRandomValues(new Uint8Array(16)); return [...r].map(b => CROCK[b % 32]).join('').replace(/(.{4})(?=.)/g, '$1-'); }
+const cbNorm = c => String(c || '').toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1').replace(/U/g, 'V');
+async function cbDerive(code) {
+  const c = cbNorm(code); if (c.length !== 16) throw new Error('code');
+  const sha = async s0 => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s0)));
+  const idb = await sha('mt-copia-id|' + c), kb = await sha('mt-copia-key|' + c), sb = await sha('mt-copia-own|' + c);
+  const id = nubeB64u(idb.slice(0, 18)), s0 = nubeB64u(sb), sh = await nubeSha(s0);
+  const key = await crypto.subtle.importKey('raw', kb, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  return { id, key, s: s0, sh };
+}
+async function cbSeal(key, text) {
+  const gz = new Uint8Array(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+  const iv = crypto.getRandomValues(new Uint8Array(12)), ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, gz));
+  const all = new Uint8Array(12 + ct.length); all.set(iv); all.set(ct, 12); return u8b64(all);
+}
+async function cbOpen(key, b64) {
+  const raw = b64u8(b64), gz = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.slice(0, 12) }, key, raw.slice(12));
+  return new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+let cbBusy = false, cbErr = null, cbT = 0;
+async function cloudBackup() {
+  const code = cbGet(cbCodeKey); if (!code || !nubeOn() || store.fromSnap || !store.db || cbBusy) return false;
+  cbBusy = true;
+  try {
+    const d0 = await cbDerive(code);
+    const json = JSON.stringify(await allTeamsBackup());
+    const d = await cbSeal(d0.key, json); if (d.length > 1000000) throw new Error('big');
+    await nubeAuth();
+    const r = await nubeReq('/copias/' + d0.id, { method: 'PATCH', body: JSON.stringify({ fields: { d: { stringValue: d }, at: { timestampValue: new Date().toISOString() }, sh: { stringValue: d0.sh }, s: { stringValue: d0.s } } }) });
+    if (!r.ok) throw new Error('http ' + r.status);
+    cbSet(cbAtKey, new Date().toISOString()); cbErr = null; lsSet('myteam-backup-at', new Date().toISOString());
+    return true;
+  } catch (e) { console.error(e); cbErr = String(e.message || e); return false; }
+  finally { cbBusy = false; const el = document.getElementById('cbSt'); if (el) el.textContent = cbStatus(); }
+}
+function cbStatus() {
+  const at = cbGet(cbAtKey);
+  if (cbErr === 'big') return CB('Hay demasiados datos para una sola copia. Avisa a Claude.', 'Too much data for one backup.');
+  if (cbErr) return CB('La última copia no se pudo subir (¿sin conexión?). Se reintenta sola.', 'The last backup failed (offline?). It will retry.') + (at ? CB(' Última buena: ', ' Last good one: ') + fmtAt(at) : '');
+  return at ? CB('Última copia: ', 'Last backup: ') + fmtAt(at) : CB('Aún no se ha hecho ninguna copia.', 'No backup yet.');
+}
+// copia automática: tras cambios (como mucho cada 30 min), al salir de la app y al abrirla si hace más de 12 h
+function cbSchedule(delay) { if (!cbGet(cbCodeKey)) return; clearTimeout(cbT); cbT = setTimeout(() => { const at = Date.parse(cbGet(cbAtKey) || 0) || 0; if (Date.now() - at > 30 * 60000) cloudBackup(); else cbSchedule(30 * 60000 - (Date.now() - at) + 1000); }, delay); }
+const writeDoc30 = writeDoc;
+writeDoc = async function (col, id, doc) { const r = await writeDoc30(col, id, doc); cbDirty = true; cbSchedule(30000); return r; };
+const deleteDoc30 = deleteDoc;
+deleteDoc = async function (col, id) { const r = await deleteDoc30(col, id); cbDirty = true; cbSchedule(30000); return r; };
+let cbDirty = false;
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && cbDirty && cbGet(cbCodeKey)) { cbDirty = false; cloudBackup(); } });
+setTimeout(() => { const at = Date.parse(cbGet(cbCodeKey) ? (cbGet(cbAtKey) || 0) : NaN); if (cbGet(cbCodeKey) && (!at || Date.now() - at > 12 * 3600000)) cloudBackup(); }, 6000);
+async function cloudRestore(code, btn) {
+  const t0 = btn && btn.textContent;
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = CB('Buscando…', 'Looking…'); }
+    const d0 = await cbDerive(code);
+    const r = await fetch(`${nubeFS()}/copias/${d0.id}?key=${NUBE.apiKey}`);
+    if (r.status === 404) throw new Error('notfound'); if (!r.ok) throw new Error('http ' + r.status);
+    const f = (await r.json()).fields || {};
+    const txt = await cbOpen(d0.key, f.d.stringValue);
+    const bk = JSON.parse(txt), teams = bk.teams || [{ id: 'main', docs: bk.docs }];
+    const names = teams.map(t => (t.docs && t.docs.meta && t.docs.meta.name) || (t.docs && t.docs.config && t.docs.config.team) || t.id);
+    const when = f.at && f.at.timestampValue ? fmtAt(f.at.timestampValue) : '';
+    if (!confirm(CB(`Copia del ${when} con ${teams.length} equipo${teams.length > 1 ? 's' : ''}: ${names.join(', ')}.\n\nSe sustituirá lo que haya ahora en este móvil. ¿Recuperar?`, `Backup from ${when} with ${teams.length} team(s): ${names.join(', ')}.\n\nIt will replace what is on this device. Restore?`))) return false;
+    if (btn) btn.textContent = CB('Recuperando…', 'Restoring…');
+    UI.editing = true;
+    await importBackup(new File([txt], 'copia.json', { type: 'application/json' }), (i, n) => { if (btn) btn.textContent = CB(`Recuperando ${i}/${n}…`, `Restoring ${i}/${n}…`); });
+    UI.editing = false;
+    store.team = 'main'; lsSet('myteam-team', 'main');
+    cbSet(cbCodeKey, cbNorm(code).replace(/(.{4})(?=.)/g, '$1-')); cbSet(cbAtKey, f.at && f.at.timestampValue);
+    toast(CB('Datos recuperados. La copia automática sigue activa en este móvil.', 'Data restored. Automatic backup stays on for this device.'));
+    setTimeout(() => location.reload(), 900);
+    return true;
+  } catch (e) {
+    console.error(e); UI.editing = false;
+    const m = String(e.message || e);
+    toast(m === 'code' ? CB('El código tiene 16 letras y números (XXXX-XXXX-XXXX-XXXX). Revísalo.', 'The code has 16 characters (XXXX-XXXX-XXXX-XXXX).')
+      : m === 'notfound' ? CB('No hay ninguna copia con ese código.', 'No backup with that code.')
+      : /decrypt|OperationError/i.test(m) ? CB('El código no es correcto.', 'Wrong code.') : CB('No se pudo recuperar. Comprueba la conexión.', 'Could not restore. Check the connection.'), true);
+    return false;
+  } finally { if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = t0; } }
+}
+function restoreBox(compact) {
+  const inp = h('input', { type: 'text', class: 'nt-in cb-in', placeholder: 'XXXX-XXXX-XXXX-XXXX', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', 'aria-label': CB('Código de recuperación', 'Recovery code') });
+  const b = h('button', { class: 'btn primary', type: 'button', onclick: () => cloudRestore(inp.value, b) }, CB('Recuperar mis datos', 'Restore my data'));
+  return h('div', { class: 'cb-restore' }, compact ? null : h('div', { class: 'sub', style: 'margin-bottom:8px' }, CB('¿Móvil nuevo? Escribe el código de tu copia en la nube y recuperas todos tus equipos.', 'New phone? Enter your cloud backup code to get all your teams back.')),
+    h('div', { class: 'controls', style: 'flex-wrap:wrap' }, inp, b));
+}
+function cloudPanel() {
+  if (!nubeOn() || store.fromSnap || !store.db) return null;
+  const code = cbGet(cbCodeKey);
+  const body = [];
+  if (!code) {
+    body.push(h('div', { class: 'sub', style: 'margin:-6px 0 12px' }, CB('Ahora tus datos solo están en este móvil: si lo pierdes o se rompe, se pierde la temporada. Con la copia en la nube, la app guarda sola una copia cifrada de todos tus equipos cada vez que la usas. Solo se puede abrir con tu código: ni Google ni el creador de la app pueden leerla.',
+      'Right now your data only lives on this phone. With cloud backup the app saves an encrypted copy of all your teams whenever you use it. Only your code can open it: neither Google nor the app maker can read it.')),
+      h('button', { class: 'btn primary', type: 'button', onclick: async e => {
+        const b = e.currentTarget; b.disabled = true; b.textContent = CB('Activando…', 'Turning on…');
+        const c = cbNewCode(); cbSet(cbCodeKey, c);
+        const ok = await cloudBackup();
+        if (!ok) { cbSet(cbCodeKey, null); toast(CB('No se pudo activar la copia. Comprueba la conexión.', 'Could not turn backup on. Check the connection.'), true); b.disabled = false; b.textContent = CB('Activar la copia en la nube', 'Turn on cloud backup'); return; }
+        UI.cbShow = true; route();
+      } }, CB('Activar la copia en la nube', 'Turn on cloud backup')),
+      h('details', { class: 'wa-more', style: 'margin-top:12px' }, h('summary', null, CB('Ya tengo un código: recuperar mis datos', 'I have a code: restore my data')), restoreBox(true)));
+  } else {
+    const shareCode = async () => { const t = CB(`Mi código de copia de My Team: ${code}\nGuárdalo: sirve para recuperar todos mis equipos en otro móvil.`, `My Team backup code: ${code}`); if (navigator.share) { try { await navigator.share({ text: t }); return; } catch (er) { if (er && er.name === 'AbortError') return; } } try { await navigator.clipboard.writeText(code); toast(CB('Código copiado', 'Code copied')); } catch (_) {} };
+    body.push(
+      UI.cbShow ? h('div', { class: 'cb-new' }, h('b', null, CB('✓ Copia activada. Guarda este código:', '✓ Backup on. Save this code:')), h('div', { class: 'sub' }, CB('Es la única forma de recuperar tus datos en otro móvil. Nadie más lo tiene: si lo pierdes no se puede recuperar. Mándatelo por WhatsApp o correo, o haz una captura.', 'It is the only way to restore your data on another phone. Nobody else has it.'))) : null,
+      h('div', { class: 'cb-code', 'aria-label': CB('Tu código', 'Your code') }, UI.cbShow ? code : code.replace(/[0-9A-Z]/g, '•').replace(/^(.{0}).{4}/, code.slice(0, 4))),
+      h('div', { class: 'controls', style: 'flex-wrap:wrap;margin-top:8px' },
+        h('button', { class: 'btn sm primary', type: 'button', onclick: shareCode }, CB('💬 Guardar el código', '💬 Save the code')),
+        UI.cbShow ? null : h('button', { class: 'btn sm', type: 'button', onclick: () => { UI.cbShow = true; route(); } }, CB('Ver el código', 'Show code')),
+        h('button', { class: 'btn sm', type: 'button', onclick: async e => { const b = e.currentTarget; b.disabled = true; const ok = await cloudBackup(); b.disabled = false; toast(ok ? CB('Copia hecha', 'Backup done') : cbStatus(), !ok); } }, CB('Hacer copia ahora', 'Back up now'))),
+      h('div', { id: 'cbSt', class: 'sub', style: 'margin-top:8px' }, cbStatus()),
+      h('details', { class: 'wa-more', style: 'margin-top:10px' }, h('summary', null, CB('Recuperar o desactivar', 'Restore or turn off')),
+        h('div', { class: 'sub', style: 'margin:8px 0' }, CB('Recuperar sustituye lo que hay en este móvil por la copia.', 'Restoring replaces what is on this device with the backup.')),
+        restoreBox(true),
+        h('div', { class: 'controls', style: 'margin-top:10px' }, h('button', { class: 'btn sm danger', type: 'button', onclick: () => { if (!confirm(CB('¿Desactivar la copia en este móvil? La última copia sigue guardada y puedes recuperarla con tu código.', 'Turn off backup on this device? The last backup stays available with your code.'))) return; cbSet(cbCodeKey, null); cbSet(cbAtKey, null); UI.cbShow = false; route(); } }, CB('Desactivar en este móvil', 'Turn off on this device')))));
+  }
+  return h('div', { class: 'panel section-gap', id: 'nubecopia', 'data-noi18n': '' }, h('h3', null, CB('☁️ Copia en la nube', '☁️ Cloud backup')), ...body);
+}
+// en la bienvenida (móvil nuevo, sin equipos): recuperar con el código
+const welcomeView30 = welcomeView;
+welcomeView = function () {
+  const v = welcomeView30.apply(this, arguments);
+  if (nubeOn() && v && v.append) v.append(h('div', { class: 'panel section-gap', 'data-noi18n': '', style: 'max-width:640px;margin:14px auto 0' }, h('h3', null, CB('☁️ ¿Ya usabas la app en otro móvil?', '☁️ Used the app on another phone?')), restoreBox(false)));
+  return v;
+};
+
+/* ---- cuerpo técnico que apunta lesiones: el enlace con permiso deja cambios cifrados que la app del entrenador aplica ---- */
+const VW = window.__VIEWER || null;
+const STAFF_COLS = ['injuries'];
+if (VW && VW.e) {
+  // en la vista del cuerpo técnico se puede editar solo en Lesiones
+  const canEdit0 = canEdit;
+  canEdit = function () { return location.hash === '#lesiones' || canEdit0(); };
+  const sendChange = async (col, id, doc) => {
+    const who = await staffWho(); if (!who) throw { code: 'cancel', message: 'cancel' };
+    const key = await crypto.subtle.importKey('raw', b64u8(VW.k), 'AES-GCM', false, ['encrypt']);
+    const payload = JSON.stringify({ col, id, doc, by: who, at: new Date().toISOString() });
+    const d = await cbSeal(key, payload);
+    const r = await fetch(`https://firestore.googleapis.com/v1/projects/${NUBE.projectId}/databases/(default)/documents/compartido/${VW.id}/cambios?key=${NUBE.apiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { d: { stringValue: d }, at: { timestampValue: new Date().toISOString() }, s: { stringValue: VW.e } } }) });
+    if (!r.ok) throw { code: r.status === 403 ? 'invalid_argument' : 'unavailable', message: 'http ' + r.status };
+    try { const pend = JSON.parse(sessionStorage.getItem('mt-ver-pend-' + VW.id) || '[]'); pend.push({ col, id, doc, at: Date.now() }); sessionStorage.setItem('mt-ver-pend-' + VW.id, JSON.stringify(pend)); } catch (_) {}
+  };
+  const applyLocal = (col, id, doc) => {
+    const arr = (store.local[col] = store.local[col] || []), i = arr.findIndex(x => x.id === id);
+    if (doc == null) { if (i >= 0) arr.splice(i, 1); } else { const o = { ...doc, id }; if (i >= 0) arr[i] = o; else arr.push(o); }
+    rebuild();
+  };
+  writeDoc = async function (col, id, data) {
+    if (!STAFF_COLS.includes(col)) throw { code: 'invalid_argument', message: CB('Desde este enlace solo se pueden apuntar lesiones.', 'From this link you can only log injuries.') };
+    await sendChange(col, id, clean(data)); applyLocal(col, id, clean(data));
+    toast(CB('Guardado. Le llega al entrenador en cuanto abra su app.', 'Saved. The coach gets it next time they open the app.'));
+  };
+  deleteDoc = async function (col, id) {
+    if (!STAFF_COLS.includes(col)) throw { code: 'invalid_argument', message: CB('Desde este enlace solo se pueden apuntar lesiones.', 'From this link you can only log injuries.') };
+    await sendChange(col, id, null); applyLocal(col, id, null);
+  };
+  const errText0 = errText;
+  errText = function (e) { if (e && e.code === 'cancel') return CB('Cancelado', 'Cancelled'); if (e && e.message && e.code === 'invalid_argument' && /lesiones|injuries/.test(e.message)) return e.message; return errText0(e); };
+  // vuelve a aplicar lo enviado que el entrenador aún no ha recogido
+  setTimeout(() => { try { const at = Date.parse((typeof SNAP !== 'undefined' && SNAP && SNAP.at) || 0) || 0; const pend = JSON.parse(sessionStorage.getItem('mt-ver-pend-' + VW.id) || '[]').filter(p => p.at > at - 5000); sessionStorage.setItem('mt-ver-pend-' + VW.id, JSON.stringify(pend)); pend.forEach(p => applyLocal(p.col, p.id, p.doc)); } catch (_) {} }, 0);
+}
+function staffWho() {
+  const k = 'mt-staff-name'; const n0 = cbGet(k); if (n0) return Promise.resolve(n0);
+  return new Promise(res => {
+    const inp = h('input', { type: 'text', class: 'nt-in', placeholder: CB('Ej.: Laura (fisio)', 'E.g. Laura (physio)'), maxlength: 40 });
+    const close = v => { sh.remove(); res(v); };
+    const ok = () => { const v = inp.value.trim(); if (!v) { inp.focus(); return; } cbSet(k, v); close(v); };
+    const sh = h('div', { class: 'lv-pick', role: 'dialog', 'aria-modal': 'true' }, h('div', { class: 'lv-pick-in' },
+      h('b', null, CB('¿Quién eres?', 'Who are you?')), h('div', { class: 'sub', style: 'margin:6px 0 10px' }, CB('El entrenador verá quién ha apuntado cada cambio.', 'The coach will see who made each change.')),
+      inp, h('div', { class: 'controls', style: 'margin-top:10px;justify-content:flex-end' }, h('button', { class: 'btn', type: 'button', onclick: () => close(null) }, CB('Cancelar', 'Cancel')), h('button', { class: 'btn primary', type: 'button', onclick: ok }, CB('Continuar', 'Continue')))));
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') ok(); });
+    document.body.append(sh); setTimeout(() => inp.focus(), 30);
+  });
+}
+if (VW && VW.e) addEventListener('load', () => { const b = document.querySelector('.ver-band'); if (b) b.textContent = CB('🩺 Vista del cuerpo técnico · puedes apuntar lesiones en «Lesiones»', '🩺 Staff view · you can log injuries in “Injuries”'); });
+
+// lado del entrenador: recoger los cambios del cuerpo técnico
+const staffLogKey = () => 'mt-staff-log-' + (store.team || 'main');
+async function staffPull() {
+  const s0 = staffCfg(); if (!s0 || !s0.e || !nubeOn() || store.fromSnap || !store.db) return 0;
+  try {
+    const r = await nubeReq('/compartido/' + s0.id + '/cambios?pageSize=200');
+    if (!r.ok) return 0;
+    const docs = ((await r.json()).documents || []).sort((a, b) => (a.createTime < b.createTime ? -1 : 1));
+    if (!docs.length) return 0;
+    const key = await crypto.subtle.importKey('raw', b64u8(s0.k), 'AES-GCM', false, ['decrypt']);
+    const done = [];
+    for (const dd of docs) {
+      try {
+        const ch = JSON.parse(await cbOpen(key, dd.fields.d.stringValue));
+        if (!STAFF_COLS.includes(ch.col) || !/^[\w-]{1,60}$/.test(String(ch.id))) continue;
+        if (ch.doc == null) await deleteDoc(ch.col, ch.id); else await writeDoc(ch.col, ch.id, ch.doc);
+        const pn = ch.doc && (M => { const p = M && M.players.find(x => x.id === ch.doc.pid); return p ? p.name : ''; })(MODEL);
+        done.push({ by: String(ch.by || '').slice(0, 40), what: ch.doc == null ? CB('borró una lesión', 'deleted an injury') : CB('lesión', 'injury') + (pn ? ' · ' + pn : '') + (ch.doc.tipo ? ' · ' + ch.doc.tipo : ''), at: ch.at });
+      } catch (e) { console.error(e); }
+      try { await nubeReq('/compartido/' + s0.id + '/cambios/' + dd.name.split('/').pop(), { method: 'DELETE' }); } catch (_) {}
+    }
+    if (done.length) {
+      try { const log = JSON.parse(localStorage.getItem(staffLogKey()) || '[]'); localStorage.setItem(staffLogKey(), JSON.stringify(done.concat(log).slice(0, 20))); } catch (_) {}
+      toast(CB(`El cuerpo técnico ha actualizado: ${done.map(d => d.by + ' (' + d.what + ')').join(', ')}`, `Staff updated: ${done.map(d => d.by + ' (' + d.what + ')').join(', ')}`));
+    }
+    return done.length;
+  } catch (e) { console.error(e); return 0; }
+}
+setTimeout(staffPull, 4000);
+setInterval(() => { if (document.visibilityState === 'visible') staffPull(); }, 120000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(staffPull, 800); });
+// la subida del equipo incluye la huella de la clave de edición
+const staffUpload30 = staffUpload;
+async function staffEditEnable() {
+  const c = { ...(store.cache.config.get('main') || {}) }; if (!c.staff) return;
+  const e = nubeRnd(24), eh = await nubeSha(e);
+  await writeDoc('config', 'main', { ...c, staff: { ...c.staff, e, eh } });
+  await staffUpload(true);
+}
+staffUpload = async function (force) {
+  const s0 = staffCfg();
+  if (!s0 || !s0.eh) return staffUpload30(force);
+  // misma subida, con eh añadido: se intercepta la petición
+  const req0 = nubeReq;
+  nubeReq = function (path, opts, retry) {
+    if (opts && opts.method === 'PATCH' && path === '/compartido/' + s0.id) { const b = JSON.parse(opts.body); b.fields.eh = { stringValue: s0.eh }; opts = { ...opts, body: JSON.stringify(b) }; }
+    return req0(path, opts, retry);
+  };
+  try { return await staffUpload30(force); } finally { nubeReq = req0; }
+};
+const staffPanel30 = staffPanel;
+staffPanel = function () {
+  const p = staffPanel30(); const s0 = staffCfg(); if (!p || !s0) return p;
+  const editLink = s0.e ? staffLink(s0) + '&e=' + s0.e : null;
+  const log = (() => { try { return JSON.parse(localStorage.getItem(staffLogKey()) || '[]'); } catch (_) { return []; } })();
+  const box = h('div', { class: 'cb-edit' }, h('b', null, CB('🩺 Enlace para el fisio (puede apuntar lesiones)', '🩺 Physio link (can log injuries)')),
+    h('div', { class: 'sub', style: 'margin:4px 0 8px' }, CB('Con este enlace también se pueden registrar lesiones, sus fases de vuelta al juego y las altas. Los cambios te llegan cifrados y se guardan solos en tu app al abrirla.', 'This link can also log injuries, return-to-play phases and clearances. Changes reach you encrypted and are saved automatically when you open the app.')),
+    editLink ? h('div', { class: 'controls', style: 'flex-wrap:wrap' },
+      h('button', { class: 'btn sm primary', type: 'button', onclick: async () => { const t = CB(`${MODEL.cfg.team} · enlace para apuntar lesiones 🩺 (no lo compartas) 👇\n`, `${MODEL.cfg.team} · link to log injuries 🩺 👇\n`) + editLink; if (navigator.share) { try { await navigator.share({ text: t }); return; } catch (er) { if (er && er.name === 'AbortError') return; } } window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank', 'noopener'); } }, CB('💬 Enviar al fisio', '💬 Send to physio')),
+      h('button', { class: 'btn sm', type: 'button', onclick: async () => { try { await navigator.clipboard.writeText(editLink); toast(CB('Enlace copiado', 'Link copied')); } catch (_) {} } }, CB('Copiar', 'Copy')),
+      h('button', { class: 'btn sm', type: 'button', onclick: async e => { const b = e.currentTarget; b.disabled = true; const n = await staffPull(); b.disabled = false; if (!n) toast(CB('No hay cambios nuevos del cuerpo técnico', 'No new staff changes')); else route(); } }, CB('Recoger cambios', 'Fetch changes')),
+      h('button', { class: 'btn sm danger', type: 'button', onclick: async () => { if (!confirm(CB('El enlace del fisio dejará de poder apuntar lesiones (seguirá viendo los datos). ¿Quitar el permiso?', 'Remove injury logging from the physio link?'))) return; const c = { ...(store.cache.config.get('main') || {}) }; const st0 = { ...c.staff }; delete st0.e; delete st0.eh; await writeDoc('config', 'main', { ...c, staff: st0 }); await staffUpload(true); route(); } }, CB('Quitar permiso', 'Remove permission')))
+      : h('button', { class: 'btn sm primary', type: 'button', onclick: async e => { const b = e.currentTarget; b.disabled = true; try { await staffEditEnable(); route(); } catch (er) { console.error(er); toast(CB('No se pudo crear el enlace', 'Could not create the link'), true); b.disabled = false; } } }, CB('Crear enlace para el fisio', 'Create physio link')),
+    log.length ? h('details', { class: 'wa-more', style: 'margin-top:8px' }, h('summary', null, CB('Últimos cambios del cuerpo técnico', 'Latest staff changes')),
+      h('div', { class: 'nt-list' }, log.slice(0, 10).map(l => h('div', { class: 'nt-it' }, h('span', { class: 'nt-d' }, l.at ? fmtAt(l.at).split(' ')[0] : ''), h('span', { class: 'nt-t' }, h('b', null, l.by), ' · ', l.what))))) : null);
+  const det = p.querySelector('details.wa-more'); if (det) det.before(box); else p.append(box);
+  return p;
+};
+const vPlant30 = VIEWS.plantilla;
+VIEWS.plantilla = function (main) {
+  vPlant30(main);
+  const p = cloudPanel(); if (!p) return;
+  const first = main.querySelector('#staff') || main.querySelector('#secciones');
+  if (first) first.before(p); else main.append(p);
+};
+(function css() {
+  document.head.append(h('style', { id: 'f30-css' }, `
+.cb-code { font: 800 1.5rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; padding: 12px 14px; border-radius: 12px; background: var(--line-2); text-align: center; margin-top: 10px; overflow-wrap: anywhere; }
+.cb-new { padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--z-ok); background: color-mix(in srgb, var(--z-ok) 10%, var(--panel)); }
+.cb-in { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .05em; text-transform: uppercase; }
+.cb-edit { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+`));
+})();
+
+/* ==F30-END== */
 /* ==THEME15-START== */
 /* ================= tema claro / oscuro elegido por el usuario ================= */
 const TH = (es, en) => LANG === 'en' ? en : es;
