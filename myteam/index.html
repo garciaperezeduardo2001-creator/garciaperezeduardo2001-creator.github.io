@@ -6547,6 +6547,36 @@ function wellAskPanel(M, plist, getDate) {
       const toIso = y => y.slice(0, 4) + '-' + y.slice(4, 6) + '-' + y.slice(6, 8);
       cloudHelp.replaceChildren(h('div', { style: 'opacity:.8' }, WL(`Buzón ${k.w.slice(0, 6)} · ${docs.length} respuesta${docs.length === 1 ? '' : 's'} guardada${docs.length === 1 ? '' : 's'} en total.`, `Inbox ${k.w.slice(0, 6)} · ${docs.length} answer${docs.length === 1 ? '' : 's'} stored in total.`)));
       if (recent.length) cloudHelp.append(WL('También hay respuestas de: ', 'There are also answers for: '), ...recent.map(([y, n]) => h('button', { class: 'btn sm', type: 'button', style: 'margin:4px 6px 0 0', onclick: () => { const di = document.getElementById('s-date'); if (di) { di.value = toIso(y); di.dispatchEvent(new Event('input', { bubbles: true })); di.dispatchEvent(new Event('change', { bubbles: true })); } } }, y.slice(6, 8) + '/' + y.slice(4, 6) + ' · ' + n)));
+      const mine = k.w;
+      try { const kn = JSON.parse(localStorage.getItem('mt-nube-known') || '[]').filter(x => x && x.w !== k.w); kn.unshift({ w: k.w, r: k.r, team: (MODEL && MODEL.cfg.team) || '', app: location.pathname }); localStorage.setItem('mt-nube-known', JSON.stringify(kn.slice(0, 12))); } catch (_) {}
+      // ¿están llegando al buzón de otro de tus equipos? (pasa si el enlace del grupo es el de otro equipo)
+      if (!day.length) {
+        (async () => {
+          const found = [], cands = [];
+          for (const t of (typeof teamList === 'function' ? teamList() : [])) {
+            if (t.id === store.team) continue;
+            try { const D = await fetchTeamDocs(t.id), kk = D && D.config && D.config.nube; if (kk && kk.w && kk.r) cands.push({ t, kk }); } catch (e) { console.error(e); }
+          }
+          // buzones de la otra app (Vestuario / My Team) o de un equipo borrado en este mismo móvil
+          let known = []; try { known = JSON.parse(localStorage.getItem('mt-nube-known') || '[]'); } catch (_) {}
+          known.forEach(x => { if (x && x.w && x.r && !cands.some(c => c.kk.w === x.w)) cands.push({ t: { id: null, name: x.team + (x.app && x.app !== location.pathname ? WL(' (en la otra app)', ' (in the other app)') : '') }, kk: { w: x.w, r: x.r } }); });
+          for (const { t, kk } of cands) {
+            try {
+              if (kk.w === mine) continue;
+              let r = await nubeReq('/buzon/' + kk.w + '/r?pageSize=500');
+              if (r.status === 403) { await nubeClaim(kk); r = await nubeReq('/buzon/' + kk.w + '/r?pageSize=500'); }
+              if (!r.ok) continue;
+              const n = ((await r.json()).documents || []).filter(x => x.name.endsWith('-' + ymd)).length;
+              if (n) found.push({ t, n });
+            } catch (e) { console.error(e); }
+          }
+          if (!found.length || !cloudHelp.isConnected) return;
+          cloudHelp.append(...found.map(({ t, n }) => h('div', { style: 'margin-top:8px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb, var(--z-warn) 14%, var(--panel))' },
+            WL(`Hay ${n} respuesta${n === 1 ? '' : 's'} del ${ddmm(d)} en el buzón de «${t.name}». El enlace que están usando es el de ese equipo: ábrelo allí, o envía a este grupo el de «Enlace para los jugadores» de aquí abajo.`,
+              `There ${n === 1 ? 'is' : 'are'} ${n} answer${n === 1 ? '' : 's'} for ${ddmm(d)} in the inbox of “${t.name}”. They are using that team's link: open it there, or send this group the one under “Link for players” below.`),
+            typeof openTeam === 'function' && t.id ? h('div', null, h('button', { class: 'btn sm', type: 'button', style: 'margin-top:6px', onclick: () => openTeam(t) }, WL('Ir a «', 'Go to “') + t.name + WL('»', '”'))) : null)));
+        })();
+      }
       if (!docs.length) cloudHelp.append(h('div', { style: 'margin-top:4px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb, var(--z-warn) 12%, var(--panel))' },
         WL('Todavía no ha llegado ninguna respuesta. Si en el enlace de los jugadores pone «Enviar por WhatsApp» en vez de «Enviar al entrenador», tienen un enlace antiguo (de antes de activar la recepción automática): mándales el de «Enlace para los jugadores», aquí abajo.',
           'No answers have arrived yet. If players see “Send via WhatsApp” instead of “Send to coach”, they have an old link (from before automatic receiving was turned on): send them the one under “Link for players” below.')));
