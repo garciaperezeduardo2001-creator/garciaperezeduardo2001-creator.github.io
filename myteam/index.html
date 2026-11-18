@@ -6527,6 +6527,7 @@ function wellAskPanel(M, plist, getDate) {
   const btnLabel = n => k ? (n ? WL('📲 Respuestas · ', '📲 Answers · ') + n : WL('📲 Respuestas', '📲 Answers')) : WL('📲 Que lo rellenen ellos', '📲 Let players fill it in');
   const btn = h('button', { class: 'btn sm', type: 'button', 'data-noi18n': '', onclick: () => { const on = box.style.display === 'none'; show(on); if (on) { refreshLink(); box.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); if (k) sync(true); } } }, btnLabel(0));
   const cloudSt = h('div', { class: 'sub', style: 'margin-top:6px' });
+  const cloudHelp = h('div', { class: 'sub', style: 'margin-top:6px' });
   let busy = false;
   const sync = async manual => {
     if (!k || busy) return; busy = true;
@@ -6540,11 +6541,24 @@ function wellAskPanel(M, plist, getDate) {
       apply(day.map(x => x.m).join('\n'), true, cmts);
       const t = new Date(), hm = pad2(t.getHours()) + ':' + pad2(t.getMinutes());
       cloudSt.textContent = WL(`Comprobado a las ${hm} · ${day.length} de ${plist.filter(p => p.estado !== 'Baja').length} han respondido para el ${ddmm(d)}.`, `Checked at ${hm} · ${day.length} of ${plist.filter(p => p.estado !== 'Baja').length} answered for ${ddmm(d)}.`);
+      // respuestas de otros días (por ejemplo, si estás registrando otra fecha): un toque y se cambia la fecha
+      const other = new Map(); docs.forEach(x => { const y = x.id.split('-')[1] || ''; if (/^\d{8}$/.test(y) && y !== ymd) other.set(y, (other.get(y) || 0) + 1); });
+      const recent = [...other].sort((a, b) => a[0] < b[0] ? 1 : -1).slice(0, 4);
+      const toIso = y => y.slice(0, 4) + '-' + y.slice(4, 6) + '-' + y.slice(6, 8);
+      cloudHelp.replaceChildren();
+      if (recent.length) cloudHelp.append(WL('También hay respuestas de: ', 'There are also answers for: '), ...recent.map(([y, n]) => h('button', { class: 'btn sm', type: 'button', style: 'margin:4px 6px 0 0', onclick: () => { const di = document.getElementById('s-date'); if (di) { di.value = toIso(y); di.dispatchEvent(new Event('input', { bubbles: true })); di.dispatchEvent(new Event('change', { bubbles: true })); } } }, y.slice(6, 8) + '/' + y.slice(4, 6) + ' · ' + n)));
+      if (!docs.length) cloudHelp.append(h('div', { style: 'margin-top:4px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb, var(--z-warn) 12%, var(--panel))' },
+        WL('Todavía no ha llegado ninguna respuesta. Si en el enlace de los jugadores pone «Enviar por WhatsApp» en vez de «Enviar al entrenador», tienen un enlace antiguo (de antes de activar la recepción automática): mándales el de «Enlace para los jugadores», aquí abajo.',
+          'No answers have arrived yet. If players see “Send via WhatsApp” instead of “Send to coach”, they have an old link (from before automatic receiving was turned on): send them the one under “Link for players” below.')));
       btn.textContent = btnLabel(day.length);
       if (day.length && !manual) show(true);
     } catch (e) {
       console.error(e);
-      cloudSt.textContent = WL('No se pudo comprobar el buzón (¿sin conexión?). Vuelve a intentarlo o pega los mensajes de WhatsApp.', 'Could not check the inbox (offline?). Try again or paste the WhatsApp messages.');
+      const em = String((e && e.message) || e);
+      cloudSt.textContent = /list 403|claim 403|claim 400/.test(em)
+        ? WL('Firebase no deja leer el buzón. Revisa que las reglas de Firestore estén publicadas (Firestore → Reglas → pegar → Publicar) y vuelve a intentarlo.', 'Firebase will not let this device read the inbox. Check the Firestore rules are published and try again.')
+        : /Failed to fetch|NetworkError|Load failed/i.test(em) ? WL('No hay conexión. Vuelve a intentarlo o pega los mensajes de WhatsApp.', 'No connection. Try again or paste the WhatsApp messages.')
+        : WL('No se pudo comprobar el buzón (' + em.slice(0, 60) + '). Vuelve a intentarlo o pega los mensajes de WhatsApp.', 'Could not check the inbox (' + em.slice(0, 60) + '). Try again or paste the WhatsApp messages.');
     } finally { busy = false; }
   };
   if (k) {
@@ -6552,7 +6566,7 @@ function wellAskPanel(M, plist, getDate) {
       h('div', { style: 'margin-top:8px' }, WL('Las respuestas de los jugadores llegan solas y se colocan en la tabla. Revisa y pulsa «Guardar sesión».', 'Player answers arrive by themselves and fill the table. Check it and tap “Save session”.')),
       h('div', { class: 'controls', style: 'margin-top:6px;flex-wrap:wrap' },
         h('button', { class: 'btn sm primary', type: 'button', onclick: () => sync(true) }, WL('Buscar respuestas nuevas', 'Check for new answers'))),
-      cloudSt, res,
+      cloudSt, cloudHelp, res,
       h('details', { class: 'wa-more' }, h('summary', null, WL('Enlace para los jugadores', 'Link for players')), ...step1),
       h('details', { class: 'wa-more' }, h('summary', null, WL('¿Alguien te lo ha mandado por WhatsApp? Pégalo aquí', 'Someone sent it on WhatsApp? Paste it here')), ...pasteZone),
       canEdit() && !store.fromSnap ? h('details', { class: 'wa-more' }, h('summary', null, WL('Privacidad y desactivar', 'Privacy and turning off')),

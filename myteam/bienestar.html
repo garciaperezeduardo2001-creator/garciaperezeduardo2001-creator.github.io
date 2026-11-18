@@ -99,7 +99,8 @@ a.btn2.wa{background:#25d366;border-color:#25d366;color:#06301a}
   }
   document.title = T('Bienestar y RPE · ', 'Wellness & RPE · ') + data.team;
   var initials = data.team.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase() || 'MT';
-  var now = new Date(), pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var now = new Date(); if (now.getHours() < 5) now = new Date(now.getTime() - 6 * 3600e3); // de madrugada cuenta para el entreno de ayer
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
   var dShort = pad(now.getDate()) + '/' + pad(now.getMonth() + 1) + '/' + String(now.getFullYear()).slice(2);
   var dLong = now.toLocaleDateString(EN ? 'en-GB' : 'es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
   var head = function (title) { return h('header', null, h('div', { class: 'badge' }, initials), h('div', null, h('h1', null, title), h('div', { class: 'sub' }, data.team + ' · ' + dLong))); };
