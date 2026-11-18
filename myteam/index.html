@@ -2027,8 +2027,9 @@ function vPlan(main) {
     const cx = L + gw * k + gw / 2;
     if (d.plan) { const hgt = d.plan / max * ih; svg.append(s('rect', { x: cx - bw - 2, y: T + ih - hgt, width: bw, height: hgt, rx: 3, style: 'fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 3' })); }
     if (d.real != null) { const hgt = d.real / max * ih; svg.append(s('rect', { x: cx + 2, y: T + ih - hgt, width: bw, height: hgt, rx: 3, class: 'bar' })); }
-    svg.append(s('text', { x: cx, y: H - B + 16, 'text-anchor': 'middle' }, DOW_LONG[k].slice(0, 3) + ' ' + ddmm(d.date)));
-    svg.append(s('text', { x: cx, y: H - B + 30, 'text-anchor': 'middle' }, d.md || ''));
+    const narrow = gw < 74; // en el móvil no caben día y fecha juntos: día arriba, MD (o fecha) abajo
+    svg.append(s('text', { x: cx, y: H - B + 16, 'text-anchor': 'middle' }, narrow ? DOW_LONG[k].slice(0, 3) : DOW_LONG[k].slice(0, 3) + ' ' + ddmm(d.date)));
+    svg.append(s('text', { x: cx, y: H - B + 30, 'text-anchor': 'middle' }, narrow ? (d.md || ddmm(d.date)) : (d.md || '')));
     const hit = s('rect', { x: L + gw * k, y: T, width: gw, height: ih, fill: 'transparent', tabindex: 0 });
     const lines = () => [d.real != null ? fmt0(d.real) + ' UA real' : 'Sin sesión', `${DOW_LONG[k]} ${ddmm(d.date)}${d.md ? ' · ' + d.md : ''}`, d.plan ? 'Plan ' + fmt0(d.plan) + ' UA' + (d.diff != null ? ` (${d.diff > 0 ? '+' : ''}${Math.round(d.diff * 100)} %)` : '') : 'Sin plan'];
     hit.addEventListener('pointermove', e => showTip(e, lines())); hit.addEventListener('focus', e => showTip(focusPt(e), lines()));
@@ -3093,6 +3094,8 @@ acwrChart = function (data, cfg, { height = 200, tipLines } = {}) {
   if (last >= 0) {
     const v = data[last].v, x = X(last), y = Y(v), txt = fmt2(v), w = 44, hh = 22;
     const bx = Math.min(W - R - w, Math.max(L, x - w / 2)), by = y - hh - 10 < T - 12 ? y + 12 : y - hh - 10;
+    // la etiqueta de zona que quede debajo de la burbuja se esconde para que no se pisen
+    svg.querySelectorAll('text.zlbl').forEach(t => { const ty = +t.getAttribute('y'), tw = t.textContent.length * 6.6, tx = W - R - 4; if (ty > by - 2 && ty - 10 < by + hh + 2 && tx > bx - 4 && tx - tw < bx + w + 4) t.remove(); });
     svg.append(s('rect', { x: bx, y: by, width: w, height: hh, rx: 6, class: 'vbubble' }), s('text', { x: bx + w / 2, y: by + 15.5, 'text-anchor': 'middle', class: 'vbubble-t' }, txt));
   }
   return h('div', { class: 'chart' }, svg);
@@ -5496,6 +5499,101 @@ VIEWS.plantilla = function (main) {
 })();
 
 /* ==F30-END== */
+/* ==F31-START== */
+
+/* ================= repaso de pulido: contraste, zonas táctiles, accesibilidad y detalles ================= */
+(function () {
+  document.head.append(h('style', { id: 'f31-css' }, `
+/* textos de estado más legibles en modo claro (en oscuro ya cumplen) */
+html:root { --ink-3: #5f6e66; --z-ok-tx: #157a40; --z-warn-tx: #8a5800; --z-low-tx: #3f6489; --z-bad-tx: #b42a2a; --draw-strong: #b86e00; --win-strong: #16804a; }
+@media (prefers-color-scheme: dark) { html:root:not([data-theme="light"]) { --ink-3: #8fa097; --z-ok-tx: var(--z-ok); --z-warn-tx: var(--z-warn); --z-low-tx: var(--z-low); --z-bad-tx: var(--z-bad); --draw-strong: #b86e00; --win-strong: #16804a; } }
+html:root[data-theme="dark"] { --ink-3: #8fa097; --z-ok-tx: var(--z-ok); --z-warn-tx: var(--z-warn); --z-low-tx: var(--z-low); --z-bad-tx: var(--z-bad); --draw-strong: #b86e00; --win-strong: #16804a; }
+html .pill.z-ok, html span.z-ok:not(.rs-dot) { color: var(--z-ok-tx); }
+html .pill.z-warn, html span.z-warn:not(.rs-dot) { color: var(--z-warn-tx); }
+html .pill.z-low, html span.z-low:not(.rs-dot) { color: var(--z-low-tx); }
+html .pill.z-bad, html span.z-bad:not(.rs-dot) { color: var(--z-bad-tx); }
+html .pill.z-none { color: var(--ink-2); }
+html .warnbox { color: var(--z-warn-tx); }
+html .tb-badge.warn { background: #f0a020; color: #241500; }
+html .res.V, html .rs-dot.V { background: var(--win-strong); } html .res.E, html .rs-dot.E { background: var(--draw-strong); }
+html .res { color: #fff; }
+html .subs .in { color: var(--z-ok-tx); } html .subs .out { color: var(--z-bad-tx); }
+html .cal-s.hi { color: #fff; background: color-mix(in srgb, var(--accent) 78%, #000); }
+html .rc-name > .muted { margin-left: .35em; }
+/* en la bienvenida (sin equipo) no hay nada a lo que navegar */
+html body:has(#w-name) #mnav { display: none; }
+/* barra de secciones en ordenador: un degradado avisa de que hay más a los lados */
+html nav.tabs.fade-r { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); }
+html nav.tabs.fade-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 48px); mask-image: linear-gradient(90deg, transparent, #000 48px); }
+html nav.tabs.fade-l.fade-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 48px, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(90deg, transparent, #000 48px, #000 calc(100% - 48px), transparent); }
+/* racha: con pocos partidos las tarjetas ocupan el ancho, con muchos se desliza */
+html .rs-it { flex: 1 0 76px; width: auto; max-width: 128px; }
+html .rs-r { max-width: 100%; }
+/* zonas táctiles cómodas en el móvil sin cambiar el aspecto */
+html .gl-q { position: relative; }
+html .gl-q::after { content: ""; position: absolute; inset: -12px; }
+@media (max-width: 700px) {
+  html main input.n, html main select.f, main .wrap input[type="text"]:not(.nt-in), main td input, main td select { min-height: 36px; }
+  html td.name > .muted, html td.name label > .muted { margin-left: .3em; }
+  /* resultados de liga: cada partido en una fila que cabe en el móvil, sin desplazar la tabla */
+  html table:has(.g-home) { min-width: 0 !important; width: 100%; }
+  html table:has(.g-home) tr { display: grid; grid-template-columns: minmax(0,1fr) 46px 46px minmax(0,1fr); gap: 6px; align-items: center; padding: 6px 0; }
+  html table:has(.g-home) td, html table:has(.g-home) th { padding: 0 !important; border: 0; min-width: 0; text-align: center; }
+  html table:has(.g-home) td.l, html table:has(.g-home) th:first-child { text-align: left; }
+  html table:has(.g-home) th:nth-child(4), html table:has(.g-home) tr > td:nth-child(4) { text-align: right; }
+  html table:has(.g-home) tr > :nth-child(5):empty { display: none; }
+  html table:has(.g-home) tr > td.muted:nth-child(5) { grid-column: 1 / -1; font-size: .75rem; }
+  html table:has(.g-home) th:nth-child(5) { display: none; }
+  html table:has(.g-home) select { width: 100%; min-width: 0; }
+  html table:has(.g-home) input { width: 100%; }
+  html table:has(.g-home) tr + tr { border-top: 1px solid var(--line-2); }
+  html .cal-bar .btn.sm { min-width: 40px; }
+  footer a, .foot a, a[href*="privacidad"] { display: inline-block; padding: 8px 0; }
+}
+/* foco visible para quien usa teclado */
+html :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+html button:focus:not(:focus-visible) { outline: none; }
+/* números alineados en tablas */
+html td, html .kpi .v { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+`));
+
+  // nombres accesibles para los campos de tabla y los botones de solo icono
+  function a11y() {
+    const main = document.querySelector('main'); if (!main) return;
+    main.querySelectorAll('td input, td select, td textarea').forEach(el => {
+      if (el.getAttribute('aria-label') || (el.labels && [...el.labels].some(l => l.innerText.trim()))) return;
+      const td = el.closest('td'), tr = el.closest('tr'), table = el.closest('table'); if (!td || !tr || !table) return;
+      const idx = [...tr.children].indexOf(td);
+      const heads = table.querySelectorAll('thead tr'); const hr = heads[heads.length - 1];
+      const col = hr && hr.children[idx] ? hr.children[idx].innerText.trim() : '';
+      const row = (tr.querySelector('.name, td.l, th') || tr.children[0] || {}).innerText || '';
+      const lbl = [col, row.trim().split('\n')[0]].filter(Boolean).join(' · ');
+      if (lbl) el.setAttribute('aria-label', lbl);
+    });
+    document.querySelectorAll('button:not([aria-label])').forEach(b => {
+      if ((b.innerText || '').trim()) return;
+      const t = b.title || (b.dataset && b.dataset.tip) || '';
+      if (t) b.setAttribute('aria-label', t);
+      else if (b.classList.contains('gl-q')) b.setAttribute('aria-label', LANG === 'en' ? 'What is this?' : '¿Qué es esto?');
+    });
+  }
+  // se repasa cada vez que cambia la pantalla (con un pequeño margen para no hacerlo en cada tecla)
+  let a11yT = 0;
+  const kick = () => { clearTimeout(a11yT); a11yT = setTimeout(a11y, 120); };
+  new MutationObserver(kick).observe(document.body, { childList: true, subtree: true });
+  kick();
+  // degradado de la barra de secciones y pestaña activa siempre a la vista
+  const tabs = document.getElementById('tabs');
+  if (tabs) {
+    const fade = () => { const m = tabs.scrollWidth - tabs.clientWidth; tabs.classList.toggle('fade-r', m > 4 && tabs.scrollLeft < m - 4); tabs.classList.toggle('fade-l', tabs.scrollLeft > 4); };
+    tabs.addEventListener('scroll', fade, { passive: true }); addEventListener('resize', fade);
+    const show = () => { const a = tabs.querySelector('[aria-current="page"], .active, .on'); if (a && tabs.scrollWidth > tabs.clientWidth) { const r = a.getBoundingClientRect(), t = tabs.getBoundingClientRect(); if (r.left < t.left + 40 || r.right > t.right - 40) tabs.scrollTo({ left: tabs.scrollLeft + r.left - t.left - t.width / 2 + r.width / 2, behavior: 'smooth' }); } fade(); };
+    addEventListener('hashchange', () => setTimeout(show, 80)); setTimeout(show, 600);
+  }
+})();
+
+/* ==F31-END== */
 /* ==THEME15-START== */
 /* ================= tema claro / oscuro elegido por el usuario ================= */
 const TH = (es, en) => LANG === 'en' ? en : es;
