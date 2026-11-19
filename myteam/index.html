@@ -5702,7 +5702,7 @@ async function evSave(patch) {
   await writeDoc('config', 'main', c);
 }
 function evSyncFields(cfgDoc) {
-  const e = evCfgOf(cfgDoc), list = EV_BASE.slice();
+  const e = evCfgOf(cfgDoc), off = new Set(e.off || []), list = EV_BASE.filter(f => !off.has(f[0]));
   (e.extras || []).forEach(k => { if (EV_EXTRA[k]) list.push(EV_EXTRA[k]); });
   (e.custom || []).forEach(c => list.push([c.k, c.label, c.unit || '', c.better, c.dec != null ? c.dec : 1]));
   TEST_FIELDS.length = 0; TEST_FIELDS.push(...list);
@@ -5712,7 +5712,8 @@ const docsToModel32 = docsToModel;
 docsToModel = function (D) {
   evSyncFields(D && D.config);
   let M;
-  try { M = docsToModel32(D); if (M) evAlerts(M); }
+  const D2 = D && D.tests && D.tests.some(t => t.grupo) ? { ...D, tests: D.tests.filter(t => !t.grupo) } : D;   // las evaluaciones de otros equipos van aparte
+  try { M = docsToModel32(D2); if (M) evAlerts(M); }
   catch (e) { console.error(e); if (!M) throw e; }
   finally { evSyncFields(store.cache.config.get('main')); }   // otros equipos (Hoy, comparar) no cambian los tests del equipo abierto
   return M;
@@ -5722,8 +5723,26 @@ const evName = k => { const f = evField(k); return f ? f[1] : k; };
 const evUnit = k => { const f = evField(k); return f ? f[2] : ''; };
 const evFmt = (k, v) => { if (v == null || v === '') return '—'; const f = evField(k); return fmtT(+v, f ? f[4] : 1); };
 const evMomLabel = m => { const x = EV_MOMENTS.find(y => y[0] === m); return x ? EV(x[1], x[2]) : ''; };
-function evTestDoc(id) { return ((MODEL && MODEL.docs.tests) || []).find(x => x.id === id) || {}; }
-function evNac(pid, cfgDoc) { const v = (evCfgOf(cfgDoc || store.cache.config.get('main')).nac || {})[pid]; return v ? +v : null; }
+function evTestDoc(id) { const M = evM(); return ((M && M.docs.tests) || []).find(x => x.id === id) || {}; }
+// equipos que no son el tuyo (por ejemplo, un club al que vas a evaluar): sus jugadores y evaluaciones van aparte
+const evGroups = () => (evCfg().groups || []);
+function evLineOf(pos) { return ({ ...DEFAULT_LINE, ...((MODEL && MODEL.cfg.lineOf) || {}) })[pos] || ''; }
+function evGroupM(g) {
+  const D = currentDocs();
+  const raw = (D.tests || []).filter(t => t.grupo === g.id && t.date != null);
+  const players = (g.players || []).map((p, i) => ({ ...p, i, estado: 'Activo', line: evLineOf(p.pos) }));
+  const nameOf = Object.fromEntries(players.map(p => [p.id, p.name]));
+  const tests = raw.map(t => { const res = {}; for (const [pid, r] of Object.entries(t.results || {})) { const n = nameOf[pid]; if (n) res[n] = { ...r, imc: imcOf(r), arms: armsOf(r) }; } return { ...t, res }; }).sort((a, b) => a.date - b.date);
+  return { isExt: true, group: g, cfg: { ...MODEL.cfg, team: g.name }, players, tests, docs: { tests: raw }, sessions: [], alerts: [], pw: {}, played: [], injuries: [] };
+}
+function evM() {
+  if (UI.evGroup) { const g = evGroups().find(x => x.id === UI.evGroup); if (g && MODEL) return evGroupM(g); UI.evGroup = null; }
+  return MODEL;
+}
+function evNac(pid, cfgDoc) {
+  if (String(pid).startsWith('x_')) { for (const g of evGroups()) { const p = (g.players || []).find(x => x.id === pid); if (p) return p.nac ? +p.nac : null; } return null; }
+  const v = (evCfgOf(cfgDoc || store.cache.config.get('main')).nac || {})[pid]; return v ? +v : null;
+}
 function evGroup(nac, serial) {
   if (!nac) return null;
   const age = sdate(serial != null ? serial : todaySerial()).getUTCFullYear() - nac;
@@ -5917,7 +5936,7 @@ function evCardSvg(M, p, prof, Q) {
   const T = EV_TIERS[evScoreLv(Q.index) ?? 1], W = 300, H = 430, NS = 'http://www.w3.org/2000/svg';
   const id = 'evc' + Math.random().toString(36).slice(2, 7);
   const col = teamMeta().color || '#16804a';
-  const crest = document.querySelector('.crest'), crestSrc = crest && /^data:image\//.test(crest.src || '') ? crest.src : null;
+  const crest = M.isExt ? null : document.querySelector('.crest'), crestSrc = crest && /^data:image\//.test(crest.src || '') ? crest.src : null;
   const el = (t, a, txt) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
   const svg = el('svg', { xmlns: NS, viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: 'ev-cardsvg', role: 'img', 'aria-label': EV('Carta de ', 'Card of ') + p.name });
   const defs = el('defs', {});
@@ -5939,7 +5958,7 @@ function evCardSvg(M, p, prof, Q) {
   txt(38, 108, (p.pos || '').toUpperCase() || EV('JUG', 'PLY'), { s: 20, w: 800, ls: 1 });
   g.append(el('line', { x1: 38, y1: 120, x2: 86, y2: 120, stroke: T.sub, 'stroke-width': 2, 'stroke-opacity': .7 }));
   if (crestSrc) { const im = el('image', { x: 40, y: 130, width: 42, height: 42, preserveAspectRatio: 'xMidYMid meet' }); im.setAttribute('href', crestSrc); g.append(im); }
-  else txt(61, 158, (MODEL.cfg.team || '').split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase(), { s: 18, w: 900, a: 'middle', o: .85 });
+  else txt(61, 158, (M.cfg.team || '').split(/\s+/).filter(w => /^\p{L}/u.test(w)).map(w => w[0]).join('').slice(0, 3).toUpperCase(), { s: 18, w: 900, a: 'middle', o: .85 });
   // camiseta con dorsal
   const sx = 186, sy = 48, shirt = `M${sx - 52} ${sy + 18} L${sx - 22} ${sy} Q${sx} ${sy + 16} ${sx + 22} ${sy} L${sx + 52} ${sy + 18} L${sx + 66} ${sy + 52} L${sx + 42} ${sy + 62} L${sx + 40} ${sy + 150} L${sx - 40} ${sy + 150} L${sx - 42} ${sy + 62} L${sx - 66} ${sy + 52} Z`;
   g.append(el('path', { d: shirt, fill: '#000', 'fill-opacity': '.18', transform: 'translate(4 6)' }), el('path', { d: shirt, fill: p.pos === 'POR' ? '#f2b705' : col, stroke: '#fff', 'stroke-opacity': '.65', 'stroke-width': 2.5, 'stroke-linejoin': 'round' }));
@@ -5958,7 +5977,7 @@ function evCardSvg(M, p, prof, Q) {
     txt(X + 44, Y, EV(...EV_ABBR[x.q]), { s: 17, w: 700, f: T.sub, ls: 1 });
   });
   if (at.length > 3) g.append(el('rect', { x: W / 2 - 1, y: 300, width: 2, height: 92, fill: T.sub, 'fill-opacity': .45 }));
-  txt(W / 2, H - 14, (MODEL.cfg.team || '').toUpperCase().slice(0, 30), { s: 10, w: 700, a: 'middle', f: T.sub, ls: 2, o: .9 });
+  txt(W / 2, H - 14, (M.cfg.team || '').toUpperCase().slice(0, 30), { s: 10, w: 700, a: 'middle', f: T.sub, ls: 2, o: .9 });
   return svg;
 }
 function evCardPng(svg, scale = 3) {
@@ -6120,7 +6139,7 @@ function evPdfRadarAt(K, axes, series, cx, cy, R) {
   });
 }
 async function evTeamPdf(t, btn) {
-  const M = MODEL, cfg = M.cfg;
+  const M = evM(), cfg = M.cfg;
   const dl = await window.claude?.use?.('downloads');
   const t0 = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = EV('Generando…', 'Generating…'); }
   try {
@@ -6133,7 +6152,7 @@ async function evTeamPdf(t, btn) {
     // portada
     const HB = 44;
     doc.setFillColor(...K.accent); doc.rect(0, 0, K.PW, HB, 'F'); doc.setFillColor(...mix(K.accent, .18)); doc.rect(0, HB - 3, K.PW, 3, 'F');
-    const crest = document.querySelector('.crest'); let tx = K.ML;
+    const crest = M.isExt ? null : document.querySelector('.crest'); let tx = K.ML;
     if (crest && /^data:image\/(png|jpe?g)/i.test(crest.src || '')) { try { doc.setFillColor(255, 255, 255); doc.roundedRect(K.ML, 9, 26, 26, 3, 3, 'F'); doc.addImage(crest.src, /png/i.test(crest.src.slice(0, 20)) ? 'PNG' : 'JPEG', K.ML + 2, 11, 22, 22); tx = K.ML + 31; } catch (_) {} }
     K.text(EV('INFORME DE EVALUACIÓN FÍSICA', 'FITNESS ASSESSMENT REPORT'), tx, 15, { bold: true, size: 9, color: mix(K.accent, .7) });
     K.text(K.fit(cfg.team, 150, { bold: true, size: 22 }), tx, 26, { bold: true, size: 22, color: [255, 255, 255] });
@@ -6154,7 +6173,7 @@ async function evTeamPdf(t, btn) {
       LINES.forEach(([l, c]) => { const ns = players.filter(p => p.line === l).map(p => p.name); if (!ns.length) return; const q = evTeamQ(M, t, ns); ser.push({ scores: TQ.axes.map(x => (q.team.find(y => y.q === x.q) || {}).score), color: c, w: .6 }); leg.push([l + ' (' + ns.length + ')', c]); });
       evPdfRadarAt(K, TQ.axes, ser, K.ML + 50, top + 40, 31);
       // leyenda de líneas
-      let lx = K.ML + 8; const ly = top + 86;
+      let lx = K.ML + 8; const ly = top + 92;
       [[EV('Equipo', 'Team'), K.accent], ...leg].forEach(([l, c]) => { doc.setDrawColor(...c); doc.setLineWidth(1); doc.line(lx, ly - 1, lx + 5, ly - 1); doc.setLineWidth(.2); K.text(l, lx + 6.5, ly, { size: 6.8, color: K.muted }); K.font({ size: 6.8 }); lx += 11 + doc.getTextWidth(l); });
       // a la derecha: mejores por cualidad
       const rx = K.ML + 108, rw = K.PW - K.MR - rx; let yy = top + 2;
@@ -6164,7 +6183,7 @@ async function evTeamPdf(t, btn) {
         K.text(x.label, rx, yy, { bold: true, size: 8.5 }); yy += 4.4;
         K.text(ldr.map((r, i) => `${i + 1}. ${r.p.name} ${Math.round(r.v)}`).join('   '), rx, yy, { size: 7.6, color: K.muted }); yy += 6.6;
       });
-      K.y = Math.max(top + 92, yy + 2);
+      K.y = Math.max(top + 98, yy + 2);
     }
     // ranking con todas las cualidades
     K.h2(EV('Clasificación por índice físico', 'Ranking by fitness index'), EV('0–100 · 33–66 = nivel medio para su edad', '0–100 · 33–66 = average for age'));
@@ -6211,7 +6230,7 @@ function evSpark(list, better) {
   return svg;
 }
 function evTabs() {
-  const tabs = [['res', EV('Resultados', 'Results')], ['jug', EV('Por jugador', 'By player')], ['cfg', EV('Tests y baremos', 'Tests & norms')]];
+  const tabs = [['res', EV('Resultados', 'Results')], ['jug', EV('Por jugador', 'By player')], ...(UI.evGroup ? [['nac', EV('Jugadores', 'Players')]] : []), ['cfg', EV('Tests y baremos', 'Tests & norms')]];
   return h('div', { class: 'chips ev-tabs', role: 'tablist' }, tabs.map(([k, l]) => h('button', { class: 'chip', type: 'button', role: 'tab', 'aria-selected': UI.evTab === k ? 'true' : 'false', 'aria-pressed': UI.evTab === k ? 'true' : 'false', onclick: () => { UI.evTab = k; route(); } }, h('span', { class: 'sc' }, l))));
 }
 function evNacBanner(M) {
@@ -6220,17 +6239,46 @@ function evNacBanner(M) {
   return h('div', { class: 'info section-gap', style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' },
     h('span', { style: 'flex:1 1 240px' }, EV(`${miss.length === M.players.filter(p => p.estado !== 'Baja').length ? 'Ningún jugador tiene' : miss.length + (miss.length === 1 ? ' jugador no tiene' : ' jugadores no tienen')} año de nacimiento: sin él no sale el semáforo de los baremos (sí la comparación con la media).`,
       `${miss.length} player(s) have no birth year: without it there is no traffic light (the team-average comparison still works).`)),
-    canEdit() ? h('button', { class: 'btn sm', type: 'button', onclick: () => { UI.evTab = 'nac'; route(); } }, EV('Poner años de nacimiento', 'Add birth years')) : null);
+    canEdit() ? h('button', { class: 'btn sm', type: 'button', onclick: () => { UI.evTab = 'nac'; route(); } }, UI.evGroup ? EV('Editar jugadores', 'Edit players') : EV('Poner años de nacimiento', 'Add birth years')) : null);
 }
-function vEval(main) {
-  const M = MODEL, edit = canEdit();
+function evContextBar() {
+  const gs = evGroups(), cur = UI.evGroup || '';
+  const own = MODEL ? MODEL.cfg.team : EV('Mi equipo', 'My team');
+  const sel = h('select', { class: 'f ev-ctx-sel', 'aria-label': EV('Equipo que evalúas', 'Team being assessed'), onchange: e => {
+    const v = e.target.value;
+    if (v === '__new') { UI.evTab = 'newgrp'; route(); return; }
+    UI.evGroup = v || null; UI.testId = null; UI.evPlayer = null; if (UI.evTab === 'nac' && !UI.evGroup) UI.evTab = 'res'; if (UI.evTab === 'newgrp') UI.evTab = 'res'; route(); } },
+    h('option', { value: '', selected: !cur }, '🏠 ' + own + EV(' (mi equipo)', ' (my team)')),
+    gs.length ? h('optgroup', { label: EV('Otros equipos', 'Other teams') }, gs.map(g => h('option', { value: g.id, selected: cur === g.id }, '🏟️ ' + g.name + ` (${(g.players || []).length})`))) : null,
+    canEdit() ? h('option', { value: '__new' }, EV('+ Evaluar otro equipo…', '+ Assess another team…')) : null);
+  return h('div', { class: 'ev-ctx' + (cur ? ' ext' : '') }, h('span', { class: 'ev-ctx-l' }, EV('Evaluando a', 'Assessing')), sel,
+    cur ? h('span', { class: 'ev-ctx-n' }, EV('Sus datos van aparte: no se mezclan con tu equipo ni con su control de carga.', 'Kept separate from your team and its load data.')) : null);
+}
+function evNewGroupView(main) {
+  const nm = h('input', { type: 'text', class: 'nt-in', maxlength: 40, placeholder: EV('Ej.: CD Ejemplo · Cadete A', 'e.g. Example FC · U16 A'), 'aria-label': EV('Nombre del equipo', 'Team name') });
+  const go = async () => {
+    const name = nm.value.trim(); if (!name) { toast(EV('Pon el nombre del equipo', 'Add the team name'), true); return; }
+    const g = { id: 'g_' + Math.random().toString(36).slice(2, 9), name, players: [] };
+    try { await evSave({ groups: evGroups().concat([g]) }); UI.evGroup = g.id; UI.evTab = 'nac'; UI.testId = null; route(); } catch (er) { toast(errText(er), true); }
+  };
+  nm.onkeydown = e => { if (e.key === 'Enter') go(); };
+  main.append(h('div', { class: 'panel section-gap' }, h('h3', null, EV('Evaluar otro equipo', 'Assess another team')),
+    h('div', { class: 'sub', style: 'margin:-6px 0 12px' }, EV('Para un club o equipo que no llevas: escribes sus jugadores, haces la batería y le entregas los informes con su nombre. No toca nada de tu equipo.', 'For a club or team you do not coach: add its players, run the battery and hand over the reports. Nothing in your team changes.')),
+    h('div', { class: 'controls', style: 'flex-wrap:wrap;gap:8px' }, nm, h('button', { class: 'btn primary', type: 'button', onclick: go }, EV('Crear y añadir jugadores', 'Create and add players')),
+      h('button', { class: 'btn', type: 'button', onclick: () => { UI.evTab = 'res'; route(); } }, EV('Cancelar', 'Cancel')))));
+  setTimeout(() => nm.focus(), 50);
+}
+function vEval(main0) {
+  const M = evM(), edit = canEdit();
+  // todo dentro de un contenedor propio: textos ya traducidos y, en otros equipos, sin las camisetas de tu plantilla
+  const main = h('div', { 'data-noi18n': '' }); if (M && M.isExt) main.setAttribute('data-noshirt', ''); main0.append(main);
   if (UI.editTest) return evEditTest(main, UI.editTest);
   UI.evTab = UI.evTab || 'res';
-  main.setAttribute('data-noi18n', '');
   main.append(h('div', { class: 'view-head' }, h('div', null, h('h2', null, EV('Evaluación física', 'Fitness assessment')),
     h('div', { class: 'sub' }, EV('Batería de tests por jugador y fecha, baremos por edad, evolución e informe para el club', 'Tests by player and date, age norms, progress and a report for the club'))),
     edit ? h('button', { class: 'btn primary', type: 'button', onclick: () => { UI.editTest = 'new'; UI.editing = true; route(); } }, EV('+ Nueva evaluación', '+ New assessment')) : null));
-  main.append(evTabs());
+  main.append(evContextBar(), evTabs());
+  if (UI.evTab === 'newgrp') return evNewGroupView(main);
   if (UI.evTab === 'nac') return evNacView(main);
   if (UI.evTab === 'cfg') return evCfgView(main);
   const ban0 = evNacBanner(M);
@@ -6241,8 +6289,9 @@ function vEval(main) {
       h('div', { class: 'ev-eh' }, h('div', null, h('h3', null, EV('Evalúa a tu plantilla en 3 pasos', 'Assess your squad in 3 steps')),
         h('div', { class: 'sub' }, EV('Cada jugador tendrá su carta, su gráfico en estrella y un informe en PDF para el club.', 'Each player gets a card, a star chart and a PDF report for the club.'))),
         h('div', { class: 'ev-emoji', 'aria-hidden': 'true' }, '⭐')),
+      M.isExt ? step(1, EV('Jugadores', 'Players'), EV(`Escribe los jugadores de ${M.group.name}: nombre, dorsal, demarcación y año. Tienes ${M.players.length}.`, `Add the players of ${M.group.name}. ${M.players.length} so far.`), canEdit() ? h('button', { class: 'btn sm', type: 'button', style: 'margin-top:6px', onclick: () => { UI.evTab = 'nac'; route(); } }, EV('Escribir jugadores', 'Add players')) : null) :
       step(1, EV('Años de nacimiento', 'Birth years'), EV(`Para comparar con el baremo de su edad. Tienes ${nacN} de ${M.players.filter(p => p.estado !== 'Baja').length}.`, `To compare with age norms. ${nacN} of ${M.players.filter(p => p.estado !== 'Baja').length} done.`), canEdit() ? h('button', { class: 'btn sm', type: 'button', style: 'margin-top:6px', onclick: () => { UI.evTab = 'nac'; route(); } }, EV('Ponerlos', 'Add them')) : null),
-      step(2, EV('Elige la batería', 'Pick the battery'), EV('CMJ, Abalakov, 10 y 20 m y 30-15 IFT vienen incluidos; añade 30 m, 505, Yo-Yo o tus propios tests.', 'CMJ, Abalakov, 10/20 m and 30-15 IFT included; add 30 m, 505, Yo-Yo or your own.'), h('button', { class: 'btn sm', type: 'button', style: 'margin-top:6px', onclick: () => { UI.evTab = 'cfg'; route(); } }, EV('Ver tests y protocolos', 'See tests & protocols'))),
+      step(2, EV('Elige la batería', 'Pick the battery'), EV('Todos los tests son opcionales: deja solo los que vayas a hacer y añade 30 m, 505, Yo-Yo o los tuyos propios.', 'All tests are optional: keep only the ones you run and add 30 m, 505, Yo-Yo or your own.'), h('button', { class: 'btn sm', type: 'button', style: 'margin-top:6px', onclick: () => { UI.evTab = 'cfg'; route(); } }, EV('Ver tests y protocolos', 'See tests & protocols'))),
       step(3, EV('Apunta los resultados en el campo', 'Log results on the pitch'), EV('Por test, jugador a jugador, con 1 o 3 intentos (se guarda el mejor).', 'Test by test, player by player, with 1 or 3 tries (best is kept).'), canEdit() ? h('button', { class: 'btn sm primary', type: 'button', style: 'margin-top:6px', onclick: () => { UI.editTest = 'new'; UI.editing = true; route(); } }, EV('+ Nueva evaluación', '+ New assessment')) : null)));
     return;
   }
@@ -6251,7 +6300,7 @@ function vEval(main) {
   evResultsView(main);
 }
 function evResultsView(main) {
-  const M = MODEL, edit = canEdit();
+  const M = evM(), edit = canEdit();
   if (!UI.testId || !M.tests.find(t => t.id === UI.testId)) UI.testId = M.tests[M.tests.length - 1].id;
   const ti = M.tests.findIndex(t => t.id === UI.testId), t = M.tests[ti], prevT = M.tests[ti - 1] || null, td = evTestDoc(t.id);
   main.append(evNextBox(M));
@@ -6261,10 +6310,10 @@ function evResultsView(main) {
   const names = M.players.filter(p => t.res[p.name]).map(p => p.name);
   const has = k => names.some(n => t.res[n][k] != null && t.res[n][k] !== '');
   // primero los tests con baremo (en el móvil son los que se ven en cada tarjeta) y al final peso, altura e IMC
-  const cols = [...TEST_FIELDS.slice(2), ...TEST_FIELDS.slice(0, 2), ['imc', 'IMC', '', 0, 1]].filter(([k]) => has(k));
+  const cols = [...TEST_FIELDS.filter(f => f[3]), ...TEST_FIELDS.filter(f => !f[3]), ['imc', 'IMC', '', 0, 1]].filter(([k]) => has(k));
   const tb = h('tbody', null, names.map(n => {
     const p = M.players.find(x => x.name === n), r = t.res[n], pr = prevT && prevT.res[n], g = evGroup(evNac(p.id), t.date);
-    return h('tr', null, h('td', { class: 'name' }, n, ' ', h('span', { class: 'muted', style: 'font-weight:500' }, g ? g.label : p.pos)),
+    return h('tr', null, h('td', { class: 'name' }, M.isExt && typeof miniShirt === 'function' ? miniShirt(p.dorsal ?? '', p.pos === 'POR') : null, n, ' ', h('span', { class: 'muted', style: 'font-weight:500' }, g ? g.label : p.pos)),
       cols.map(([k, , , b, dec]) => { const lv = g ? evLevel(k, r[k], g.k) : null;
         return h('td', { class: lv != null ? 'ev-c ev-l' + lv : '', title: lv != null ? EV(EV_LV[lv][0], EV_LV[lv][1]) : '' }, fmtT(r[k], dec), deltaEl(r[k], pr && pr[k], b, dec)); }));
   }));
@@ -6285,7 +6334,7 @@ function evResultsView(main) {
   const rk = evRanking(M); if (rk) main.append(rk);
 }
 function evPlayerView(main) {
-  const M = MODEL;
+  const M = evM();
   const pls = M.players.filter(p => M.tests.some(t => t.res[p.name]));
   if (!pls.length) { main.append(emptyBox('stopwatch', EV('Sin resultados todavía', 'No results yet'))); return; }
   if (!UI.evPlayer || !pls.some(p => p.name === UI.evPlayer)) UI.evPlayer = (pls.find(p => p.name === UI.player) || pls[0]).name;
@@ -6314,7 +6363,51 @@ function evPlayerView(main) {
   main.append(h('div', { class: 'grid g2 section-gap' }, list(EV('Puntos fuertes', 'Strengths'), sTxt, EV('Ninguno destacado todavía.', 'None stand out yet.')), list(EV('A mejorar', 'To improve'), wTxt, EV('Nada por debajo de su nivel.', 'Nothing below level.'))),
     tips.length ? h('div', { class: 'panel section-gap' }, h('h3', null, EV('Cómo puede mejorar', 'How to improve')), h('ul', { class: 'ev-ul' }, tips.map(x => h('li', null, x)))) : null);
 }
+function evExtPlayersView(main, g) {
+  const edit = canEdit(), y0 = sdate(todaySerial()).getUTCFullYear();
+  const list = (g.players || []).map(p => ({ ...p }));
+  const tb = h('tbody');
+  const rowFor = p => {
+    const tr = h('tr', { 'data-id': p.id });
+    const name = h('input', { type: 'text', value: p.name || '', maxlength: 40, placeholder: EV('Nombre', 'Name'), class: 'ev-pn-in', 'aria-label': EV('Nombre', 'Name'), disabled: !edit });
+    const dor = h('input', { type: 'number', class: 'n s', value: p.dorsal ?? '', placeholder: '#', 'aria-label': EV('Dorsal', 'Number'), disabled: !edit, style: 'width:56px' });
+    const pos = h('select', { class: 'f', 'aria-label': EV('Demarcación', 'Position'), disabled: !edit }, h('option', { value: '' }, '—'), posList().map(x => h('option', { value: x, selected: p.pos === x }, x)));
+    const nac = h('input', { type: 'number', class: 'n', value: p.nac || '', placeholder: String(y0 - 14), min: y0 - 60, max: y0 - 5, inputmode: 'numeric', 'aria-label': EV('Año de nacimiento', 'Birth year'), disabled: !edit, style: 'width:80px' });
+    const del = edit ? h('button', { class: 'btn sm danger', type: 'button', 'aria-label': EV('Quitar jugador', 'Remove player'), onclick: () => tr.remove() }, '✕') : null;
+    tr.append(h('td', null, dor), h('td', { class: 'l' }, name), h('td', null, pos), h('td', null, nac), h('td', null, del));
+    return tr;
+  };
+  list.forEach(p => tb.append(rowFor(p)));
+  const add = () => { const r = rowFor({ id: 'x_' + Math.random().toString(36).slice(2, 9) }); tb.append(r); r.querySelector('.ev-pn-in').focus(); };
+  if (!list.length && edit) for (let i = 0; i < 5; i++) tb.append(rowFor({ id: 'x_' + Math.random().toString(36).slice(2, 9) }));
+  const gname = h('input', { type: 'text', class: 'nt-in', value: g.name, maxlength: 40, 'aria-label': EV('Nombre del equipo', 'Team name'), disabled: !edit });
+  const save = async btn => {
+    const players = [], seen = new Set();
+    for (const tr of tb.querySelectorAll('tr[data-id]')) {
+      const [dor, name, pos, nac] = tr.querySelectorAll('input, select'), nm = name.value.trim(); if (!nm) continue;
+      if (seen.has(nm.toLowerCase())) { toast(EV('Nombre repetido: ', 'Duplicate name: ') + nm, true); return; } seen.add(nm.toLowerCase());
+      const yv = +nac.value;
+      players.push({ id: tr.dataset.id, name: nm, dorsal: dor.value === '' ? null : +dor.value, pos: pos.value || '', nac: yv >= y0 - 60 && yv <= y0 - 5 ? yv : null });
+    }
+    const gs = evGroups().map(x => x.id === g.id ? { ...x, name: gname.value.trim() || x.name, players } : x);
+    btn.disabled = true;
+    try { await evSave({ groups: gs }); toast(EV(`${players.length} jugadores guardados`, `${players.length} players saved`)); UI.evTab = 'res'; route(); } catch (er) { toast(errText(er), true); btn.disabled = false; }
+  };
+  const removeGroup = async () => {
+    const n = ((currentDocs().tests) || []).filter(t => t.grupo === g.id);
+    if (!confirm(EV(`¿Borrar «${g.name}», sus jugadores y sus ${n.length} evaluaciones? No se puede deshacer.`, `Delete “${g.name}”, its players and ${n.length} assessments? This cannot be undone.`))) return;
+    try { for (const t of n) await deleteDoc('tests', t.id); await evSave({ groups: evGroups().filter(x => x.id !== g.id) }); UI.evGroup = null; UI.evTab = 'res'; toast(EV('Equipo borrado', 'Team deleted')); route(); } catch (er) { toast(errText(er), true); }
+  };
+  main.append(h('div', { class: 'panel section-gap', 'data-nomc': '' }, h('h3', null, EV('Jugadores de este equipo', 'Players of this team')),
+    h('div', { class: 'sub', style: 'margin:-6px 0 10px' }, EV('Escribe o corrige los nombres cuando quieras. El año de nacimiento sirve para el baremo de su edad.', 'Type or fix names any time. Birth year is used for age norms.')),
+    h('label', { class: 'f', style: 'display:block;margin-bottom:10px' }, EV('Nombre del equipo', 'Team name'), gname),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'ev-ptab' }, h('thead', null, h('tr', null, h('th', null, '#'), h('th', null, EV('Nombre', 'Name')), h('th', null, EV('Pos.', 'Pos.')), h('th', null, EV('Año nac.', 'Birth yr')), h('th', null, ''))), tb)),
+    edit ? h('div', { class: 'bar-actions' }, h('button', { class: 'btn', type: 'button', onclick: add }, EV('+ Añadir jugador', '+ Add player')),
+      h('button', { class: 'btn primary', type: 'button', onclick: e => save(e.currentTarget) }, EV('Guardar jugadores', 'Save players')),
+      h('button', { class: 'btn danger', type: 'button', onclick: removeGroup }, EV('Borrar este equipo', 'Delete this team'))) : null));
+}
 function evNacView(main) {
+  if (UI.evGroup) { const g = evGroups().find(x => x.id === UI.evGroup); if (g) return evExtPlayersView(main, g); }
   const M = MODEL, edit = canEdit(), nac = { ...(evCfg().nac || {}) };
   const y0 = sdate(todaySerial()).getUTCFullYear();
   const rows = M.players.filter(p => p.estado !== 'Baja').map(p => {
@@ -6324,7 +6417,7 @@ function evNacView(main) {
     return h('tr', null, h('td', { class: 'name' }, (p.dorsal != null ? p.dorsal + ' · ' : '') + p.name), h('td', null, inp), h('td', null, cat));
   });
   main.append(h('div', { class: 'panel section-gap' }, h('h3', null, EV('Años de nacimiento', 'Birth years')),
-    h('div', { class: 'sub', style: 'margin:-6px 0 10px' }, EV('Sirven para comparar cada resultado con el baremo de su edad. También los puedes poner en Plantilla.', 'Used to compare each result with the norm for their age. You can also set them in Roster.')),
+    h('div', { class: 'sub', style: 'margin:-6px 0 10px' }, EV('Sirven para comparar cada resultado con el baremo de su edad. Los nombres y el resto de la ficha se cambian en Plantilla.', 'Used to compare each result with the norm for their age. You can also set them in Roster.')),
     h('div', { class: 'tablewrap' }, h('table', null, h('thead', null, h('tr', null, h('th', null, EV('Jugador', 'Player')), h('th', null, EV('Año', 'Year')), h('th', null, EV('Categoría', 'Category')))), h('tbody', null, rows))),
     edit ? h('div', { class: 'bar-actions' }, h('button', { class: 'btn primary', type: 'button', onclick: async e => { e.currentTarget.disabled = true; try { const clean0 = Object.fromEntries(Object.entries(nac).filter(([, v]) => v)); await evSave({ nac: clean0 }); toast(EV('Años guardados', 'Saved')); UI.evTab = 'res'; route(); } catch (er) { toast(errText(er), true); e.currentTarget.disabled = false; } } }, EV('Guardar', 'Save')),
       h('button', { class: 'btn', type: 'button', onclick: () => { UI.evTab = 'res'; route(); } }, EV('Cancelar', 'Cancel'))) : null));
@@ -6354,9 +6447,17 @@ function evCfgView(main) {
       info && info.q ? h('div', { style: 'margin-top:6px' }, h('b', null, EV('Cómo se hace: ', 'How: ')), EV(...info.q)) : null,
       normsEd(k));
   };
-  const toggle = k => h('button', { class: 'btn sm' + (extras.has(k) ? '' : ' primary'), type: 'button', disabled: !edit, onclick: async ev => { ev.preventDefault(); ev.stopPropagation(); extras.has(k) ? extras.delete(k) : extras.add(k); try { await evSave({ extras: [...extras] }); toast(extras.has(k) ? EV('Añadido a la batería', 'Added') : EV('Quitado de la batería (lo ya guardado se conserva)', 'Removed (saved results are kept)')); } catch (er) { toast(errText(er), true); } } }, extras.has(k) ? EV('Quitar', 'Remove') : EV('Añadir', 'Add'));
-  const base = EV_BASE.map(f => row(f[0], f[1] + (f[2] ? ` (${f[2]})` : ''), { tag: EV('incluido', 'included') }));
-  const ext = Object.values(EV_EXTRA).map(f => row(f[0], f[1] + ` (${f[2]})`, { tag: extras.has(f[0]) ? EV('en la batería', 'in battery') : EV('opcional', 'optional'), btn: edit ? toggle(f[0]) : null }));
+  const off = new Set(e.off || []), isBase = k => EV_BASE.some(f => f[0] === k);
+  const isOn = k => isBase(k) ? !off.has(k) : extras.has(k);
+  const toggle = k => h('button', { class: 'btn sm' + (isOn(k) ? '' : ' primary'), type: 'button', disabled: !edit, onclick: async ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const on = !isOn(k);
+    if (isBase(k)) { on ? off.delete(k) : off.add(k); } else { on ? extras.add(k) : extras.delete(k); }
+    try { await evSave({ extras: [...extras], off: [...off] }); toast(on ? EV('Añadido a la batería', 'Added') : EV('Quitado de la batería (lo ya guardado se conserva)', 'Removed (saved results are kept)')); } catch (er) { toast(errText(er), true); } } }, isOn(k) ? EV('Quitar', 'Remove') : EV('Añadir', 'Add'));
+  const all = [...EV_BASE, ...Object.values(EV_EXTRA)];
+  const mk = f => row(f[0], f[1] + (f[2] ? ` (${f[2]})` : ''), { tag: isOn(f[0]) ? EV('✓ en la batería', '✓ in battery') : EV('no incluido', 'not included'), btn: edit ? toggle(f[0]) : null });
+  const base = all.filter(f => isOn(f[0])).map(mk);
+  const ext = all.filter(f => !isOn(f[0])).map(mk);
   const cus = custom.map(c => h('details', { class: 'ev-test' }, h('summary', null, h('b', null, c.label + (c.unit ? ` (${c.unit})` : '')), h('span', { class: 'muted' }, EV('propio', 'custom') + ' · ' + (c.better > 0 ? EV('más es mejor', 'higher is better') : EV('menos es mejor', 'lower is better'))),
     edit ? h('button', { class: 'btn sm danger', type: 'button', onclick: async ev => { ev.preventDefault(); ev.stopPropagation(); if (!confirm(EV(`¿Quitar el test «${c.label}»? Los resultados ya guardados se conservan pero dejan de mostrarse.`, `Remove “${c.label}”? Saved results are kept but hidden.`))) return; try { await evSave({ custom: custom.filter(x => x.k !== c.k) }); toast(EV('Test quitado', 'Test removed')); } catch (er) { toast(errText(er), true); } } }, EV('Quitar', 'Remove')) : null),
     normsEd(c.k) || null));
@@ -6373,18 +6474,18 @@ function evCfgView(main) {
       } }, EV('Crear', 'Create'))),
     h('div', { class: 'sub', style: 'margin-top:6px' }, EV('Puedes ponerle baremo después, abriéndolo en la lista.', 'You can add norms afterwards from the list.'))) : null;
   main.append(h('div', { class: 'panel section-gap' }, h('h3', null, EV('Batería de tests', 'Test battery')),
-    h('div', { class: 'sub', style: 'margin:-6px 0 8px' }, EV('Toca un test para ver cómo se hace y su baremo por edad. Los baremos son orientativos (fútbol masculino, a partir de estudios con jugadores de academia) y puedes ajustarlos a tu club.', 'Tap a test to see the protocol and its age norms. Norms are a guide (male football, from academy-player studies) and you can adjust them.')),
-    ...base, h('div', { class: 'sub', style: 'margin:12px 0 4px' }, EV('Opcionales', 'Optional')), ...ext, cus.length ? h('div', { class: 'sub', style: 'margin:12px 0 4px' }, EV('Tus tests', 'Your tests')) : null, ...cus),
+    h('div', { class: 'sub', style: 'margin:-6px 0 8px' }, EV('Todos los tests son opcionales: añade o quita los que uses. Toca uno para ver cómo se hace y su baremo por edad. Los baremos son orientativos (fútbol masculino, a partir de estudios con jugadores de academia) y puedes ajustarlos a tu club.', 'Tap a test to see the protocol and its age norms. Norms are a guide (male football, from academy-player studies) and you can adjust them.')),
+    h('div', { class: 'sub', style: 'margin:4px 0' }, EV('En tu batería', 'In your battery') + ` (${base.length})`), ...base,
+    ext.length ? h('div', { class: 'sub', style: 'margin:12px 0 4px' }, EV('Disponibles para añadir', 'Available to add')) : null, ...ext, cus.length ? h('div', { class: 'sub', style: 'margin:12px 0 4px' }, EV('Tus tests', 'Your tests')) : null, ...cus),
     add, canEdit() ? h('div', { class: 'controls section-gap' }, h('button', { class: 'btn', type: 'button', onclick: () => { UI.evTab = 'nac'; route(); } }, EV('Años de nacimiento de los jugadores', 'Players\' birth years'))) : null);
 }
 function evEditTest(main, id) {
-  const M = MODEL;
+  const M = evM();
   const d0 = id === 'new' ? null : (M.docs.tests || []).find(x => x.id === id);
   const doc = d0 || { date: todaySerial(), nombre: '', momento: '', results: {} };
   UI.evAttV = {};
   const close = () => { UI.editTest = null; UI.editing = false; route(); };
   const mom = h('select', { class: 'f', id: 't-mom' }, h('option', { value: '' }, '—'), EV_MOMENTS.map(([k, es, en]) => h('option', { value: k, selected: doc.momento === k }, EV(es, en))));
-  main.setAttribute('data-noi18n', '');
   main.append(h('div', { class: 'view-head' }, h('div', null, h('h2', null, d0 ? EV('Editar evaluación', 'Edit assessment') : EV('Nueva evaluación física', 'New fitness assessment')),
     h('div', { class: 'sub' }, EV('Deja vacío lo que no se haya medido. El IMC se calcula solo. Se guarda en el móvil y, si la tienes activada, en la copia cifrada de la nube.', 'Leave blank what was not measured. BMI is automatic.')))),
     h('div', { class: 'panel' }, h('div', { class: 'formgrid' },
@@ -6394,22 +6495,23 @@ function evEditTest(main, id) {
       h('details', { class: 'wa-more', style: 'margin-top:10px' }, h('summary', null, EV('Cómo se hace cada test', 'How to run each test')),
         h('ul', { class: 'ev-ul' }, TEST_FIELDS.filter(f => EV_INFO[f[0]] && EV_INFO[f[0]].q).map(f => h('li', null, h('b', null, f[1] + ': '), EV(...EV_INFO[f[0]].q)))))));
   const plist = M.players.filter(p => p.estado !== 'Baja' || (doc.results || {})[p.id]);
-  const F = TEST_FIELDS.slice();
+  const F = TEST_FIELDS.slice(), hasImc = F.some(f => f[0] === 'peso') && F.some(f => f[0] === 'altura');
+  if (!F.length) { main.append(h('div', { class: 'warnbox section-gap' }, EV('No hay ningún test en la batería. Actívalos en «Tests y baremos».', 'No tests in the battery. Turn them on in “Tests & norms”.'))); return; }
   const tb = h('tbody', null, plist.map(p => {
     const r = (doc.results || {})[p.id] || {};
     const imcEl = h('td', { class: 'muted' }, imcOf(r) ? fmt1(imcOf(r)) : '');
     const inp = k => h('td', null, numIn('t-' + p.id + '-' + k, r[k], 'n', { step: 'any', 'aria-label': evName(k) + ' · ' + p.name }));
     const row = h('tr', null, h('td', { class: 'name' }, p.name, ' ', h('span', { class: 'muted', style: 'font-weight:500' }, p.pos)),
-      F.slice(0, 2).map(f => inp(f[0])), imcEl, F.slice(2).map(f => inp(f[0])));
+      F.flatMap(f => f[0] === 'altura' && hasImc ? [inp(f[0]), imcEl] : [inp(f[0])]));
     row.addEventListener('input', () => { const v = imcOf({ peso: val('t-' + p.id + '-peso'), altura: val('t-' + p.id + '-altura') }); imcEl.textContent = v ? fmt1(v) : ''; });
     return row;
   }));
-  const heads = [...F.slice(0, 2).map(f => f[1] + ` (${f[2]})`), 'IMC', ...F.slice(2).map(f => f[1] + (f[2] ? ` (${f[2]})` : ''))];
+  const heads = F.flatMap(f => { const l = f[1] + (f[2] ? ` (${f[2]})` : ''); return f[0] === 'altura' && hasImc ? [l, 'IMC'] : [l]; });
   const tablePanel = h('div', { class: 'panel section-gap' }, h('div', { class: 'tablewrap' }, h('table', null,
     h('thead', null, h('tr', null, h('th', null, EV('Jugador', 'Player')), heads.map(t => h('th', null, t)))), tb)));
   // «Por test»: una estación cada vez (como se hacen los tests en el campo), con todos los jugadores en lista
   UI.evMode = UI.evMode || (innerWidth < 700 ? 'test' : 'player');
-  if (!UI.evStation || !F.some(f => f[0] === UI.evStation)) UI.evStation = (F[2] || F[0])[0];
+  if (!UI.evStation || !F.some(f => f[0] === UI.evStation)) UI.evStation = (F.find(f => f[3]) || F[0])[0];
   const station = h('div', { class: 'panel section-gap ev-station' });
   const renderStation = () => {
     const k = UI.evStation, f = F.find(x => x[0] === k), info = EV_INFO[k];
@@ -6465,7 +6567,7 @@ function evEditTest(main, id) {
     if (!Object.keys(results).length) { toast(EV('Escribe al menos un resultado', 'Enter at least one result'), true); return; }
     const tid = d0 ? d0.id : 't' + date + '-' + Math.random().toString(36).slice(2, 6);
     saveBtn.disabled = true;
-    try { await writeDoc('tests', tid, { date, nombre: sval('t-name'), momento: sval('t-mom') || null, results }); toast(EV('Evaluación guardada', 'Assessment saved')); UI.testId = tid; UI.evTab = 'res'; close(); }
+    try { await writeDoc('tests', tid, { date, nombre: sval('t-name'), momento: sval('t-mom') || null, results, ...(M.isExt ? { grupo: M.group.id } : {}) }); toast(EV('Evaluación guardada', 'Assessment saved')); UI.testId = tid; UI.evTab = 'res'; close(); }
     catch (e) { toast(errText(e), true); saveBtn.disabled = false; }
   });
 }
@@ -6473,7 +6575,7 @@ VIEWS.tests = vEval;
 
 /* ---------- informe PDF por jugador ---------- */
 async function evPdf(p, btn) {
-  const M = MODEL;
+  const M = evM();
   const dl = await window.claude?.use?.('downloads');
   const t0 = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = EV('Generando…', 'Generating…'); }
   try {
@@ -6486,7 +6588,7 @@ async function evPdf(p, btn) {
 }
 function evPdfFooter(K, what) {
   const { doc } = K, n = doc.getNumberOfPages();
-  for (let i = 1; i <= n; i++) { doc.setPage(i); K.text(`${MODEL.cfg.team} · ${EV('Evaluación física', 'Fitness assessment')}${what ? ' · ' + what : ''} · ${i}/${n}`, K.PW / 2, 292, { size: 7, color: K.muted, align: 'center' }); }
+  for (let i = 1; i <= n; i++) { doc.setPage(i); K.text(`${evM().cfg.team} · ${EV('Evaluación física', 'Fitness assessment')}${what ? ' · ' + what : ''} · ${i}/${n}`, K.PW / 2, 292, { size: 7, color: K.muted, align: 'center' }); }
 }
 // dibuja el informe de un jugador a partir de la página actual (sirve para el individual y para el del equipo)
 async function evPdfDraw(K, M, p) {
@@ -6502,7 +6604,7 @@ async function evPdfDraw(K, M, p) {
     const HB = 36;
     doc.setFillColor(...K.accent); doc.rect(0, 0, K.PW, HB, 'F');
     doc.setFillColor(...mix(K.accent, .18)); doc.rect(0, HB - 3, K.PW, 3, 'F');
-    const crest = document.querySelector('.crest');
+    const crest = M.isExt ? null : document.querySelector('.crest');
     let tx = K.ML;
     if (crest && /^data:image\/(png|jpe?g)/i.test(crest.src || '')) { try { doc.setFillColor(255, 255, 255); doc.roundedRect(K.ML, 7, 21, 21, 3, 3, 'F'); doc.addImage(crest.src, /png/i.test(crest.src.slice(0, 20)) ? 'PNG' : 'JPEG', K.ML + 1.5, 8.5, 18, 18); tx = K.ML + 26; } catch (_) {} }
     K.text(K.fit(cfg.team.toUpperCase(), 120, { bold: true, size: 9 }), tx, 12, { bold: true, size: 9, color: mix(K.accent, .7) });
@@ -6538,7 +6640,7 @@ async function evPdfDraw(K, M, p) {
         K.text(x.score != null ? String(Math.round(x.score)) : '—', lx, yy + 4, { bold: true, size: 9, color: K.accent, align: al === 'left' ? undefined : al });
       });
       // leyenda
-      const ly0 = cy + R + 15;
+      const ly0 = cy + R + 22;
       doc.setDrawColor(...K.accent); doc.setLineWidth(1.1); doc.line(K.ML + 14, ly0 - 1, K.ML + 21, ly0 - 1); doc.setLineWidth(.2);
       K.text(EV('Jugador', 'Player'), K.ML + 23, ly0, { size: 7, color: K.muted });
       doc.setDrawColor(90, 100, 96); doc.setLineWidth(.45); if (doc.setLineDashPattern) doc.setLineDashPattern([1.6, 1.2], 0); doc.line(K.ML + 44, ly0 - 1, K.ML + 51, ly0 - 1); if (doc.setLineDashPattern) doc.setLineDashPattern([], 0); doc.setLineWidth(.2);
@@ -6555,7 +6657,7 @@ async function evPdfDraw(K, M, p) {
     K.text(EV('ÍNDICE FÍSICO ', 'FITNESS INDEX ') + (Q.index != null ? Q.index : '—'), rx + rw / 2, iy, { bold: true, size: 10, align: 'center' });
     K.text(Q.index != null ? EV(['Nivel bajo', 'Nivel medio', 'Nivel alto'][evScoreLv(Q.index)], ['Low', 'Average', 'High'][evScoreLv(Q.index)]) + EV(' para su edad', ' for age') : '', rx + rw / 2, iy + 5, { bold: true, size: 9, color: LVP(Q.index), align: 'center' });
     K.text([Q.teamIndex != null ? EV('Media del equipo ', 'Team avg ') + Q.teamIndex : null, Q.prevIndex != null && Q.index != null ? EV('Antes ', 'Before ') + Q.prevIndex : null].filter(Boolean).join('  ·  '), rx + rw / 2, iy + 9.5, { size: 7.5, color: K.muted, align: 'center' });
-    K.y = Math.max(top + (ax.length >= 3 ? 102 : 0), iy + 16);
+    K.y = Math.max(top + (ax.length >= 3 ? 106 : 0), iy + 16);
     // barras de cualidades a lo ancho
     if (ax.length) {
       K.need(26);
@@ -6624,6 +6726,23 @@ async function evPdfDraw(K, M, p) {
   }
 }
 
+/* ---------- ficha del jugador (sección Jugador): columnas según los tests activos ---------- */
+const playerExtras32 = playerExtras;
+playerExtras = function (M, p) {
+  const el = playerExtras32(M, p);
+  try {
+    const tests = M.tests.filter(t => t.res[p.name]); if (!tests.length) return el;
+    const hasImc = TEST_FIELDS.some(f => f[0] === 'peso') && TEST_FIELDS.some(f => f[0] === 'altura');
+    const cols = TEST_FIELDS.flatMap(f => f[0] === 'altura' && hasImc ? [f, ['imc', 'IMC', '', 0, 1]] : [f]).filter(([k]) => tests.some(t => t.res[p.name][k] != null && t.res[p.name][k] !== ''));
+    const tbl = el.querySelector('.panel table'); if (!tbl) return el;
+    tbl.replaceChildren(h('thead', null, h('tr', null, h('th', null, EV('Fecha', 'Date')), cols.map(([, l]) => h('th', null, l)))),
+      h('tbody', null, tests.map((t, k) => { const r = t.res[p.name], pr = k ? tests[k - 1].res[p.name] : null;
+        return h('tr', null, h('td', null, ddmmyy(t.date)), cols.map(([key, , , b2, dec]) => h('td', null, fmtT(r[key], dec), deltaEl(r[key], pr && pr[key], b2, dec)))); })));
+    const h3 = el.querySelector('.panel h3'); if (h3) h3.textContent = EV('Evaluación física', 'Fitness assessment');
+  } catch (e) { console.error(e); }
+  return el;
+};
+
 /* ---------- año de nacimiento en Plantilla ---------- */
 // en el móvil la plantilla se ve en tarjetas: con la columna nueva tiene 14 columnas
 setTimeout(() => { try { MC_SPECS.push({ n: 14, first: ['dorsal', 'no.'], spec: { form: true, title: [0, 1], act: [13], main: [3, 4, 5], more: [2, 6, 7, 8, 9, 10, 11, 12] } }); } catch (_) {} }, 0);
@@ -6651,7 +6770,7 @@ VIEWS.plantilla = function (main) {
 
 /* ---------- estilos y nombre de la sección ---------- */
 document.head.append(h('style', { id: 'f32-css' }, `
-.ev-tabs { margin-top: 4px; }
+.ev-tabs { margin-top: 4px; flex-wrap: wrap; }
 .ev-pill { font-size: .72rem; padding: 2px 8px; }
 html td.ev-c { position: relative; }
 html .mc-f.ev-c { border-radius: 8px; padding: 3px 6px; margin: -3px -6px; }
@@ -6689,6 +6808,13 @@ details.ev-test > summary b { flex: 1 1 auto; }
 .ev-st-in { width: 100%; min-height: 40px; font-size: 1.05rem; text-align: center; }
 .ev-norms { margin-top: 4px; }
 .ev-hero { overflow: hidden; }
+.ev-ctx { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.ev-ctx.ext { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.ev-ctx-l { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); }
+.ev-ctx-sel { flex: 1 1 220px; min-width: 0; font-weight: 700; }
+.ev-ctx-n { flex: 1 1 100%; font-size: .78rem; color: var(--ink-2); }
+.ev-ptab td, .ev-ptab th { padding: 4px 6px 4px 0; }
+.ev-ptab .ev-pn-in { width: 100%; min-width: 120px; }
 .ev-next { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; font-size: .92rem; }
 .ev-next input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); }
 .ev-podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: end; max-width: 460px; margin: 0 auto; }
