@@ -211,13 +211,9 @@ a.btn2.wa{background:#25d366;border-color:#25d366;color:#06301a}
   function sendCloud(p) {
     var ymd = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate());
     var url = 'https://firestore.googleapis.com/v1/projects/' + NUBE.projectId + '/databases/(default)/documents/buzon/' + KEYW + '/r/' + p.id + '-' + ymd + '?key=' + NUBE.apiKey;
-    var body = { fields: { m: { stringValue: codes(p).join('\n') }, c: { stringValue: note.trim().replace(/[\[\]\n\r]/g, ' ').slice(0, 140) }, t: { timestampValue: new Date().toISOString() },
-      x: { timestampValue: new Date(Date.now() + 21 * 864e5).toISOString() } } }; // x: Firebase la borra sola a las 3 semanas
+    var body = { fields: { m: { stringValue: codes(p).join('\n') }, c: { stringValue: note.trim().replace(/[\[\]\n\r]/g, ' ').slice(0, 140) }, t: { timestampValue: new Date().toISOString() } } };
     var put = function (b) { return fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }); };
-    return put(body).then(function (r) {
-      if (r.status === 403) { delete body.fields.x; return put(body); } // reglas antiguas: se envía sin la fecha de borrado
-      return r;
-    }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); });
+    return put(body).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); });
   }
   var cardsAll = [];
   function form() {
