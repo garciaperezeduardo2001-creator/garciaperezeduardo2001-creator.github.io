@@ -5875,20 +5875,25 @@ function evHero(M, p, prof, Q) {
   const lv = evScoreLv(Q.index);
   const best = Q.axes.filter(x => x.score != null).sort((a, b) => b.score - a.score)[0], worst = Q.axes.filter(x => x.score != null).sort((a, b) => a.score - b.score)[0];
   const radar = evRadar(Q, { prev: UI.evPrev });
+  const card = evCardSvg(M, p, prof, Q);
+  const T = EV_TIERS[evScoreLv(Q.index) ?? 1];
   return h('div', { class: 'panel section-gap ev-hero' },
+    h('div', { class: 'ev-top' },
+      h('div', { class: 'ev-cardw' }, card, h('button', { class: 'btn sm', type: 'button', onclick: e => evShareCard(card, p, e.currentTarget) }, EV('📤 Compartir carta', '📤 Share card'))),
+      h('div', { class: 'ev-topr' },
     h('div', { class: 'ev-hh' },
-      typeof miniShirt === 'function' ? miniShirt(p.dorsal ?? '', p.pos === 'POR', 46) : null,
       h('div', { class: 'ev-hn' }, h('div', { class: 'ev-name' }, p.name + (p.ap ? ' ' + p.ap : '')),
         h('div', { class: 'sub' }, [p.pos, prof.group ? `${prof.group.label} · ${prof.group.age} ${EV('años', 'y/o')}` : EV('sin año de nacimiento', 'no birth year')].filter(Boolean).join(' · ')),
         h('div', { class: 'ev-tags' }, best && best.score >= 55 ? h('span', { class: 'ev-tag up' }, '★ ' + best.label) : null, worst && worst !== best && worst.score < 45 ? h('span', { class: 'ev-tag dn' }, '↗ ' + EV('Mejorar ', 'Improve ') + worst.label.toLowerCase()) : null)),
       h('div', { class: 'ev-idx' }, evRing(Q.index, 112, EV('Índice físico', 'Fitness index')), h('div', { class: 'ev-idxl' }, EV('Índice físico', 'Fitness index')),
         h('div', { class: 'ev-idxs' }, Q.teamIndex != null ? EV('Equipo ', 'Team ') + Q.teamIndex : '', Q.prevIndex != null && Q.index != null ? h('span', { class: Q.index >= Q.prevIndex ? 'up' : 'dn' }, ` · ${Q.index >= Q.prevIndex ? '▲' : '▼'}${Math.abs(Q.index - Q.prevIndex)}`) : null))),
+      h('div', { class: 'ev-tier', style: `background:linear-gradient(135deg, ${T.g[2]}, ${T.g[1]})` }, EV('Carta ', 'Card ') + EV(T.es, T.en).toLowerCase() + EV(' · índice ', ' · index ') + (Q.index ?? '—') + ' · ' + EV('oro desde 67, plata 33–66, bronce por debajo', 'gold 67+, silver 33–66, bronze below')),
+      evQualBars(Q))),
     h('div', { class: 'ev-hb' },
       radar ? h('div', { class: 'ev-rw' }, radar,
         h('div', { class: 'ev-legend', style: 'justify-content:center' }, h('span', null, h('i', { class: 'ev-sw ev-me' }), p.name), h('span', null, h('i', { class: 'ev-sw ev-tm' }), EV('Media del equipo', 'Team average')),
           Q.prev.some(x => x.score != null) ? h('label', { class: 'ev-chk' }, h('input', { type: 'checkbox', checked: !!UI.evPrev, onchange: e => { UI.evPrev = e.target.checked; route(); } }), h('i', { class: 'ev-sw ev-pv' }), EV('Evaluación anterior', 'Previous')) : null))
-        : h('div', { class: 'sub' }, EV('El gráfico en estrella aparece cuando hay al menos 3 cualidades medidas (por ejemplo, salto, sprint y resistencia).', 'The star chart appears with at least 3 qualities measured.')),
-      evQualBars(Q)),
+        : h('div', { class: 'sub' }, EV('El gráfico en estrella aparece cuando hay al menos 3 cualidades medidas (por ejemplo, salto, sprint y resistencia).', 'The star chart appears with at least 3 qualities measured.'))),
     h('div', { class: 'note' }, EV('Puntuación de 0 a 100 en cada cualidad: de 33 a 66 es el nivel medio para su edad (sin año de nacimiento, 50 es la media del equipo). La rayita de cada barra es la media del equipo.', 'Score 0–100 per quality: 33–66 is average for age (without birth year, 50 = team average). The tick on each bar is the team average.')));
 }
 function evRanking(M) {
@@ -5900,6 +5905,135 @@ function evRanking(M) {
       h('span', { class: 'ev-rkn' }, i + 1), h('span', { class: 'ev-rkp' }, x.p.name),
       h('span', { class: 'ev-rkt' }, h('i', { style: `width:${x.Q.index}%;background:${EV_LVCOL[evScoreLv(x.Q.index)]}` })),
       h('b', null, x.Q.index)))));
+}
+
+/* ---------- carta del jugador (imagen para compartir y portada del informe) ---------- */
+const EV_TIERS = [ // bronce, plata, oro según el índice
+  { k: 'b', es: 'Bronce', en: 'Bronze', g: ['#5a3418', '#a8683a', '#e3ad7c'], ink: '#fff6ec', sub: '#f3d6bb' },
+  { k: 's', es: 'Plata', en: 'Silver', g: ['#46525e', '#8d9aa7', '#dfe5ea'], ink: '#ffffff', sub: '#e6ebf0' },
+  { k: 'g', es: 'Oro', en: 'Gold', g: ['#6b4a05', '#c99a1c', '#f7e08a'], ink: '#fffaf0', sub: '#fdf0c4' }];
+const EV_ABBR = { pot: ['POT', 'PWR'], acc: ['ACE', 'ACC'], vel: ['VEL', 'SPD'], cod: ['AGI', 'AGI'], res: ['RES', 'END'] };
+function evCardSvg(M, p, prof, Q) {
+  const T = EV_TIERS[evScoreLv(Q.index) ?? 1], W = 300, H = 430, NS = 'http://www.w3.org/2000/svg';
+  const id = 'evc' + Math.random().toString(36).slice(2, 7);
+  const col = teamMeta().color || '#16804a';
+  const crest = document.querySelector('.crest'), crestSrc = crest && /^data:image\//.test(crest.src || '') ? crest.src : null;
+  const el = (t, a, txt) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
+  const svg = el('svg', { xmlns: NS, viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: 'ev-cardsvg', role: 'img', 'aria-label': EV('Carta de ', 'Card of ') + p.name });
+  const defs = el('defs', {});
+  const lg = el('linearGradient', { id: id + 'g', x1: '0', y1: '0', x2: '1', y2: '1' });
+  lg.append(el('stop', { offset: '0', 'stop-color': T.g[2] }), el('stop', { offset: '.45', 'stop-color': T.g[1] }), el('stop', { offset: '1', 'stop-color': T.g[0] }));
+  const sh = el('linearGradient', { id: id + 's', x1: '0', y1: '0', x2: '1', y2: '0' });
+  sh.append(el('stop', { offset: '0', 'stop-color': '#fff', 'stop-opacity': '0' }), el('stop', { offset: '.5', 'stop-color': '#fff', 'stop-opacity': '.35' }), el('stop', { offset: '1', 'stop-color': '#fff', 'stop-opacity': '0' }));
+  const pat = el('pattern', { id: id + 'p', width: 14, height: 14, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(35)' });
+  pat.append(el('rect', { width: 7, height: 14, fill: '#fff', 'fill-opacity': '.06' }));
+  const clip = el('clipPath', { id: id + 'c' }); clip.append(el('rect', { x: 0, y: 0, width: W, height: H, rx: 26 }));
+  defs.append(lg, sh, pat, clip); svg.append(defs);
+  const g = el('g', { 'clip-path': `url(#${id}c)` }); svg.append(g);
+  g.append(el('rect', { width: W, height: H, fill: `url(#${id}g)` }), el('rect', { width: W, height: H, fill: `url(#${id}p)` }),
+    el('rect', { x: -120, y: -40, width: 90, height: H + 80, fill: `url(#${id}s)`, transform: 'rotate(18)' }));
+  g.append(el('rect', { x: 9, y: 9, width: W - 18, height: H - 18, rx: 19, fill: 'none', stroke: T.sub, 'stroke-opacity': '.55', 'stroke-width': 2 }));
+  const txt = (x, y, t, o = {}) => g.append(el('text', { x, y, 'text-anchor': o.a || 'start', 'font-family': 'Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif', 'font-size': o.s || 14, 'font-weight': o.w || 700, fill: o.f || T.ink, 'letter-spacing': o.ls || 0, opacity: o.o ?? 1 }, t));
+  // índice y demarcación
+  txt(34, 82, Q.index != null ? String(Q.index) : '—', { s: 64, w: 900, ls: -2 });
+  txt(38, 108, (p.pos || '').toUpperCase() || EV('JUG', 'PLY'), { s: 20, w: 800, ls: 1 });
+  g.append(el('line', { x1: 38, y1: 120, x2: 86, y2: 120, stroke: T.sub, 'stroke-width': 2, 'stroke-opacity': .7 }));
+  if (crestSrc) { const im = el('image', { x: 40, y: 130, width: 42, height: 42, preserveAspectRatio: 'xMidYMid meet' }); im.setAttribute('href', crestSrc); g.append(im); }
+  else txt(61, 158, (MODEL.cfg.team || '').split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase(), { s: 18, w: 900, a: 'middle', o: .85 });
+  // camiseta con dorsal
+  const sx = 186, sy = 48, shirt = `M${sx - 52} ${sy + 18} L${sx - 22} ${sy} Q${sx} ${sy + 16} ${sx + 22} ${sy} L${sx + 52} ${sy + 18} L${sx + 66} ${sy + 52} L${sx + 42} ${sy + 62} L${sx + 40} ${sy + 150} L${sx - 40} ${sy + 150} L${sx - 42} ${sy + 62} L${sx - 66} ${sy + 52} Z`;
+  g.append(el('path', { d: shirt, fill: '#000', 'fill-opacity': '.18', transform: 'translate(4 6)' }), el('path', { d: shirt, fill: p.pos === 'POR' ? '#f2b705' : col, stroke: '#fff', 'stroke-opacity': '.65', 'stroke-width': 2.5, 'stroke-linejoin': 'round' }));
+  txt(sx, sy + 112, p.dorsal != null ? String(p.dorsal) : '', { s: 54, w: 900, a: 'middle', f: '#fff' });
+  // nombre
+  g.append(el('rect', { x: 22, y: 212, width: W - 44, height: 2, fill: T.sub, 'fill-opacity': .6 }));
+  const nm = (p.name + (p.ap ? ' ' + p.ap.split(/\s+/)[0] : '')).toUpperCase();
+  txt(W / 2, 250, nm.length > 16 ? nm.slice(0, 16) + '…' : nm, { s: nm.length > 12 ? 24 : 30, w: 900, a: 'middle', ls: 1 });
+  txt(W / 2, 274, [prof.group ? prof.group.label : null, prof.group ? prof.group.age + EV(' años', ' y/o') : null].filter(Boolean).join(' · ').toUpperCase(), { s: 12, w: 700, a: 'middle', f: T.sub, ls: 1.5 });
+  g.append(el('rect', { x: 22, y: 288, width: W - 44, height: 2, fill: T.sub, 'fill-opacity': .6 }));
+  // atributos
+  const at = EV_QUAL.map(([q]) => Q.me.find(x => x.q === q)).filter(x => x && x.has);
+  at.forEach((x, i) => {
+    const c = i < 3 ? 0 : 1, r = i < 3 ? i : i - 3, X = c ? 170 : 44, Y = 322 + r * 32;
+    txt(X, Y, x.score != null ? String(Math.round(x.score)) : '—', { s: 26, w: 900 });
+    txt(X + 44, Y, EV(...EV_ABBR[x.q]), { s: 17, w: 700, f: T.sub, ls: 1 });
+  });
+  if (at.length > 3) g.append(el('rect', { x: W / 2 - 1, y: 300, width: 2, height: 92, fill: T.sub, 'fill-opacity': .45 }));
+  txt(W / 2, H - 14, (MODEL.cfg.team || '').toUpperCase().slice(0, 30), { s: 10, w: 700, a: 'middle', f: T.sub, ls: 2, o: .9 });
+  return svg;
+}
+function evCardPng(svg, scale = 3) {
+  return new Promise((res, rej) => {
+    const xml = new XMLSerializer().serializeToString(svg);
+    const img = new Image();
+    img.onload = () => { const c = document.createElement('canvas'); c.width = 300 * scale; c.height = 430 * scale; const x = c.getContext('2d'); x.drawImage(img, 0, 0, c.width, c.height); res(c); };
+    img.onerror = rej;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+  });
+}
+async function evShareCard(svg, p, btn) {
+  const t0 = btn.textContent; btn.disabled = true;
+  try {
+    const c = await evCardPng(svg, 3);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    const fname = `Carta_${p.name.replace(/[^\wÁÉÍÓÚÑáéíóúñ]+/g, '_')}.png`;
+    const f = new File([blob], fname, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: p.name }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    const dl = await window.claude?.use?.('downloads');
+    if (dl) { await dl.save({ filename: fname, data: await blob.arrayBuffer() }); toast(EV('Carta descargada', 'Card downloaded')); }
+    else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+  } catch (e) { console.error(e); toast(EV('No se pudo crear la imagen', 'Could not create the image'), true); }
+  finally { btn.disabled = false; btn.textContent = t0; }
+}
+// medidor semicircular de cada test
+function evGauge(it) {
+  const f = evField(it.k), sc = evScore(it.k, it.last.v, it.g && it.g.k, it.last.mean, it.last.sd);
+  if (sc == null) return null;
+  const W = 200, H = 112, cx = 100, cy = 96, r = 80;
+  const P = v => { const a = Math.PI * (1 - v / 100); return [cx + Math.cos(a) * r, cy - Math.sin(a) * r]; };
+  const arc = (a0, a1, cls) => { const [x0, y0] = P(a0), [x1, y1] = P(a1); return evSvg('path', { d: `M${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1}`, class: cls }); };
+  const tm = it.last.mean != null ? evScore(it.k, it.last.mean, it.g && it.g.k, it.last.mean, it.last.sd) : null;
+  const svg = evSvg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'ev-gauge', role: 'img', 'aria-label': `${evName(it.k)} ${Math.round(sc)} / 100` }, [
+    arc(0, 33.3, 'ev-ga b0'), arc(33.3, 66.6, 'ev-ga b1'), arc(66.6, 100, 'ev-ga b2'),
+    arc(0.01, Math.max(.5, sc), 'ev-gf l' + evScoreLv(sc))]);
+  if (tm != null) { const [x0, y0] = P(tm), a = Math.PI * (1 - tm / 100); svg.append(evSvg('line', { x1: x0 - Math.cos(a) * 12, y1: y0 + Math.sin(a) * 12, x2: x0 + Math.cos(a) * 12, y2: y0 - Math.sin(a) * 12, class: 'ev-gtm' })); }
+  const t = evSvg('text', { x: cx, y: cy - 14, 'text-anchor': 'middle', class: 'ev-gv' }); t.textContent = evFmt(it.k, it.last.v); svg.append(t);
+  const u = evSvg('text', { x: cx, y: cy + 6, 'text-anchor': 'middle', class: 'ev-gu' }); u.textContent = (f[2] || '') + ' · ' + Math.round(sc) + '/100'; svg.append(u);
+  return svg;
+}
+// perfil del equipo (estrella) en la evaluación elegida, por líneas
+function evTeamRadar(M, t) {
+  const names = M.players.filter(p => t.res[p.name]).map(p => p.name); if (names.length < 2) return null;
+  const grpCount = {}; names.forEach(n => { const p = M.players.find(x => x.name === n), g = evGroup(evNac(p.id), t.date); if (g) grpCount[g.k] = (grpCount[g.k] || 0) + 1; });
+  const gk = Object.entries(grpCount).sort((a, b) => b[1] - a[1])[0]; const G = gk ? gk[0] : null;
+  const stats = k => { const all = names.map(n => t.res[n][k]).filter(v => v != null && v !== '').map(Number); if (!all.length) return null; const mu = mean(all), sd = all.length > 2 ? Math.sqrt(all.reduce((a, x) => a + (x - mu) ** 2, 0) / (all.length - 1)) : null; return { mu, sd }; };
+  const qOf = list => EV_QUAL.map(([q, es, en, keys]) => {
+    const scs = keys.map(k => { const vs = list.map(n => t.res[n][k]).filter(v => v != null && v !== '').map(Number), st = stats(k); return vs.length && st ? evScore(k, mean(vs), G, st.mu, st.sd) : null; }).filter(v => v != null);
+    return { q, label: EV(es, en), has: keys.some(k => stats(k)), score: scs.length ? mean(scs) : null };
+  });
+  const team = qOf(names), axes = team.filter(x => x.has); if (axes.length < 3) return null;
+  const LINES = [['POR', '#f2b705'], ['DF', '#3f6489'], ['MC', '#8e44ad'], ['DL', '#d1495b']];
+  UI.evLines = UI.evLines || {};
+  const series = LINES.map(([l, c]) => { const ns = names.filter(n => (M.players.find(p => p.name === n) || {}).line === l); return ns.length ? { l, c, Q: qOf(ns), n: ns.length } : null; }).filter(Boolean);
+  const S = 320, C = S / 2, R = 108, n = axes.length, ang = i => -Math.PI / 2 + i * 2 * Math.PI / n;
+  const pt = (i, sc) => [C + Math.cos(ang(i)) * R * sc / 100, C + Math.sin(ang(i)) * R * sc / 100];
+  const ring = r => axes.map((_, i) => pt(i, r).join(',')).join(' ');
+  const poly = (Q, attrs) => { const pts = axes.map((x, i) => { const v = (Q.find(y => y.q === x.q) || {}).score; return v == null ? null : pt(i, v).join(','); }); return pts.every(Boolean) ? evSvg('polygon', { points: pts.join(' '), ...attrs }) : null; };
+  const svg = evSvg('svg', { viewBox: `-30 -6 ${S + 60} ${S + 12}`, class: 'ev-radar', role: 'img', 'aria-label': EV('Perfil del equipo', 'Team profile') });
+  svg.append(evSvg('polygon', { points: ring(100), class: 'ev-band b2' }), evSvg('polygon', { points: ring(66.6), class: 'ev-band b1' }), evSvg('polygon', { points: ring(33.3), class: 'ev-band b0' }));
+  [33.3, 66.6, 100].forEach(r => svg.append(evSvg('polygon', { points: ring(r), class: 'ev-ring' })));
+  axes.forEach((_, i) => { const [x, y] = pt(i, 100); svg.append(evSvg('line', { x1: C, y1: C, x2: x, y2: y, class: 'ev-ring' })); });
+  const tp = poly(team, { class: 'ev-pme' }); if (tp) svg.append(tp);
+  series.forEach(sr => { if (!UI.evLines[sr.l]) return; const pp = poly(sr.Q, { fill: 'none', stroke: sr.c, 'stroke-width': 2.5, 'stroke-linejoin': 'round' }); if (pp) svg.append(pp); });
+  axes.forEach((x, i) => {
+    const [lx, ly] = pt(i, 124), anchor = Math.abs(lx - C) < 8 ? 'middle' : lx > C ? 'start' : 'end';
+    const tt = evSvg('text', { x: lx, y: ly + (ly < C - 20 ? -4 : ly > C + 20 ? 12 : 4), 'text-anchor': anchor, class: 'ev-ax' });
+    tt.append(evSvg('tspan', { class: 'ev-axl' }), evSvg('tspan', { x: lx, dy: 16, class: 'ev-axv' }));
+    tt.firstChild.textContent = x.label; tt.lastChild.textContent = x.score != null ? Math.round(x.score) : '—'; svg.append(tt);
+  });
+  return h('div', { class: 'panel section-gap' }, h('h3', null, EV('Perfil físico del equipo', 'Team physical profile')),
+    h('div', { class: 'sub', style: 'margin:-6px 0 6px' }, EV('Media del equipo en cada cualidad (0–100)', 'Team average per quality (0–100)') + (G ? EV(' con el baremo ', ' using the ') + (EV_GROUPS.find(x => x[0] === G) || [])[1] + EV('', ' norms') : '') + EV('. Activa las líneas para compararlas.', '. Toggle lines to compare.')),
+    h('div', { class: 'ev-rw' }, svg),
+    h('div', { class: 'chips', style: 'justify-content:center;margin-top:6px' }, series.map(sr => h('button', { class: 'chip', type: 'button', 'aria-pressed': UI.evLines[sr.l] ? 'true' : 'false', onclick: () => { UI.evLines[sr.l] = !UI.evLines[sr.l]; route(); } }, h('span', { class: 'sc', style: 'display:inline-flex;align-items:center;gap:6px' }, h('i', { style: `width:12px;height:12px;border-radius:3px;background:${sr.c};display:inline-block` }), `${sr.l} (${sr.n})`)))));
 }
 
 /* ---------- vista ---------- */
@@ -5979,6 +6113,7 @@ function evResultsView(main) {
     h('div', { class: 'ev-legend' }, EV_LV.map((x, i) => h('span', null, h('i', { class: 'ev-sw ev-l' + i }), EV(x[0], x[1]))),
       h('span', { class: 'muted' }, EV('según su edad · ▲▼ cambio respecto a la evaluación anterior', 'for their age · ▲▼ change vs previous assessment'))),
     edit ? h('div', { class: 'bar-actions' }, h('button', { class: 'btn', type: 'button', onclick: () => { UI.editTest = t.id; UI.editing = true; route(); } }, EV('Editar esta evaluación', 'Edit this assessment'))) : null));
+  const tr = evTeamRadar(M, t); if (tr) main.append(tr);
   const rk = evRanking(M); if (rk) main.append(rk);
 }
 function evPlayerView(main) {
@@ -5996,7 +6131,7 @@ function evPlayerView(main) {
     const f = evField(it.k), d = it.prev ? it.last.v - it.prev.v : null;
     return h('div', { class: 'panel ev-card' },
       h('div', { class: 'ev-ch' }, h('b', null, evName(it.k)), evLvPill(it.lv)),
-      h('div', { class: 'ev-v' }, evFmt(it.k, it.last.v), h('small', null, ' ' + evUnit(it.k))),
+      evGauge(it) || h('div', { class: 'ev-v' }, evFmt(it.k, it.last.v), h('small', null, ' ' + evUnit(it.k))),
       h('div', { class: 'sub' }, [it.last.mean != null ? EV('Media equipo ', 'Team avg ') + evFmt(it.k, it.last.mean) + (it.vsMean != null ? ` (${it.vsMean >= 0 ? '+' : ''}${Math.round(it.vsMean)} %)` : '') : null,
         d != null ? EV('Antes ', 'Before ') + evFmt(it.k, it.prev.v) : null].filter(Boolean).join(' · ')),
       it.list.length ? evSpark(it.list, f[3]) : null,
@@ -6210,29 +6345,33 @@ async function evPdf(p, btn) {
       doc.setDrawColor(90, 100, 96); doc.setLineWidth(.45); if (doc.setLineDashPattern) doc.setLineDashPattern([1.6, 1.2], 0); doc.line(K.ML + 44, ly0 - 1, K.ML + 51, ly0 - 1); if (doc.setLineDashPattern) doc.setLineDashPattern([], 0); doc.setLineWidth(.2);
       K.text(EV('Media del equipo', 'Team average'), K.ML + 53, ly0, { size: 7, color: K.muted });
     }
-    // columna derecha: índice y cualidades
-    const rx = ax.length >= 3 ? K.ML + 108 : K.ML, rw = K.PW - K.MR - rx;
-    const icx = rx + 15, icy = top + 14;
-    doc.setDrawColor(...mix(K.ink, .88)); doc.setLineWidth(2.6); doc.circle(icx, icy, 12, 'S');
-    if (Q.index != null) { doc.setDrawColor(...LVP(Q.index)); if (doc.setLineCap) doc.setLineCap('round'); const N = 140, a0 = -Math.PI / 2, a1 = a0 + 2 * Math.PI * Q.index / 100; for (let k = 0; k < N; k++) { const t0 = a0 + (a1 - a0) * k / N, t1 = a0 + (a1 - a0) * (k + 1) / N; doc.line(icx + Math.cos(t0) * 12, icy + Math.sin(t0) * 12, icx + Math.cos(t1) * 12, icy + Math.sin(t1) * 12); } }
-    doc.setLineWidth(.2); if (doc.setLineCap) doc.setLineCap('butt');
-    K.text(Q.index != null ? String(Q.index) : '—', icx, icy + 3, { bold: true, size: 17, align: 'center' });
-    K.text(EV('ÍNDICE FÍSICO', 'FITNESS INDEX'), icx + 17, icy - 4, { bold: true, size: 8, color: K.muted });
-    K.text(Q.index != null ? EV(['Nivel bajo', 'Nivel medio', 'Nivel alto'][evScoreLv(Q.index)], ['Low', 'Average', 'High'][evScoreLv(Q.index)]) + EV(' para su edad', ' for age') : '', icx + 17, icy + 2, { bold: true, size: 10, color: LVP(Q.index) });
-    K.text([Q.teamIndex != null ? EV('Media del equipo ', 'Team avg ') + Q.teamIndex : null, Q.prevIndex != null && Q.index != null ? EV('Antes ', 'Before ') + Q.prevIndex : null].filter(Boolean).join('  ·  '), icx + 17, icy + 7, { size: 7.5, color: K.muted });
-    let by = top + 36;
-    ax.forEach(x => {
-      const tm = (Q.team.find(y => y.q === x.q) || {}).score;
-      K.text(x.label, rx, by, { bold: true, size: 8.5 });
-      K.text(x.score != null ? String(Math.round(x.score)) : '—', rx + rw, by, { bold: true, size: 9.5, color: x.score != null ? LVP(x.score) : K.muted, align: 'right' });
-      const bw = rw, bh = 3.2, y2 = by + 2;
-      doc.setFillColor(...mix(z.bad, .86)); doc.rect(rx, y2, bw / 3, bh, 'F'); doc.setFillColor(...mix(z.warn, .85)); doc.rect(rx + bw / 3, y2, bw / 3, bh, 'F'); doc.setFillColor(...mix(z.ok, .85)); doc.rect(rx + 2 * bw / 3, y2, bw / 3, bh, 'F');
-      if (x.score != null) { doc.setFillColor(...LVP(x.score)); doc.roundedRect(rx, y2, bw * x.score / 100, bh, 1.2, 1.2, 'F'); }
-      if (tm != null) { doc.setFillColor(40, 48, 44); doc.rect(rx + bw * tm / 100 - .35, y2 - 1, .7, bh + 2, 'F'); }
-      by += 10.5;
-    });
-    K.text(EV('0–100 · la marca negra es la media del equipo', '0–100 · black tick = team average'), rx, by - 2, { size: 6.5, color: K.muted });
-    K.y = Math.max(top + (ax.length >= 3 ? 102 : 0), by + 4);
+    // columna derecha: la carta del jugador y el índice
+    const rx = ax.length >= 3 ? K.ML + 112 : K.ML, rw = K.PW - K.MR - rx;
+    let cardH = 0;
+    try {
+      const cv = await evCardPng(evCardSvg(M, p, prof, Q), 3), cw2 = Math.min(56, rw), ch2 = cw2 * 430 / 300;
+      doc.addImage(cv.toDataURL('image/png'), 'PNG', rx + (rw - cw2) / 2, top - 2, cw2, ch2); cardH = ch2;
+    } catch (e) { console.error(e); }
+    const iy = top + cardH + 5;
+    K.text(EV('ÍNDICE FÍSICO ', 'FITNESS INDEX ') + (Q.index != null ? Q.index : '—'), rx + rw / 2, iy, { bold: true, size: 10, align: 'center' });
+    K.text(Q.index != null ? EV(['Nivel bajo', 'Nivel medio', 'Nivel alto'][evScoreLv(Q.index)], ['Low', 'Average', 'High'][evScoreLv(Q.index)]) + EV(' para su edad', ' for age') : '', rx + rw / 2, iy + 5, { bold: true, size: 9, color: LVP(Q.index), align: 'center' });
+    K.text([Q.teamIndex != null ? EV('Media del equipo ', 'Team avg ') + Q.teamIndex : null, Q.prevIndex != null && Q.index != null ? EV('Antes ', 'Before ') + Q.prevIndex : null].filter(Boolean).join('  ·  '), rx + rw / 2, iy + 9.5, { size: 7.5, color: K.muted, align: 'center' });
+    K.y = Math.max(top + (ax.length >= 3 ? 102 : 0), iy + 16);
+    // barras de cualidades a lo ancho
+    if (ax.length) {
+      K.need(26);
+      const n2 = ax.length, gap = 5, bw = (K.CW - gap * (n2 - 1)) / n2;
+      ax.forEach((x, k) => {
+        const bx = K.ML + k * (bw + gap), tm = (Q.team.find(y => y.q === x.q) || {}).score, y0 = K.y;
+        K.text(x.label, bx, y0, { bold: true, size: 8 });
+        K.text(x.score != null ? String(Math.round(x.score)) : '—', bx + bw, y0, { bold: true, size: 10, color: x.score != null ? LVP(x.score) : K.muted, align: 'right' });
+        const y2 = y0 + 2.5, bh = 3.4;
+        doc.setFillColor(...mix(z.bad, .86)); doc.rect(bx, y2, bw / 3, bh, 'F'); doc.setFillColor(...mix(z.warn, .85)); doc.rect(bx + bw / 3, y2, bw / 3, bh, 'F'); doc.setFillColor(...mix(z.ok, .85)); doc.rect(bx + 2 * bw / 3, y2, bw / 3, bh, 'F');
+        if (x.score != null) { doc.setFillColor(...LVP(x.score)); doc.roundedRect(bx, y2, Math.max(1.5, bw * x.score / 100), bh, 1.2, 1.2, 'F'); }
+        if (tm != null) { doc.setFillColor(40, 48, 44); doc.rect(bx + bw * tm / 100 - .35, y2 - 1, .7, bh + 2, 'F'); }
+      });
+      K.y += 10; K.text(EV('Cualidades de 0 a 100 (33–66 = nivel medio para su edad) · la marca negra es la media del equipo', 'Qualities 0–100 (33–66 = average for age) · black tick = team average'), K.ML, K.y, { size: 6.5, color: K.muted }); K.y += 6;
+    }
     // resumen de tests
     const graded = prof.items.filter(it => evField(it.k) && evField(it.k)[3]);
     K.kpis(graded.slice(0, 8).map(it => ({ l: evName(it.k), v: evFmt(it.k, it.last.v) + (evUnit(it.k) ? ' ' + evUnit(it.k) : ''), s: it.lv != null ? EV(EV_LV[it.lv][0], EV_LV[it.lv][1]) + (it.vsMean != null ? ` · ${it.vsMean >= 0 ? '+' : ''}${Math.round(it.vsMean)} % ${EV('vs media', 'vs avg')}` : '') : it.vsMean != null ? `${it.vsMean >= 0 ? '+' : ''}${Math.round(it.vsMean)} % ${EV('vs media del equipo', 'vs team avg')}` : '', fill: it.lv != null ? LVC[it.lv] : null })), 4);
@@ -6331,7 +6470,8 @@ html td.ev-l2 { background: color-mix(in srgb, var(--z-ok) 16%, transparent); }
 .ev-sw { width: 14px; height: 10px; border-radius: 3px; display: inline-block; }
 .ev-sw.ev-l0 { background: color-mix(in srgb, var(--z-bad) 45%, transparent); } .ev-sw.ev-l1 { background: color-mix(in srgb, var(--z-warn) 45%, transparent); } .ev-sw.ev-l2 { background: color-mix(in srgb, var(--z-ok) 45%, transparent); }
 .ev-sw.ev-me { background: var(--accent); height: 3px; } .ev-sw.ev-tm { height: 0; border-top: 2px dashed var(--ink-3); border-radius: 0; }
-.ev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.ev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
+.ev-card .sub { font-size: .78rem; }
 .ev-card { margin: 0; }
 .ev-ch { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .ev-v { font-size: 1.7rem; font-weight: 800; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
@@ -6353,6 +6493,22 @@ details.ev-test > summary b { flex: 1 1 auto; }
 .ev-st-in { width: 100%; min-height: 40px; font-size: 1.05rem; text-align: center; }
 .ev-norms { margin-top: 4px; }
 .ev-hero { overflow: hidden; }
+.ev-top { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 22px; align-items: center; }
+@media (max-width: 760px) { .ev-top { grid-template-columns: 1fr; } }
+.ev-cardw { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ev-cardsvg { width: 100%; max-width: 250px; height: auto; filter: drop-shadow(0 10px 18px rgba(0,0,0,.25)); animation: evCard .6s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes evCard { from { transform: translateY(14px) rotate(-3deg) scale(.94); opacity: 0; } }
+.ev-topr { display: grid; gap: 14px; min-width: 0; }
+.ev-tier { font-size: .78rem; font-weight: 700; color: #1d1608; padding: 6px 10px; border-radius: 8px; }
+.ev-hb { margin-top: 18px; }
+.ev-gauge { width: 100%; max-width: 230px; display: block; margin: 4px auto 0; }
+.ev-gauge .ev-ga { fill: none; stroke-width: 16; } .ev-gauge .ev-ga.b0 { stroke: color-mix(in srgb, var(--z-bad) 22%, transparent); } .ev-gauge .ev-ga.b1 { stroke: color-mix(in srgb, var(--z-warn) 22%, transparent); } .ev-gauge .ev-ga.b2 { stroke: color-mix(in srgb, var(--z-ok) 22%, transparent); }
+.ev-gauge .ev-gf { fill: none; stroke-width: 16; stroke-linecap: round; } .ev-gauge .ev-gf.l0 { stroke: var(--z-bad); } .ev-gauge .ev-gf.l1 { stroke: var(--z-warn); } .ev-gauge .ev-gf.l2 { stroke: var(--z-ok); }
+.ev-gauge .ev-gtm { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; opacity: .6; }
+.ev-gauge .ev-gn { stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; }
+.ev-gauge .ev-gc { fill: var(--ink); }
+.ev-gauge .ev-gv { font-size: 30px; font-weight: 800; fill: var(--ink); } .ev-gauge .ev-gu { font-size: 15px; fill: var(--ink-3); font-weight: 600; }
+.ev-card .ev-spark { height: 48px; }
 .ev-hh { display: flex; gap: 14px; align-items: center; }
 .ev-hn { flex: 1; min-width: 0; }
 .ev-name { font-size: 1.45rem; font-weight: 800; line-height: 1.15; }
