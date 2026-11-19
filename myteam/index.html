@@ -5750,7 +5750,8 @@ function evPlayerRows(M, p) {
     TEST_FIELDS.forEach(f => {
       const v = r[f[0]]; if (v == null || v === '') return;
       const all = Object.values(t.res).map(x => x[f[0]]).filter(x => x != null && x !== '').map(Number);
-      (out[f[0]] = out[f[0]] || []).push({ date: t.date, v: +v, mean: all.length ? mean(all) : null, tid: t.id });
+      const mu = all.length ? mean(all) : null, sd = all.length > 2 ? Math.sqrt(all.reduce((t2, x) => t2 + (x - mu) ** 2, 0) / (all.length - 1)) : null;
+      (out[f[0]] = out[f[0]] || []).push({ date: t.date, v: +v, mean: mu, sd, tid: t.id });
     });
   });
   return out;
@@ -5792,6 +5793,113 @@ function evAlerts(M) {
     M.alerts.push({ sev: 2, p, t: EV('Resistencia baja y carga alta', 'Low endurance, high load'), d: evName(r.aer.k) + ' ' + EV('bajo', 'low') + ' · ' + r.why });
   });
   M.alerts.sort((a, b) => b.sev - a.sev || a.p.i - b.p.i);
+}
+
+/* ---------- cualidades físicas (gráfico en estrella) ---------- */
+const EV_QUAL = [
+  ['pot', 'Potencia', 'Power', ['cmj', 'abk']],
+  ['acc', 'Aceleración', 'Acceleration', ['v10']],
+  ['vel', 'Velocidad', 'Speed', ['v20', 'v30']],
+  ['cod', 'Agilidad', 'Agility', ['cod505']],
+  ['res', 'Resistencia', 'Endurance', ['ift', 'yoyo']],
+];
+// puntuación 0–100: con baremo, el tramo «Medio» va de 33 a 66; sin baremo, respecto al equipo (50 = la media)
+function evScore(k, v, gk, mu, sd) {
+  if (v == null) return null;
+  const f = evField(k); if (!f || !f[3]) return null;
+  const sg = f[3] > 0 ? 1 : -1, n = gk ? evNorm(k, gk) : null;
+  let sc;
+  if (n && n[0] != null && n[1] != null && n[0] !== n[1]) { const a = sg * n[0], b = sg * n[1], w = b - a, lo = a - w, hi = b + w; sc = (sg * v - lo) / (hi - lo) * 100; }
+  else if (mu != null && sd) sc = 50 + sg * (v - mu) / sd * 18;
+  else if (mu != null && mu) sc = 50 + sg * (v - mu) / Math.abs(mu) * 250;
+  else return null;
+  return Math.max(3, Math.min(98, sc));
+}
+const evScoreLv = sc => sc == null ? null : sc < 33.3 ? 0 : sc < 66.6 ? 1 : 2;
+function evQualities(prof) {
+  const pick = (it, which) => which === 'prev' ? (it.prev ? it.prev.v : null) : which === 'team' ? it.last.mean : it.last.v;
+  const snap = which => EV_QUAL.map(([q, es, en, keys]) => {
+    const its = prof.items.filter(it => keys.includes(it.k));
+    const scs = its.map(it => evScore(it.k, pick(it, which), it.g && it.g.k, it.last.mean, it.last.sd)).filter(v => v != null);
+    return { q, label: EV(es, en), keys, has: its.length > 0, score: scs.length ? mean(scs) : null };
+  });
+  const me = snap('last'), team = snap('team'), prev = snap('prev');
+  const axes = me.filter(x => x.has);
+  const idx = xs => { const v = xs.filter(x => x.has && x.score != null).map(x => x.score); return v.length ? Math.round(mean(v)) : null; };
+  return { axes, me, team, prev, index: idx(me), teamIndex: idx(team), prevIndex: prev.some(x => x.score != null) ? idx(prev) : null };
+}
+const EV_LVCOL = ['var(--z-bad)', 'var(--z-warn)', 'var(--z-ok)'];
+function evSvg(t, a, kids) { const e = document.createElementNS('http://www.w3.org/2000/svg', t); for (const k in a || {}) e.setAttribute(k, a[k]); (kids || []).forEach(c => c && e.append(c)); return e; }
+function evRadar(Q, o = {}) {
+  const ax = Q.axes; if (ax.length < 3) return null;
+  const S = 320, C = S / 2, R = 108, n = ax.length;
+  const ang = i => -Math.PI / 2 + i * 2 * Math.PI / n;
+  const pt = (i, sc) => [C + Math.cos(ang(i)) * R * sc / 100, C + Math.sin(ang(i)) * R * sc / 100];
+  const poly = (list, cls) => { const pts = ax.map((x, i) => { const v = (list.find(y => y.q === x.q) || {}).score; return v == null ? null : pt(i, v).join(','); }); return pts.every(Boolean) ? evSvg('polygon', { points: pts.join(' '), class: cls }) : null; };
+  const ring = r => ax.map((_, i) => pt(i, r).join(',')).join(' ');
+  const svg = evSvg('svg', { viewBox: `-30 -6 ${S + 60} ${S + 12}`, class: 'ev-radar', role: 'img', 'aria-label': EV('Perfil de cualidades físicas', 'Physical profile') });
+  svg.append(evSvg('polygon', { points: ring(100), class: 'ev-band b2' }), evSvg('polygon', { points: ring(66.6), class: 'ev-band b1' }), evSvg('polygon', { points: ring(33.3), class: 'ev-band b0' }));
+  [33.3, 66.6, 100].forEach(r => svg.append(evSvg('polygon', { points: ring(r), class: 'ev-ring' })));
+  ax.forEach((_, i) => { const [x, y] = pt(i, 100); svg.append(evSvg('line', { x1: C, y1: C, x2: x, y2: y, class: 'ev-ring' })); });
+  if (o.team !== false) { const tp = poly(Q.team, 'ev-ptm'); if (tp) svg.append(tp); }
+  if (o.prev) { const pp = poly(Q.prev, 'ev-ppr'); if (pp) svg.append(pp); }
+  const mp = poly(Q.me, 'ev-pme'); if (mp) svg.append(mp);
+  ax.forEach((x, i) => {
+    const v = x.score; if (v != null) { const [px, py] = pt(i, v); svg.append(evSvg('circle', { cx: px, cy: py, r: 5, class: 'ev-pt', style: 'fill:' + EV_LVCOL[evScoreLv(v)] })); }
+    const [lx, ly] = pt(i, 124), anchor = Math.abs(lx - C) < 8 ? 'middle' : lx > C ? 'start' : 'end';
+    const t = evSvg('text', { x: lx, y: ly + (ly < C - 20 ? -4 : ly > C + 20 ? 12 : 4), 'text-anchor': anchor, class: 'ev-ax' });
+    t.append(evSvg('tspan', { class: 'ev-axl' }), evSvg('tspan', { x: lx, dy: 16, class: 'ev-axv' }));
+    t.firstChild.textContent = x.label; t.lastChild.textContent = v != null ? Math.round(v) : '—';
+    svg.append(t);
+  });
+  return svg;
+}
+function evRing(val, size = 132, label) {
+  const lv = evScoreLv(val), r = size / 2 - 9, c = 2 * Math.PI * r;
+  return evSvg('svg', { viewBox: `0 0 ${size} ${size}`, class: 'ev-ring-big', width: size, height: size, role: 'img', 'aria-label': (label || '') + ' ' + (val ?? '—') }, [
+    evSvg('circle', { cx: size / 2, cy: size / 2, r, class: 'ev-rbg' }),
+    val != null ? evSvg('circle', { cx: size / 2, cy: size / 2, r, class: 'ev-rfg', style: `stroke:${EV_LVCOL[lv]};stroke-dasharray:${c * val / 100} ${c}`, transform: `rotate(-90 ${size / 2} ${size / 2})` }) : null,
+    (() => { const t = evSvg('text', { x: size / 2, y: size / 2 + 4, 'text-anchor': 'middle', class: 'ev-rv' }); t.textContent = val ?? '—'; return t; })(),
+    (() => { const t = evSvg('text', { x: size / 2, y: size / 2 + 24, 'text-anchor': 'middle', class: 'ev-rl' }); t.textContent = '/ 100'; return t; })()]);
+}
+function evQualBars(Q) {
+  return h('div', { class: 'ev-qbars' }, Q.axes.map(x => {
+    const tm = (Q.team.find(y => y.q === x.q) || {}).score, lv = evScoreLv(x.score), pv = (Q.prev.find(y => y.q === x.q) || {}).score;
+    const d = x.score != null && pv != null ? Math.round(x.score - pv) : null;
+    return h('div', { class: 'ev-qb' },
+      h('div', { class: 'ev-qh' }, h('b', null, x.label), h('span', null, x.score != null ? Math.round(x.score) : '—', d ? h('small', { class: d > 0 ? 'up' : 'dn' }, (d > 0 ? ' ▲' : ' ▼') + Math.abs(d)) : null)),
+      h('div', { class: 'ev-qt' }, x.score != null ? h('i', { style: `width:${x.score}%;background:${EV_LVCOL[lv]}` }) : null, tm != null ? h('em', { style: `left:${tm}%`, title: EV('Media del equipo', 'Team average') }) : null));
+  }));
+}
+function evHero(M, p, prof, Q) {
+  const lv = evScoreLv(Q.index);
+  const best = Q.axes.filter(x => x.score != null).sort((a, b) => b.score - a.score)[0], worst = Q.axes.filter(x => x.score != null).sort((a, b) => a.score - b.score)[0];
+  const radar = evRadar(Q, { prev: UI.evPrev });
+  return h('div', { class: 'panel section-gap ev-hero' },
+    h('div', { class: 'ev-hh' },
+      typeof miniShirt === 'function' ? miniShirt(p.dorsal ?? '', p.pos === 'POR', 46) : null,
+      h('div', { class: 'ev-hn' }, h('div', { class: 'ev-name' }, p.name + (p.ap ? ' ' + p.ap : '')),
+        h('div', { class: 'sub' }, [p.pos, prof.group ? `${prof.group.label} · ${prof.group.age} ${EV('años', 'y/o')}` : EV('sin año de nacimiento', 'no birth year')].filter(Boolean).join(' · ')),
+        h('div', { class: 'ev-tags' }, best && best.score >= 55 ? h('span', { class: 'ev-tag up' }, '★ ' + best.label) : null, worst && worst !== best && worst.score < 45 ? h('span', { class: 'ev-tag dn' }, '↗ ' + EV('Mejorar ', 'Improve ') + worst.label.toLowerCase()) : null)),
+      h('div', { class: 'ev-idx' }, evRing(Q.index, 112, EV('Índice físico', 'Fitness index')), h('div', { class: 'ev-idxl' }, EV('Índice físico', 'Fitness index')),
+        h('div', { class: 'ev-idxs' }, Q.teamIndex != null ? EV('Equipo ', 'Team ') + Q.teamIndex : '', Q.prevIndex != null && Q.index != null ? h('span', { class: Q.index >= Q.prevIndex ? 'up' : 'dn' }, ` · ${Q.index >= Q.prevIndex ? '▲' : '▼'}${Math.abs(Q.index - Q.prevIndex)}`) : null))),
+    h('div', { class: 'ev-hb' },
+      radar ? h('div', { class: 'ev-rw' }, radar,
+        h('div', { class: 'ev-legend', style: 'justify-content:center' }, h('span', null, h('i', { class: 'ev-sw ev-me' }), p.name), h('span', null, h('i', { class: 'ev-sw ev-tm' }), EV('Media del equipo', 'Team average')),
+          Q.prev.some(x => x.score != null) ? h('label', { class: 'ev-chk' }, h('input', { type: 'checkbox', checked: !!UI.evPrev, onchange: e => { UI.evPrev = e.target.checked; route(); } }), h('i', { class: 'ev-sw ev-pv' }), EV('Evaluación anterior', 'Previous')) : null))
+        : h('div', { class: 'sub' }, EV('El gráfico en estrella aparece cuando hay al menos 3 cualidades medidas (por ejemplo, salto, sprint y resistencia).', 'The star chart appears with at least 3 qualities measured.')),
+      evQualBars(Q)),
+    h('div', { class: 'note' }, EV('Puntuación de 0 a 100 en cada cualidad: de 33 a 66 es el nivel medio para su edad (sin año de nacimiento, 50 es la media del equipo). La rayita de cada barra es la media del equipo.', 'Score 0–100 per quality: 33–66 is average for age (without birth year, 50 = team average). The tick on each bar is the team average.')));
+}
+function evRanking(M) {
+  const rows = M.players.filter(p => p.estado !== 'Baja' && M.tests.some(t => t.res[p.name])).map(p => { const pr = evProfile(M, p), Q = evQualities(pr); return { p, Q }; }).filter(x => x.Q.index != null).sort((a, b) => b.Q.index - a.Q.index);
+  if (rows.length < 2) return null;
+  return h('div', { class: 'panel section-gap' }, h('h3', null, EV('Índice físico del equipo', 'Team fitness index')),
+    h('div', { class: 'sub', style: 'margin:-6px 0 10px' }, EV('Media de sus cualidades (0–100). Toca un jugador para ver su perfil.', 'Average of qualities (0–100). Tap a player for the profile.')),
+    h('div', { class: 'ev-rank' }, rows.map((x, i) => h('button', { type: 'button', class: 'ev-rk', onclick: () => { UI.evPlayer = x.p.name; UI.evTab = 'jug'; route(); scrollTo(0, 0); } },
+      h('span', { class: 'ev-rkn' }, i + 1), h('span', { class: 'ev-rkp' }, x.p.name),
+      h('span', { class: 'ev-rkt' }, h('i', { style: `width:${x.Q.index}%;background:${EV_LVCOL[evScoreLv(x.Q.index)]}` })),
+      h('b', null, x.Q.index)))));
 }
 
 /* ---------- vista ---------- */
@@ -5871,6 +5979,7 @@ function evResultsView(main) {
     h('div', { class: 'ev-legend' }, EV_LV.map((x, i) => h('span', null, h('i', { class: 'ev-sw ev-l' + i }), EV(x[0], x[1]))),
       h('span', { class: 'muted' }, EV('según su edad · ▲▼ cambio respecto a la evaluación anterior', 'for their age · ▲▼ change vs previous assessment'))),
     edit ? h('div', { class: 'bar-actions' }, h('button', { class: 'btn', type: 'button', onclick: () => { UI.editTest = t.id; UI.editing = true; route(); } }, EV('Editar esta evaluación', 'Edit this assessment'))) : null));
+  const rk = evRanking(M); if (rk) main.append(rk);
 }
 function evPlayerView(main) {
   const M = MODEL;
@@ -5880,8 +5989,7 @@ function evPlayerView(main) {
   const p = pls.find(x => x.name === UI.evPlayer), prof = evProfile(M, p), risk = evLoadRisk(M, p, prof);
   const sel = h('select', { class: 'f', 'aria-label': EV('Jugador', 'Player'), onchange: e => { UI.evPlayer = e.target.value; route(); } }, pls.map(x => h('option', { value: x.name, selected: x.name === p.name }, (x.dorsal != null ? x.dorsal + ' · ' : '') + x.name)));
   const pdfBtn = h('button', { class: 'btn primary', type: 'button', onclick: e => evPdf(p, e.currentTarget) }, EV('📄 Informe PDF', '📄 PDF report'));
-  main.append(h('div', { class: 'controls section-gap', style: 'flex-wrap:wrap;gap:8px' }, sel, pdfBtn),
-    h('div', { class: 'sub', style: 'margin-top:6px' }, [p.pos, prof.group ? `${prof.group.label} · ${prof.group.age} ${EV('años', 'y/o')}` : EV('sin año de nacimiento', 'no birth year')].filter(Boolean).join(' · ')));
+  main.append(h('div', { class: 'controls section-gap', style: 'flex-wrap:wrap;gap:8px' }, sel, pdfBtn), evHero(M, p, prof, evQualities(prof)));
   if (risk) main.append(h('div', { class: 'warnbox section-gap' }, h('b', null, EV('⚠️ Resistencia baja y carga alta. ', '⚠️ Low endurance, high load. ')),
     EV(`Su ${evName(risk.aer.k)} está ${risk.aer.lv === 0 ? 'en nivel bajo' : 'por debajo de la media'} y esta semana lleva ${risk.why}. Conviene vigilar su carga y meter trabajo aeróbico progresivo.`, `${evName(risk.aer.k)} is ${risk.aer.lv === 0 ? 'low' : 'below average'} and this week: ${risk.why}. Watch the load and add progressive aerobic work.`)));
   const cards = prof.items.map(it => {
@@ -5894,7 +6002,7 @@ function evPlayerView(main) {
       it.list.length ? evSpark(it.list, f[3]) : null,
       h('div', { class: 'ev-dates' }, it.list.map(x => h('span', null, ddmm(x.date)))));
   });
-  main.append(cards.length ? h('div', { class: 'ev-grid section-gap' }, ...cards) : emptyBox('stopwatch', EV('Sin tests con baremo', 'No graded tests')));
+  main.append(h('h3', { class: 'section-gap', style: 'margin-bottom:8px' }, EV('Test a test', 'Test by test')), cards.length ? h('div', { class: 'ev-grid' }, ...cards) : emptyBox('stopwatch', EV('Sin tests con baremo', 'No graded tests')));
   main.append(h('div', { class: 'ev-legend' }, h('span', null, h('i', { class: 'ev-sw ev-me' }), EV('Jugador', 'Player')), h('span', null, h('i', { class: 'ev-sw ev-tm' }), EV('Media del equipo', 'Team average')), h('span', { class: 'muted' }, EV('Arriba siempre es mejor (también en los tiempos)', 'Up is always better (times too)'))));
   const list = (title, xs, empty) => h('div', { class: 'panel' }, h('h3', null, title), xs.length ? h('ul', { class: 'ev-ul' }, xs.map(x => h('li', null, x))) : h('div', { class: 'sub' }, empty));
   const sTxt = prof.strong.map(it => h('span', null, h('b', null, evName(it.k)), ': ' + evFmt(it.k, it.last.v) + ' ' + evUnit(it.k) + (it.lv === 2 ? EV(' (nivel alto para su edad)', ' (high for age)') : it.vsMean != null ? EV(` (${Math.round(it.vsMean)} % mejor que la media)`, ` (${Math.round(it.vsMean)} % above average)`) : '')));
@@ -6053,14 +6161,79 @@ async function evPdf(p, btn) {
     const prof = evProfile(M, p), risk = evLoadRisk(M, p, prof);
     const LVC = [z.bad, z.warn, z.ok];
     const lastDate = Math.max(...prof.items.map(it => it.last.date));
+    const Q = evQualities(prof);
+    const mix = (c, w) => c.map(v => Math.round(v * (1 - w) + 255 * w));
+    const LVP = sc => LVC[evScoreLv(sc)] || z.none;
+    // cabecera a color
+    const HB = 36;
+    doc.setFillColor(...K.accent); doc.rect(0, 0, K.PW, HB, 'F');
+    doc.setFillColor(...mix(K.accent, .18)); doc.rect(0, HB - 3, K.PW, 3, 'F');
     const crest = document.querySelector('.crest');
     let tx = K.ML;
-    if (crest && /^data:image\/(png|jpe?g)/i.test(crest.src || '')) { try { doc.addImage(crest.src, /png/i.test(crest.src.slice(0, 20)) ? 'PNG' : 'JPEG', K.ML, K.y - 7, 15, 15); tx = K.ML + 19; } catch (_) {} }
-    K.text(K.fit(cfg.team.toUpperCase(), 110, { bold: true, size: 13 }), tx, K.y, { bold: true, size: 13 });
-    K.text(EV('Evaluación física', 'Fitness assessment'), K.PW - K.MR, K.y, { size: 9, color: K.muted, align: 'right' }); K.y += 8;
-    K.text(K.fit((p.dorsal != null ? p.dorsal + ' · ' : '') + p.name + (p.ap ? ' ' + p.ap : ''), K.CW - (tx - K.ML), { bold: true, size: 18 }), tx, K.y, { bold: true, size: 18 }); K.y += 6;
-    K.text([p.pos, prof.group ? `${prof.group.label} · ${prof.group.age} ${EV('años', 'years')}` : null, EV('Última evaluación: ', 'Latest: ') + ddmmyy(lastDate)].filter(Boolean).join('  ·  '), tx, K.y, { size: 9.5, color: K.muted }); K.y += 8;
-    // resumen
+    if (crest && /^data:image\/(png|jpe?g)/i.test(crest.src || '')) { try { doc.setFillColor(255, 255, 255); doc.roundedRect(K.ML, 7, 21, 21, 3, 3, 'F'); doc.addImage(crest.src, /png/i.test(crest.src.slice(0, 20)) ? 'PNG' : 'JPEG', K.ML + 1.5, 8.5, 18, 18); tx = K.ML + 26; } catch (_) {} }
+    K.text(K.fit(cfg.team.toUpperCase(), 120, { bold: true, size: 9 }), tx, 12, { bold: true, size: 9, color: mix(K.accent, .7) });
+    K.text(K.fit((p.dorsal != null ? p.dorsal + '  ' : '') + p.name + (p.ap ? ' ' + p.ap : ''), 125, { bold: true, size: 21 }), tx, 21.5, { bold: true, size: 21, color: [255, 255, 255] });
+    K.text([p.pos, prof.group ? `${prof.group.label} · ${prof.group.age} ${EV('años', 'years')}` : null].filter(Boolean).join('  ·  '), tx, 28, { size: 9.5, color: mix(K.accent, .75) });
+    K.text(EV('EVALUACIÓN FÍSICA', 'FITNESS ASSESSMENT'), K.PW - K.MR, 12, { bold: true, size: 8.5, color: [255, 255, 255], align: 'right' });
+    K.text(ddmmyy(lastDate), K.PW - K.MR, 18, { size: 9, color: mix(K.accent, .7), align: 'right' });
+    K.y = HB + 8;
+    // gráfico en estrella + índice + barras de cualidades
+    const top = K.y, ax = Q.axes;
+    if (ax.length >= 3) {
+      const cx = K.ML + 50, cy = top + 44, R = 33, n = ax.length;
+      const ang = k => -Math.PI / 2 + k * 2 * Math.PI / n, pt = (k, sc) => [cx + Math.cos(ang(k)) * R * sc / 100, cy + Math.sin(ang(k)) * R * sc / 100];
+      const poly = (scs, style) => { const pts = scs.map((v, k) => pt(k, v == null ? 0 : v)); doc.lines(pts.slice(1).map((q, k) => [q[0] - pts[k][0], q[1] - pts[k][1]]), pts[0][0], pts[0][1], [1, 1], style, true); };
+      const same = r => ax.map(() => r);
+      doc.setFillColor(...mix(z.ok, .85)); poly(same(100), 'F');
+      doc.setFillColor(...mix(z.warn, .85)); poly(same(66.6), 'F');
+      doc.setFillColor(...mix(z.bad, .86)); poly(same(33.3), 'F');
+      const sc = list => ax.map(x => (list.find(y => y.q === x.q) || {}).score);
+      let gs = false; try { doc.setGState(new doc.GState({ opacity: .32 })); gs = true; } catch (_) {}
+      doc.setFillColor(...(gs ? K.accent : mix(K.accent, .65))); poly(sc(Q.me), 'F');
+      if (gs) try { doc.setGState(new doc.GState({ opacity: 1 })); } catch (_) {}
+      doc.setDrawColor(205, 212, 208); doc.setLineWidth(.2); [33.3, 66.6, 100].forEach(r => poly(same(r), 'S'));
+      ax.forEach((_, k) => { const [x, y] = pt(k, 100); doc.line(cx, cy, x, y); });
+      const tms = sc(Q.team);
+      if (tms.every(v => v != null)) { doc.setDrawColor(90, 100, 96); doc.setLineWidth(.45); if (doc.setLineDashPattern) doc.setLineDashPattern([1.6, 1.2], 0); poly(tms, 'S'); if (doc.setLineDashPattern) doc.setLineDashPattern([], 0); }
+      doc.setDrawColor(...K.accent); doc.setLineWidth(1.1); poly(sc(Q.me), 'S'); doc.setLineWidth(.2);
+      ax.forEach((x, k) => {
+        if (x.score != null) { const [px, py] = pt(k, x.score); doc.setFillColor(255, 255, 255); doc.circle(px, py, 1.6, 'F'); doc.setFillColor(...LVP(x.score)); doc.circle(px, py, 1.15, 'F'); }
+        const [lx, ly] = pt(k, 122), al = Math.abs(lx - cx) < 3 ? 'center' : lx > cx ? 'left' : 'right';
+        const yy = ly + (ly < cy - 8 ? -2.5 : ly > cy + 8 ? 2.5 : 0.5);
+        K.text(x.label, lx, yy, { bold: true, size: 8, align: al === 'left' ? undefined : al });
+        K.text(x.score != null ? String(Math.round(x.score)) : '—', lx, yy + 4, { bold: true, size: 9, color: K.accent, align: al === 'left' ? undefined : al });
+      });
+      // leyenda
+      const ly0 = cy + R + 15;
+      doc.setDrawColor(...K.accent); doc.setLineWidth(1.1); doc.line(K.ML + 14, ly0 - 1, K.ML + 21, ly0 - 1); doc.setLineWidth(.2);
+      K.text(EV('Jugador', 'Player'), K.ML + 23, ly0, { size: 7, color: K.muted });
+      doc.setDrawColor(90, 100, 96); doc.setLineWidth(.45); if (doc.setLineDashPattern) doc.setLineDashPattern([1.6, 1.2], 0); doc.line(K.ML + 44, ly0 - 1, K.ML + 51, ly0 - 1); if (doc.setLineDashPattern) doc.setLineDashPattern([], 0); doc.setLineWidth(.2);
+      K.text(EV('Media del equipo', 'Team average'), K.ML + 53, ly0, { size: 7, color: K.muted });
+    }
+    // columna derecha: índice y cualidades
+    const rx = ax.length >= 3 ? K.ML + 108 : K.ML, rw = K.PW - K.MR - rx;
+    const icx = rx + 15, icy = top + 14;
+    doc.setDrawColor(...mix(K.ink, .88)); doc.setLineWidth(2.6); doc.circle(icx, icy, 12, 'S');
+    if (Q.index != null) { doc.setDrawColor(...LVP(Q.index)); if (doc.setLineCap) doc.setLineCap('round'); const N = 140, a0 = -Math.PI / 2, a1 = a0 + 2 * Math.PI * Q.index / 100; for (let k = 0; k < N; k++) { const t0 = a0 + (a1 - a0) * k / N, t1 = a0 + (a1 - a0) * (k + 1) / N; doc.line(icx + Math.cos(t0) * 12, icy + Math.sin(t0) * 12, icx + Math.cos(t1) * 12, icy + Math.sin(t1) * 12); } }
+    doc.setLineWidth(.2); if (doc.setLineCap) doc.setLineCap('butt');
+    K.text(Q.index != null ? String(Q.index) : '—', icx, icy + 3, { bold: true, size: 17, align: 'center' });
+    K.text(EV('ÍNDICE FÍSICO', 'FITNESS INDEX'), icx + 17, icy - 4, { bold: true, size: 8, color: K.muted });
+    K.text(Q.index != null ? EV(['Nivel bajo', 'Nivel medio', 'Nivel alto'][evScoreLv(Q.index)], ['Low', 'Average', 'High'][evScoreLv(Q.index)]) + EV(' para su edad', ' for age') : '', icx + 17, icy + 2, { bold: true, size: 10, color: LVP(Q.index) });
+    K.text([Q.teamIndex != null ? EV('Media del equipo ', 'Team avg ') + Q.teamIndex : null, Q.prevIndex != null && Q.index != null ? EV('Antes ', 'Before ') + Q.prevIndex : null].filter(Boolean).join('  ·  '), icx + 17, icy + 7, { size: 7.5, color: K.muted });
+    let by = top + 36;
+    ax.forEach(x => {
+      const tm = (Q.team.find(y => y.q === x.q) || {}).score;
+      K.text(x.label, rx, by, { bold: true, size: 8.5 });
+      K.text(x.score != null ? String(Math.round(x.score)) : '—', rx + rw, by, { bold: true, size: 9.5, color: x.score != null ? LVP(x.score) : K.muted, align: 'right' });
+      const bw = rw, bh = 3.2, y2 = by + 2;
+      doc.setFillColor(...mix(z.bad, .86)); doc.rect(rx, y2, bw / 3, bh, 'F'); doc.setFillColor(...mix(z.warn, .85)); doc.rect(rx + bw / 3, y2, bw / 3, bh, 'F'); doc.setFillColor(...mix(z.ok, .85)); doc.rect(rx + 2 * bw / 3, y2, bw / 3, bh, 'F');
+      if (x.score != null) { doc.setFillColor(...LVP(x.score)); doc.roundedRect(rx, y2, bw * x.score / 100, bh, 1.2, 1.2, 'F'); }
+      if (tm != null) { doc.setFillColor(40, 48, 44); doc.rect(rx + bw * tm / 100 - .35, y2 - 1, .7, bh + 2, 'F'); }
+      by += 10.5;
+    });
+    K.text(EV('0–100 · la marca negra es la media del equipo', '0–100 · black tick = team average'), rx, by - 2, { size: 6.5, color: K.muted });
+    K.y = Math.max(top + (ax.length >= 3 ? 102 : 0), by + 4);
+    // resumen de tests
     const graded = prof.items.filter(it => evField(it.k) && evField(it.k)[3]);
     K.kpis(graded.slice(0, 8).map(it => ({ l: evName(it.k), v: evFmt(it.k, it.last.v) + (evUnit(it.k) ? ' ' + evUnit(it.k) : ''), s: it.lv != null ? EV(EV_LV[it.lv][0], EV_LV[it.lv][1]) + (it.vsMean != null ? ` · ${it.vsMean >= 0 ? '+' : ''}${Math.round(it.vsMean)} % ${EV('vs media', 'vs avg')}` : '') : it.vsMean != null ? `${it.vsMean >= 0 ? '+' : ''}${Math.round(it.vsMean)} % ${EV('vs media del equipo', 'vs team avg')}` : '', fill: it.lv != null ? LVC[it.lv] : null })), 4);
     // tabla de resultados
@@ -6075,10 +6248,11 @@ async function evPdf(p, btn) {
     // evolución
     const evo = graded.filter(it => it.list.length >= 2);
     if (evo.length) {
+      K.need(52);
       K.h2(EV('Evolución', 'Progress'), EV('línea: jugador · gris: media del equipo · arriba es mejor', 'line: player · grey: team average · up is better'));
-      const cw = (K.CW - 6) / 2, ch = 30;
+      const cw = (K.CW - 12) / 3, ch = 30;
       evo.forEach((it, i) => {
-        const col = i % 2, x0 = K.ML + col * (cw + 6);
+        const col = i % 3, x0 = K.ML + col * (cw + 6);
         if (col === 0) K.need(ch + 14);
         const y0 = K.y, f = evField(it.k);
         K.text(evName(it.k) + (evUnit(it.k) ? ` (${evUnit(it.k)})` : ''), x0, y0, { bold: true, size: 8.5 });
@@ -6096,7 +6270,7 @@ async function evPdf(p, btn) {
         for (let j = 1; j < it.list.length; j++) doc.line(X(j - 1), Y(it.list[j - 1].v), X(j), Y(it.list[j].v));
         doc.setLineWidth(.2); doc.setFillColor(...K.accent);
         it.list.forEach((x, j) => { doc.circle(X(j), Y(x.v), .9, 'F'); K.text(evFmt(it.k, x.v), X(j), Y(x.v) - 1.8, { size: 6, color: K.ink, align: 'center' }); K.text(ddmm(x.date), X(j), gy0 + gh + 3.6, { size: 5.8, color: K.muted, align: 'center' }); });
-        if (col === 1 || i === evo.length - 1) K.y += ch + 4;
+        if (col === 2 || i === evo.length - 1) K.y += ch + 4;
       });
     }
     // fortalezas, debilidades y plan
@@ -6177,7 +6351,53 @@ details.ev-test > summary b { flex: 1 1 auto; }
 .ev-st-row:last-child { border-bottom: 0; }
 .ev-st-n { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ev-st-in { width: 100%; min-height: 40px; font-size: 1.05rem; text-align: center; }
-.ev-norms { margin-top: 4px; } .ev-norms td, .ev-norms th { padding: 4px 8px 4px 0; text-align: left; }
+.ev-norms { margin-top: 4px; }
+.ev-hero { overflow: hidden; }
+.ev-hh { display: flex; gap: 14px; align-items: center; }
+.ev-hn { flex: 1; min-width: 0; }
+.ev-name { font-size: 1.45rem; font-weight: 800; line-height: 1.15; }
+.ev-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ev-tag { font-size: .78rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+.ev-tag.up { background: color-mix(in srgb, var(--z-ok) 18%, transparent); color: var(--z-ok-tx, var(--z-ok)); }
+.ev-tag.dn { background: color-mix(in srgb, var(--z-warn) 18%, transparent); color: var(--z-warn-tx, var(--z-warn)); }
+.ev-idx { display: flex; flex-direction: column; align-items: center; flex: none; }
+.ev-idxl { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); margin-top: -2px; }
+.ev-idxs { font-size: .78rem; color: var(--ink-3); }
+.ev-idxs .up, .ev-qh small.up { color: var(--z-ok-tx, var(--z-ok)); } .ev-idxs .dn, .ev-qh small.dn { color: var(--z-bad-tx, var(--z-bad)); }
+.ev-ring-big .ev-rbg { fill: none; stroke: var(--line-2); stroke-width: 11; }
+.ev-ring-big .ev-rfg { fill: none; stroke-width: 11; stroke-linecap: round; transition: stroke-dasharray .6s ease; }
+.ev-ring-big .ev-rv { font-size: 34px; font-weight: 800; fill: var(--ink); }
+.ev-ring-big .ev-rl { font-size: 11px; fill: var(--ink-3); }
+.ev-hb { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: center; margin-top: 10px; }
+@media (max-width: 760px) { .ev-hb { grid-template-columns: 1fr; } .ev-hh { flex-wrap: wrap; } }
+.ev-rw { text-align: center; }
+.ev-radar { width: 100%; max-width: 380px; height: auto; overflow: visible; }
+.ev-radar .ev-band { stroke: none; } .ev-radar .ev-band.b2 { fill: color-mix(in srgb, var(--z-ok) 11%, transparent); } .ev-radar .ev-band.b1 { fill: color-mix(in srgb, var(--z-warn) 12%, var(--panel)); } .ev-radar .ev-band.b0 { fill: color-mix(in srgb, var(--z-bad) 12%, var(--panel)); }
+.ev-radar .ev-ring { fill: none; stroke: var(--line); stroke-width: 1; }
+.ev-radar .ev-pme { fill: color-mix(in srgb, var(--accent) 30%, transparent); stroke: var(--accent); stroke-width: 3; stroke-linejoin: round; animation: evGrow .7s ease both; transform-origin: 160px 160px; }
+.ev-radar .ev-ptm { fill: none; stroke: var(--ink-2); stroke-width: 1.8; stroke-dasharray: 6 4; }
+.ev-radar .ev-ppr { fill: none; stroke: var(--ink-3); stroke-width: 1.6; stroke-dasharray: 2 4; stroke-linecap: round; }
+.ev-radar .ev-pt { stroke: var(--panel); stroke-width: 2.5; }
+.ev-radar .ev-axl { font-size: 13px; font-weight: 700; fill: var(--ink); }
+.ev-radar .ev-axv { font-size: 13px; font-weight: 800; fill: var(--accent); }
+@keyframes evGrow { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.ev-sw.ev-pv { height: 0; border-top: 2px dotted var(--ink-3); border-radius: 0; }
+.ev-chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.ev-qbars { display: grid; gap: 12px; }
+.ev-qh { display: flex; justify-content: space-between; align-items: baseline; font-size: .92rem; }
+.ev-qh span { font-weight: 800; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.ev-qh small { font-size: .75rem; font-weight: 700; }
+.ev-qt { position: relative; height: 12px; border-radius: 99px; background: linear-gradient(90deg, color-mix(in srgb, var(--z-bad) 14%, transparent) 0 33.3%, color-mix(in srgb, var(--z-warn) 14%, transparent) 33.3% 66.6%, color-mix(in srgb, var(--z-ok) 14%, transparent) 66.6%); margin-top: 4px; }
+.ev-qt i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; animation: evBar .7s ease both; }
+.ev-qt em { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1.5px; background: var(--ink); border-radius: 2px; opacity: .55; }
+@keyframes evBar { from { width: 0; } }
+.ev-rank { display: grid; gap: 4px; }
+.ev-rk { display: grid; grid-template-columns: 26px minmax(70px, 130px) 1fr 34px; gap: 10px; align-items: center; background: none; border: 0; padding: 6px 4px; border-radius: 8px; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.ev-rk:hover { background: var(--line-2); }
+.ev-rkn { font-weight: 800; color: var(--ink-3); text-align: center; } .ev-rkp { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev-rkt { height: 10px; border-radius: 99px; background: var(--line-2); position: relative; overflow: hidden; } .ev-rkt i { position: absolute; inset: 0 auto 0 0; border-radius: 99px; animation: evBar .7s ease both; }
+.ev-rk b { text-align: right; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .ev-radar .ev-pme, .ev-qt i, .ev-rkt i { animation: none; } } .ev-norms td, .ev-norms th { padding: 4px 8px 4px 0; text-align: left; }
 `));
 (function () {
   const a = document.querySelector('a.tab[href="#tests"]'); if (a) a.textContent = EV('Evaluación física', 'Fitness');
