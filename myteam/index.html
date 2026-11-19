@@ -4941,7 +4941,7 @@ tbBadges = function () { tbBadges27(); teamTitle(); hideTabs(); };
 document.addEventListener('click', e => { if (tbOpen === 'teams' && !e.target.closest('#tbDrop, header.top .brand h1')) tbClose(); });
 
 /* ---- secciones visibles ---- */
-const HIDEABLE = [['plan', 'Planificación', 'Planning'], ['calendario', 'Calendario', 'Calendar'], ['sesiones', 'Sesiones', 'Sessions'], ['lesiones', 'Lesiones', 'Injuries'], ['tests', 'Tests', 'Tests'],
+const HIDEABLE = [['plan', 'Planificación', 'Planning'], ['calendario', 'Calendario', 'Calendar'], ['sesiones', 'Sesiones', 'Sessions'], ['lesiones', 'Lesiones', 'Injuries'], ['tests', 'Evaluación física', 'Fitness'],
   ['estadisticas', 'Estadísticas', 'Stats'], ['comparar', 'Comparar', 'Compare'], ['clasificacion', 'Clasificación', 'Table'], ['liga', 'Liga', 'League']];
 function hiddenTabs() { try { return ((store.cache.config.get('main') || {}).hiddenTabs) || []; } catch (_) { return []; } }
 function hideTabs() {
@@ -5106,7 +5106,7 @@ async function seasonPdf(btn) {
       if (fields.length) {
         K.h2(QX('Tests: primera y última batería', 'Tests: first vs last battery'), ddmm(f0.date) + ' → ' + ddmm(f1.date));
         fields.slice(0, 3).forEach(f => {
-          const rows = M.players.filter(p => p.estado !== 'Baja').map(p => { const a = f0.res[p.name] && f0.res[p.name][f[0]], b = f1.res[p.name] && f1.res[p.name][f[0]]; if (a == null || b == null || a === '' || b === '') return null; const d = b - a, good = f[3] === 'low' ? d < 0 : d > 0;
+          const rows = M.players.filter(p => p.estado !== 'Baja').map(p => { const a = f0.res[p.name] && f0.res[p.name][f[0]], b = f1.res[p.name] && f1.res[p.name][f[0]]; if (a == null || b == null || a === '' || b === '') return null; const d = b - a, good = f[3] < 0 ? d < 0 : d > 0;
             return [p.name, fmt2(+a).replace(/,00$/, ''), fmt2(+b).replace(/,00$/, ''), { t: (d > 0 ? '+' : '') + fmt2(d).replace(/,00$/, ''), fill: d === 0 ? z.none : good ? z.ok : z.bad }]; }).filter(Boolean);
           if (rows.length) { K.text(f[1] + (f[2] ? ' (' + f[2] + ')' : ''), K.ML, K.y, { bold: true, size: 8.5 }); K.y += 4; K.table([QX('Jugador', 'Player'), QX('Inicio', 'Start'), QX('Final', 'End'), 'Δ'], rows, [70, 36, 36, 40]); }
         });
@@ -5641,6 +5641,549 @@ html td, html .kpi .v { font-variant-numeric: tabular-nums; }
 })();
 
 /* ==F31-END== */
+/* ==F32-START== */
+
+/* ================= Evaluación física: batería, baremos por edad, evolución, informe PDF y aviso de carga ================= */
+const EV = (es, en) => LANG === 'en' ? en : es;
+const EV_BASE = TEST_FIELDS.slice();          // peso, altura, CMJ, Abalakov, 10 m, 20 m, 30-15 IFT
+const EV_EXTRA = {
+  v30: ['v30', '30 m', 's', -1, 2],
+  cod505: ['cod505', '505 (COD)', 's', -1, 2],
+  yoyo: ['yoyo', 'Yo-Yo IR1', 'm', 1, 0],
+};
+const EV_AEROBIC = ['ift', 'yoyo'];
+const EV_MOMENTS = [['pre', 'Inicio de pretemporada', 'Start of pre-season'], ['mid', 'Mitad de temporada', 'Mid-season'], ['end', 'Final de temporada', 'End of season'], ['otro', 'Otro momento', 'Other']];
+const EV_GROUPS = [['U12', 'Alevín o menor', 'U12', 11], ['U14', 'Infantil', 'U14', 13], ['U16', 'Cadete', 'U16', 15], ['U19', 'Juvenil', 'U19', 18], ['SEN', 'Sénior', 'Senior', 199]];
+// baremos orientativos (fútbol masculino): [límite bajo→medio, límite medio→alto]; en tiempos, por debajo es mejor
+const EV_NORMS = {
+  cmj: { U12: [22, 27], U14: [26, 31], U16: [30, 35], U19: [34, 39], SEN: [36, 41] },
+  abk: { U12: [26, 31], U14: [30, 36], U16: [35, 41], U19: [40, 45], SEN: [42, 48] },
+  v10: { U12: [2.05, 1.95], U14: [1.95, 1.85], U16: [1.85, 1.77], U19: [1.8, 1.72], SEN: [1.78, 1.7] },
+  v20: { U12: [3.65, 3.5], U14: [3.45, 3.3], U16: [3.25, 3.12], U19: [3.15, 3.03], SEN: [3.1, 3] },
+  v30: { U12: [5.2, 4.95], U14: [4.85, 4.62], U16: [4.55, 4.35], U19: [4.38, 4.22], SEN: [4.3, 4.15] },
+  cod505: { U12: [2.75, 2.6], U14: [2.62, 2.48], U16: [2.5, 2.38], U19: [2.42, 2.32], SEN: [2.38, 2.28] },
+  ift: { U12: [15.5, 17], U14: [16.5, 18], U16: [17.5, 19], U19: [18.5, 19.5], SEN: [19, 20] },
+  yoyo: { U12: [600, 1000], U14: [900, 1400], U16: [1300, 1800], U19: [1700, 2200], SEN: [1900, 2400] },
+};
+// protocolo de cada test
+const EV_INFO = {
+  peso: { q: ['Báscula, descalzo y con ropa ligera, a primera hora o antes de entrenar.', 'Scale, barefoot, light clothing, before training.'] },
+  altura: { q: ['Tallímetro o pared, descalzo, talones juntos y mirada al frente.', 'Stadiometer or wall, barefoot, heels together, looking ahead.'] },
+  cmj: { w: ['Potencia del tren inferior (salto con contramovimiento).', 'Lower-limb power (countermovement jump).'],
+    q: ['Manos en la cadera todo el salto. Bajada rápida hasta unos 90° y salto máximo. Cae con las piernas estiradas en el mismo sitio. 3 intentos con 30–60 s de pausa; se apunta el mejor. Plataforma de contacto o app (My Jump).', 'Hands on hips throughout. Quick dip to about 90° and jump as high as possible. Land with straight legs on the same spot. 3 attempts, 30–60 s rest; record the best. Contact mat or app (My Jump).'] },
+  abk: { w: ['Potencia con ayuda de brazos (Abalakov).', 'Power with arm swing (Abalakov).'],
+    q: ['Igual que el CMJ pero con impulso libre de brazos. 3 intentos, el mejor. La diferencia con el CMJ indica cómo usa los brazos (lo normal es un 10–15 % más).', 'Like the CMJ but with a free arm swing. 3 attempts, best one. The gap with the CMJ shows arm use (usually 10–15 % higher).'] },
+  v10: { w: ['Aceleración.', 'Acceleration.'], q: ['Salida parada a 0,5–1 m de la primera fotocélula, sin balanceo previo. 2–3 intentos con 2–3 min de pausa; el mejor. Mismo calzado y superficie en cada evaluación.', 'Standing start 0.5–1 m behind the first gate, no rocking. 2–3 attempts, 2–3 min rest; best one. Same footwear and surface each time.'] },
+  v20: { w: ['Aceleración y transición a velocidad máxima.', 'Acceleration into top speed.'], q: ['El mismo sprint del 10 m con una fotocélula a 20 m. Se apunta el tiempo del mejor intento.', 'Same sprint as the 10 m with a gate at 20 m. Record the best attempt.'] },
+  v30: { w: ['Velocidad máxima.', 'Top speed.'], q: ['Sprint de 30 m con salida parada (fotocélulas a 0, 10, 20 y 30 m si puedes). 2–3 intentos con recuperación completa.', '30 m sprint from a standing start (gates at 0, 10, 20 and 30 m if possible). 2–3 attempts with full recovery.'] },
+  cod505: { w: ['Cambio de dirección de 180°.', '180° change of direction.'], q: ['Carrera lanzada de 10 m, la fotocélula está a 5 m de la línea de giro: entra, pisa la línea, gira 180° y sale 5 m. Se cronometran solo esos 10 m (5 + 5). 2 intentos por pierna de giro; el mejor de cada lado.', '10 m run-up; the gate is 5 m before the turning line: go through, touch the line, turn 180° and run 5 m back. Only those 10 m (5 + 5) are timed. 2 attempts per turning leg; best each side.'] },
+  ift: { w: ['Resistencia intermitente y capacidad de recuperación (VIFT).', 'Intermittent endurance and recovery (VIFT).'],
+    q: ['30 s de carrera ida y vuelta en 40 m y 15 s de pausa caminando. Empieza a 8 km/h y sube 0,5 km/h cada etapa siguiendo el audio. Se termina cuando no llega 3 veces a la zona. Se apunta la velocidad de la última etapa completada (VIFT).', '30 s shuttle runs over 40 m with 15 s walking recovery. Starts at 8 km/h, +0.5 km/h per stage following the audio. Ends when the player misses the zone 3 times. Record the last completed stage speed (VIFT).'] },
+  yoyo: { w: ['Resistencia intermitente de alta intensidad.', 'High-intensity intermittent endurance.'],
+    q: ['Carreras de 2 × 20 m al ritmo del audio con 10 s de recuperación activa (2 × 5 m). Termina al fallar 2 veces la línea. Se apunta la distancia total recorrida en metros.', '2 × 20 m shuttles to the audio beep with 10 s active recovery (2 × 5 m). Ends after missing the line twice. Record the total distance in metres.'] },
+};
+const EV_TIPS = {
+  cmj: ['Potencia de piernas: 2 días por semana de pliometría (saltos al cajón, saltos continuos, saltos horizontales) y fuerza básica (sentadilla, zancada, peso muerto) moviendo la carga lo más rápido posible.', 'Leg power: plyometrics twice a week (box jumps, repeated jumps, horizontal jumps) and basic strength (squat, lunge, deadlift) moving the load as fast as possible.'],
+  abk: ['Coordinación brazos-piernas en el salto: los mismos saltos del CMJ añadiendo un impulso de brazos amplio y rápido; técnica de batida en remates de cabeza.', 'Arm-leg coordination: the same jumps with a big, fast arm swing; take-off technique for headers.'],
+  v10: ['Aceleración: salidas de 5–15 m desde distintas posiciones (de pie, de espaldas, tras un pase), arrastres con trineo ligero o gomas. 6–8 repeticiones con recuperación completa.', 'Acceleration: 5–15 m starts from different positions (standing, facing back, after a pass), light sled or band resisted sprints. 6–8 reps with full recovery.'],
+  v20: ['Aceleración larga: sprints de 15–25 m con técnica de carrera (inclinación, braceo) y fuerza de cadera e isquios (hip thrust, nórdicos).', 'Longer acceleration: 15–25 m sprints with running technique (lean, arm drive) and hip/hamstring strength (hip thrust, Nordics).'],
+  v30: ['Velocidad máxima: sprints lanzados de 20–30 m una o dos veces por semana, siempre descansado y con recuperación completa; trabajo de isquios (nórdicos) para proteger.', 'Top speed: 20–30 m flying sprints once or twice a week, always fresh and with full recovery; hamstring work (Nordics) for protection.'],
+  cod505: ['Cambio de dirección: frenadas y giros de 90–180° a velocidad creciente, trabajo excéntrico de cuádriceps e isquios y circuitos de agilidad con balón.', 'Change of direction: braking and 90–180° cuts at rising speed, eccentric quad and hamstring work, agility circuits with the ball.'],
+  ift: ['Resistencia intermitente: intervalos 15"–15" al 90–95 % de su VIFT y juegos reducidos (4c4–5c5) en espacios amplios, 2 días por semana, subiendo la carga poco a poco.', 'Intermittent endurance: 15"–15" intervals at 90–95 % of VIFT and small-sided games (4v4–5v5) on larger pitches, twice a week, increasing load gradually.'],
+  yoyo: ['Resistencia de alta intensidad: intervalos cortos (15"–15", 30"–30") y juegos reducidos con mucho espacio, 2 días por semana, subiendo la carga poco a poco.', 'High-intensity endurance: short intervals (15"–15", 30"–30") and small-sided games with lots of space, twice a week, increasing load gradually.'],
+};
+const EV_TIP_CUSTOM = ['Trabajo específico de la cualidad que mide este test, 2 días por semana, y repetir el test para ver la evolución.', 'Specific work on the quality this test measures, twice a week, then retest to track progress.'];
+
+const evCfgOf = c => (c && c.evalFis) || {};
+function evCfg() { return evCfgOf(store.cache.config.get('main')); }
+async function evSave(patch) {
+  const c = { ...(store.cache.config.get('main') || {}) };
+  c.evalFis = { ...(c.evalFis || {}), ...patch };
+  await writeDoc('config', 'main', c);
+}
+function evSyncFields(cfgDoc) {
+  const e = evCfgOf(cfgDoc), list = EV_BASE.slice();
+  (e.extras || []).forEach(k => { if (EV_EXTRA[k]) list.push(EV_EXTRA[k]); });
+  (e.custom || []).forEach(c => list.push([c.k, c.label, c.unit || '', c.better, c.dec != null ? c.dec : 1]));
+  TEST_FIELDS.length = 0; TEST_FIELDS.push(...list);
+}
+// cada vez que se construye el modelo: los tests activos de este equipo y los avisos de carga
+const docsToModel32 = docsToModel;
+docsToModel = function (D) {
+  evSyncFields(D && D.config);
+  let M;
+  try { M = docsToModel32(D); if (M) evAlerts(M); }
+  catch (e) { console.error(e); if (!M) throw e; }
+  finally { evSyncFields(store.cache.config.get('main')); }   // otros equipos (Hoy, comparar) no cambian los tests del equipo abierto
+  return M;
+};
+const evField = k => TEST_FIELDS.find(f => f[0] === k) || EV_BASE.find(f => f[0] === k) || EV_EXTRA[k];
+const evName = k => { const f = evField(k); return f ? f[1] : k; };
+const evUnit = k => { const f = evField(k); return f ? f[2] : ''; };
+const evFmt = (k, v) => { if (v == null || v === '') return '—'; const f = evField(k); return fmtT(+v, f ? f[4] : 1); };
+const evMomLabel = m => { const x = EV_MOMENTS.find(y => y[0] === m); return x ? EV(x[1], x[2]) : ''; };
+function evTestDoc(id) { return ((MODEL && MODEL.docs.tests) || []).find(x => x.id === id) || {}; }
+function evNac(pid, cfgDoc) { const v = (evCfgOf(cfgDoc || store.cache.config.get('main')).nac || {})[pid]; return v ? +v : null; }
+function evGroup(nac, serial) {
+  if (!nac) return null;
+  const age = sdate(serial != null ? serial : todaySerial()).getUTCFullYear() - nac;
+  const g = EV_GROUPS.find(x => age <= x[3]) || EV_GROUPS[EV_GROUPS.length - 1];
+  return { k: g[0], label: EV(g[1], g[2]), age };
+}
+function evNorm(k, gk) { const o = (evCfg().norms || {})[k]; return (o && o[gk]) || (EV_NORMS[k] && EV_NORMS[k][gk]) || null; }
+// 0 = bajo, 1 = medio, 2 = alto
+function evLevel(k, v, gk) {
+  if (v == null || v === '' || !gk) return null;
+  const n = evNorm(k, gk), f = evField(k); if (!n || !f || !f[3]) return null;
+  v = +v;
+  if (f[3] > 0) return v < n[0] ? 0 : v >= n[1] ? 2 : 1;
+  return v > n[0] ? 0 : v <= n[1] ? 2 : 1;
+}
+const EV_LV = [['Bajo', 'Low', 'z-bad'], ['Medio', 'Average', 'z-warn'], ['Alto', 'High', 'z-ok']];
+const evLvPill = lv => lv == null ? null : h('span', { class: 'pill ' + EV_LV[lv][2] + ' ev-pill' }, EV(EV_LV[lv][0], EV_LV[lv][1]));
+const evPct = (v, ref, better) => { if (v == null || ref == null || !ref) return null; const d = (v - ref) / Math.abs(ref) * 100; return better < 0 ? -d : d; };
+function evPlayerRows(M, p) {
+  // todas las mediciones del jugador, por test, en orden de fecha
+  const out = {};
+  M.tests.forEach(t => {
+    const r = t.res[p.name]; if (!r) return;
+    TEST_FIELDS.forEach(f => {
+      const v = r[f[0]]; if (v == null || v === '') return;
+      const all = Object.values(t.res).map(x => x[f[0]]).filter(x => x != null && x !== '').map(Number);
+      (out[f[0]] = out[f[0]] || []).push({ date: t.date, v: +v, mean: all.length ? mean(all) : null, tid: t.id });
+    });
+  });
+  return out;
+}
+// puntos fuertes y a mejorar a partir de lo último medido
+function evProfile(M, p) {
+  const rows = evPlayerRows(M, p), nac = evNac(p.id), strong = [], weak = [], items = [];
+  Object.entries(rows).forEach(([k, list]) => {
+    const f = evField(k); if (!f || !f[3]) return;
+    const last = list[list.length - 1], prev = list.length > 1 ? list[list.length - 2] : null;
+    const g = evGroup(nac, last.date), lv = g ? evLevel(k, last.v, g.k) : null;
+    const vsMean = evPct(last.v, last.mean, f[3]);
+    const it = { k, last, prev, lv, vsMean, g, list };
+    items.push(it);
+    if (lv === 2 || (lv == null && vsMean != null && vsMean >= 5)) strong.push(it);
+    else if (lv === 0 || (lv == null && vsMean != null && vsMean <= -5)) weak.push(it);
+  });
+  return { items, strong, weak, nac, group: evGroup(nac) };
+}
+function evLoadRisk(M, p, prof) {
+  prof = prof || evProfile(M, p);
+  const aer = prof.items.filter(it => EV_AEROBIC.includes(it.k)).sort((a, b) => b.last.date - a.last.date)[0];
+  if (!aer) return null;
+  const low = aer.lv === 0 || (aer.lv == null && aer.vsMean != null && aer.vsMean <= -7);
+  if (!low || !M.sessions.length) return null;
+  const w = Math.max(...M.sessions.map(s => s.week)), x = (M.pw[p.name] || [])[w - 1];
+  if (!x) return null;
+  const teamLoads = M.players.filter(q => q.estado !== 'Baja').map(q => ((M.pw[q.name] || [])[w - 1] || {}).load).filter(v => v > 0);
+  const tm = teamLoads.length ? mean(teamLoads) : null;
+  const highAcwr = x.acwr != null && x.acwr > M.cfg.opt, highLoad = tm && x.load > tm * 1.15;
+  if (!highAcwr && !highLoad) return null;
+  return { aer, acwr: x.acwr, load: x.load, tm, why: highAcwr ? EV('ACWR ', 'ACWR ') + fmt2(x.acwr) : EV(`carga semanal ${fmt0(x.load)} UA (+${Math.round((x.load / tm - 1) * 100)} % sobre la media)`, `weekly load ${fmt0(x.load)} AU (+${Math.round((x.load / tm - 1) * 100)} % above average)`) };
+}
+function evAlerts(M) {
+  if (!M.tests.length || !M.alerts) return;
+  M.players.forEach(p => {
+    if (p.estado === 'Baja' || p.injury) return;
+    const r = evLoadRisk(M, p); if (!r) return;
+    M.alerts.push({ sev: 2, p, t: EV('Resistencia baja y carga alta', 'Low endurance, high load'), d: evName(r.aer.k) + ' ' + EV('bajo', 'low') + ' · ' + r.why });
+  });
+  M.alerts.sort((a, b) => b.sev - a.sev || a.p.i - b.p.i);
+}
+
+/* ---------- vista ---------- */
+function evSpark(list, better) {
+  const W = 220, H = 64, P = 6;
+  const vs = list.flatMap(x => [x.v, x.mean]).filter(v => v != null);
+  let lo = Math.min(...vs), hi = Math.max(...vs); if (hi - lo < 1e-6) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * .15; lo -= pad; hi += pad;
+  const X = i => list.length === 1 ? W / 2 : P + i * (W - 2 * P) / (list.length - 1);
+  const Y = v => better < 0 ? P + (v - lo) / (hi - lo) * (H - 2 * P) : H - P - (v - lo) / (hi - lo) * (H - 2 * P); // arriba siempre es mejor
+  const s = (t, a) => { const e = document.createElementNS('http://www.w3.org/2000/svg', t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: 'ev-spark', role: 'img', 'aria-label': EV('Evolución', 'Progress') });
+  const mp = list.filter(x => x.mean != null);
+  if (mp.length > 1) svg.append(s('polyline', { points: list.map((x, i) => x.mean != null ? X(i) + ',' + Y(x.mean) : '').filter(Boolean).join(' '), class: 'ev-mean' }));
+  if (list.length > 1) svg.append(s('polyline', { points: list.map((x, i) => X(i) + ',' + Y(x.v)).join(' '), class: 'ev-line' }));
+  list.forEach((x, i) => { if (x.mean != null && mp.length === 1) svg.append(s('line', { x1: X(i) - 14, x2: X(i) + 14, y1: Y(x.mean), y2: Y(x.mean), class: 'ev-mean' })); svg.append(s('circle', { cx: X(i), cy: Y(x.v), r: 3.4, class: 'ev-dot' })); });
+  return svg;
+}
+function evTabs() {
+  const tabs = [['res', EV('Resultados', 'Results')], ['jug', EV('Por jugador', 'By player')], ['cfg', EV('Tests y baremos', 'Tests & norms')]];
+  return h('div', { class: 'chips ev-tabs', role: 'tablist' }, tabs.map(([k, l]) => h('button', { class: 'chip', type: 'button', role: 'tab', 'aria-selected': UI.evTab === k ? 'true' : 'false', 'aria-pressed': UI.evTab === k ? 'true' : 'false', onclick: () => { UI.evTab = k; route(); } }, h('span', { class: 'sc' }, l))));
+}
+function evNacBanner(M) {
+  const miss = M.players.filter(p => p.estado !== 'Baja' && !evNac(p.id));
+  if (!miss.length) return null;
+  return h('div', { class: 'info section-gap', style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' },
+    h('span', { style: 'flex:1 1 240px' }, EV(`${miss.length === M.players.filter(p => p.estado !== 'Baja').length ? 'Ningún jugador tiene' : miss.length + (miss.length === 1 ? ' jugador no tiene' : ' jugadores no tienen')} año de nacimiento: sin él no sale el semáforo de los baremos (sí la comparación con la media).`,
+      `${miss.length} player(s) have no birth year: without it there is no traffic light (the team-average comparison still works).`)),
+    canEdit() ? h('button', { class: 'btn sm', type: 'button', onclick: () => { UI.evTab = 'nac'; route(); } }, EV('Poner años de nacimiento', 'Add birth years')) : null);
+}
+function vEval(main) {
+  const M = MODEL, edit = canEdit();
+  if (UI.editTest) return evEditTest(main, UI.editTest);
+  UI.evTab = UI.evTab || 'res';
+  main.setAttribute('data-noi18n', '');
+  main.append(h('div', { class: 'view-head' }, h('div', null, h('h2', null, EV('Evaluación física', 'Fitness assessment')),
+    h('div', { class: 'sub' }, EV('Batería de tests por jugador y fecha, baremos por edad, evolución e informe para el club', 'Tests by player and date, age norms, progress and a report for the club'))),
+    edit ? h('button', { class: 'btn primary', type: 'button', onclick: () => { UI.editTest = 'new'; UI.editing = true; route(); } }, EV('+ Nueva evaluación', '+ New assessment')) : null));
+  main.append(evTabs());
+  if (UI.evTab === 'nac') return evNacView(main);
+  if (UI.evTab === 'cfg') return evCfgView(main);
+  const ban0 = evNacBanner(M);
+  if (!M.tests.length) {
+    if (ban0) main.append(ban0);
+    main.append(emptyBox('stopwatch', EV('Todavía no hay evaluaciones', 'No assessments yet'), EV('Crea la primera con «+ Nueva evaluación» (por ejemplo, la de inicio de pretemporada). En «Tests y baremos» tienes cómo hacer cada test.', 'Create the first one with “+ New assessment”. “Tests & norms” explains how to run each test.')));
+    return;
+  }
+  if (ban0) main.append(ban0);
+  if (UI.evTab === 'jug') return evPlayerView(main);
+  evResultsView(main);
+}
+function evResultsView(main) {
+  const M = MODEL, edit = canEdit();
+  if (!UI.testId || !M.tests.find(t => t.id === UI.testId)) UI.testId = M.tests[M.tests.length - 1].id;
+  const ti = M.tests.findIndex(t => t.id === UI.testId), t = M.tests[ti], prevT = M.tests[ti - 1] || null, td = evTestDoc(t.id);
+  main.append(h('div', { class: 'chips section-gap', role: 'group', 'aria-label': EV('Evaluaciones', 'Assessments') }, M.tests.map(x => { const xd = evTestDoc(x.id);
+    return h('button', { class: 'chip', type: 'button', 'aria-pressed': x.id === t.id ? 'true' : 'false', onclick: () => { UI.testId = x.id; route(); } },
+      h('span', { class: 'j' }, ddmmyy(x.date)), h('span', { class: 'sc', style: 'font-size:.85rem' }, x.nombre || evMomLabel(xd.momento) || EV('Evaluación', 'Assessment')), h('span', { class: 'bar' })); })));
+  const names = M.players.filter(p => t.res[p.name]).map(p => p.name);
+  const has = k => names.some(n => t.res[n][k] != null && t.res[n][k] !== '');
+  // primero los tests con baremo (en el móvil son los que se ven en cada tarjeta) y al final peso, altura e IMC
+  const cols = [...TEST_FIELDS.slice(2), ...TEST_FIELDS.slice(0, 2), ['imc', 'IMC', '', 0, 1]].filter(([k]) => has(k));
+  const tb = h('tbody', null, names.map(n => {
+    const p = M.players.find(x => x.name === n), r = t.res[n], pr = prevT && prevT.res[n], g = evGroup(evNac(p.id), t.date);
+    return h('tr', null, h('td', { class: 'name' }, n, ' ', h('span', { class: 'muted', style: 'font-weight:500' }, g ? g.label : p.pos)),
+      cols.map(([k, , , b, dec]) => { const lv = g ? evLevel(k, r[k], g.k) : null;
+        return h('td', { class: lv != null ? 'ev-c ev-l' + lv : '', title: lv != null ? EV(EV_LV[lv][0], EV_LV[lv][1]) : '' }, fmtT(r[k], dec), deltaEl(r[k], pr && pr[k], b, dec)); }));
+  }));
+  const meanRow = (label, list) => h('tr', { style: 'background:var(--line-2)' }, h('td', { class: 'name' }, label),
+    cols.map(([k, , , , dec]) => { const vs = list.map(n => t.res[n][k]).filter(v => v != null && v !== ''); return h('td', null, vs.length ? fmtT(mean(vs.map(Number)), dec) : '—'); }));
+  const lines = ['POR', 'DF', 'MC', 'DL'].map(l => [l, names.filter(n => (M.players.find(p => p.name === n) || {}).line === l)]).filter(([, l]) => l.length);
+  main.append(h('div', { class: 'panel section-gap' },
+    h('h3', null, [t.nombre || evMomLabel(td.momento), ddmmyy(t.date)].filter(Boolean).join(' · ') + (prevT ? EV(` · comparado con ${ddmmyy(prevT.date)}`, ` · vs ${ddmmyy(prevT.date)}`) : '')),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'ev-table' },
+      h('thead', null, h('tr', null, h('th', null, EV('Jugador', 'Player')), cols.map(([k, l, u]) => h('th', null, l + (u ? ` (${u})` : ''))))),
+      tb, h('tfoot', null, meanRow(EV('Media equipo', 'Team average'), names), lines.map(([l, list]) => meanRow(EV('Media ', 'Average ') + l, list))))),
+    h('div', { class: 'ev-legend' }, EV_LV.map((x, i) => h('span', null, h('i', { class: 'ev-sw ev-l' + i }), EV(x[0], x[1]))),
+      h('span', { class: 'muted' }, EV('según su edad · ▲▼ cambio respecto a la evaluación anterior', 'for their age · ▲▼ change vs previous assessment'))),
+    edit ? h('div', { class: 'bar-actions' }, h('button', { class: 'btn', type: 'button', onclick: () => { UI.editTest = t.id; UI.editing = true; route(); } }, EV('Editar esta evaluación', 'Edit this assessment'))) : null));
+}
+function evPlayerView(main) {
+  const M = MODEL;
+  const pls = M.players.filter(p => M.tests.some(t => t.res[p.name]));
+  if (!pls.length) { main.append(emptyBox('stopwatch', EV('Sin resultados todavía', 'No results yet'))); return; }
+  if (!UI.evPlayer || !pls.some(p => p.name === UI.evPlayer)) UI.evPlayer = (pls.find(p => p.name === UI.player) || pls[0]).name;
+  const p = pls.find(x => x.name === UI.evPlayer), prof = evProfile(M, p), risk = evLoadRisk(M, p, prof);
+  const sel = h('select', { class: 'f', 'aria-label': EV('Jugador', 'Player'), onchange: e => { UI.evPlayer = e.target.value; route(); } }, pls.map(x => h('option', { value: x.name, selected: x.name === p.name }, (x.dorsal != null ? x.dorsal + ' · ' : '') + x.name)));
+  const pdfBtn = h('button', { class: 'btn primary', type: 'button', onclick: e => evPdf(p, e.currentTarget) }, EV('📄 Informe PDF', '📄 PDF report'));
+  main.append(h('div', { class: 'controls section-gap', style: 'flex-wrap:wrap;gap:8px' }, sel, pdfBtn),
+    h('div', { class: 'sub', style: 'margin-top:6px' }, [p.pos, prof.group ? `${prof.group.label} · ${prof.group.age} ${EV('años', 'y/o')}` : EV('sin año de nacimiento', 'no birth year')].filter(Boolean).join(' · ')));
+  if (risk) main.append(h('div', { class: 'warnbox section-gap' }, h('b', null, EV('⚠️ Resistencia baja y carga alta. ', '⚠️ Low endurance, high load. ')),
+    EV(`Su ${evName(risk.aer.k)} está ${risk.aer.lv === 0 ? 'en nivel bajo' : 'por debajo de la media'} y esta semana lleva ${risk.why}. Conviene vigilar su carga y meter trabajo aeróbico progresivo.`, `${evName(risk.aer.k)} is ${risk.aer.lv === 0 ? 'low' : 'below average'} and this week: ${risk.why}. Watch the load and add progressive aerobic work.`)));
+  const cards = prof.items.map(it => {
+    const f = evField(it.k), d = it.prev ? it.last.v - it.prev.v : null;
+    return h('div', { class: 'panel ev-card' },
+      h('div', { class: 'ev-ch' }, h('b', null, evName(it.k)), evLvPill(it.lv)),
+      h('div', { class: 'ev-v' }, evFmt(it.k, it.last.v), h('small', null, ' ' + evUnit(it.k))),
+      h('div', { class: 'sub' }, [it.last.mean != null ? EV('Media equipo ', 'Team avg ') + evFmt(it.k, it.last.mean) + (it.vsMean != null ? ` (${it.vsMean >= 0 ? '+' : ''}${Math.round(it.vsMean)} %)` : '') : null,
+        d != null ? EV('Antes ', 'Before ') + evFmt(it.k, it.prev.v) : null].filter(Boolean).join(' · ')),
+      it.list.length ? evSpark(it.list, f[3]) : null,
+      h('div', { class: 'ev-dates' }, it.list.map(x => h('span', null, ddmm(x.date)))));
+  });
+  main.append(cards.length ? h('div', { class: 'ev-grid section-gap' }, ...cards) : emptyBox('stopwatch', EV('Sin tests con baremo', 'No graded tests')));
+  main.append(h('div', { class: 'ev-legend' }, h('span', null, h('i', { class: 'ev-sw ev-me' }), EV('Jugador', 'Player')), h('span', null, h('i', { class: 'ev-sw ev-tm' }), EV('Media del equipo', 'Team average')), h('span', { class: 'muted' }, EV('Arriba siempre es mejor (también en los tiempos)', 'Up is always better (times too)'))));
+  const list = (title, xs, empty) => h('div', { class: 'panel' }, h('h3', null, title), xs.length ? h('ul', { class: 'ev-ul' }, xs.map(x => h('li', null, x))) : h('div', { class: 'sub' }, empty));
+  const sTxt = prof.strong.map(it => h('span', null, h('b', null, evName(it.k)), ': ' + evFmt(it.k, it.last.v) + ' ' + evUnit(it.k) + (it.lv === 2 ? EV(' (nivel alto para su edad)', ' (high for age)') : it.vsMean != null ? EV(` (${Math.round(it.vsMean)} % mejor que la media)`, ` (${Math.round(it.vsMean)} % above average)`) : '')));
+  const wTxt = prof.weak.map(it => h('span', null, h('b', null, evName(it.k)), ': ' + evFmt(it.k, it.last.v) + ' ' + evUnit(it.k) + (it.lv === 0 ? EV(' (nivel bajo para su edad)', ' (low for age)') : it.vsMean != null ? EV(` (${Math.abs(Math.round(it.vsMean))} % por debajo de la media)`, ` (${Math.abs(Math.round(it.vsMean))} % below average)`) : '')));
+  const tips = prof.weak.map(it => h('span', null, h('b', null, evName(it.k) + ': '), EV(...(EV_TIPS[it.k] || EV_TIP_CUSTOM))));
+  main.append(h('div', { class: 'grid g2 section-gap' }, list(EV('Puntos fuertes', 'Strengths'), sTxt, EV('Ninguno destacado todavía.', 'None stand out yet.')), list(EV('A mejorar', 'To improve'), wTxt, EV('Nada por debajo de su nivel.', 'Nothing below level.'))),
+    tips.length ? h('div', { class: 'panel section-gap' }, h('h3', null, EV('Cómo puede mejorar', 'How to improve')), h('ul', { class: 'ev-ul' }, tips.map(x => h('li', null, x)))) : null);
+}
+function evNacView(main) {
+  const M = MODEL, edit = canEdit(), nac = { ...(evCfg().nac || {}) };
+  const y0 = sdate(todaySerial()).getUTCFullYear();
+  const rows = M.players.filter(p => p.estado !== 'Baja').map(p => {
+    const inp = h('input', { type: 'number', inputmode: 'numeric', class: 'n', min: y0 - 60, max: y0 - 5, value: nac[p.id] || '', placeholder: String(y0 - 14), disabled: !edit, 'aria-label': EV('Año de nacimiento de ', 'Birth year of ') + p.name, style: 'width:90px' });
+    const cat = h('span', { class: 'muted' }, (evGroup(nac[p.id]) || {}).label || '');
+    inp.oninput = () => { const v = +inp.value; nac[p.id] = v >= y0 - 60 && v <= y0 - 5 ? v : null; cat.textContent = (evGroup(nac[p.id]) || {}).label || ''; };
+    return h('tr', null, h('td', { class: 'name' }, (p.dorsal != null ? p.dorsal + ' · ' : '') + p.name), h('td', null, inp), h('td', null, cat));
+  });
+  main.append(h('div', { class: 'panel section-gap' }, h('h3', null, EV('Años de nacimiento', 'Birth years')),
+    h('div', { class: 'sub', style: 'margin:-6px 0 10px' }, EV('Sirven para comparar cada resultado con el baremo de su edad. También los puedes poner en Plantilla.', 'Used to compare each result with the norm for their age. You can also set them in Roster.')),
+    h('div', { class: 'tablewrap' }, h('table', null, h('thead', null, h('tr', null, h('th', null, EV('Jugador', 'Player')), h('th', null, EV('Año', 'Year')), h('th', null, EV('Categoría', 'Category')))), h('tbody', null, rows))),
+    edit ? h('div', { class: 'bar-actions' }, h('button', { class: 'btn primary', type: 'button', onclick: async e => { e.currentTarget.disabled = true; try { const clean0 = Object.fromEntries(Object.entries(nac).filter(([, v]) => v)); await evSave({ nac: clean0 }); toast(EV('Años guardados', 'Saved')); UI.evTab = 'res'; route(); } catch (er) { toast(errText(er), true); e.currentTarget.disabled = false; } } }, EV('Guardar', 'Save')),
+      h('button', { class: 'btn', type: 'button', onclick: () => { UI.evTab = 'res'; route(); } }, EV('Cancelar', 'Cancel'))) : null));
+}
+function evCfgView(main) {
+  const edit = canEdit(), e = evCfg(), extras = new Set(e.extras || []), custom = (e.custom || []).slice();
+  const normsEd = k => {
+    const f = evField(k); if (!f || !f[3]) return null;
+    const cur = { ...((evCfg().norms || {})[k] || {}) };
+    const grid = h('table', { class: 'ev-norms' }, h('thead', null, h('tr', null, h('th', null, EV('Edad', 'Age')), h('th', null, h('span', { class: 'pill z-bad ev-pill' }, EV('Bajo', 'Low')), f[3] > 0 ? ' <' : ' >'), h('th', null, h('span', { class: 'pill z-ok ev-pill' }, EV('Alto', 'High')), f[3] > 0 ? ' ≥' : ' ≤'))),
+      h('tbody', null, EV_GROUPS.map(([gk, es, en]) => {
+        const n = evNorm(k, gk) || ['', ''];
+        const mk = i => h('input', { type: 'number', step: 'any', class: 'n', value: n[i] ?? '', disabled: !edit, style: 'width:76px', 'aria-label': `${EV(es, en)} ${i ? EV('alto', 'high') : EV('bajo', 'low')}`,
+          onchange: ev => { const v = ev.target.value === '' ? null : +ev.target.value; const pr = cur[gk] ? cur[gk].slice() : (evNorm(k, gk) || [null, null]).slice(); pr[i] = v; cur[gk] = pr; } });
+        return h('tr', null, h('td', { class: 'name' }, EV(es, en)), h('td', null, mk(0)), h('td', null, mk(1)));
+      })));
+    return h('div', null, h('div', { class: 'sub', style: 'margin:8px 0 4px' }, EV('Baremo (entre los dos límites es «Medio»):', 'Norms (between the two limits is “Average”):')), grid,
+      edit ? h('div', { class: 'controls', style: 'margin-top:6px;flex-wrap:wrap' },
+        h('button', { class: 'btn sm primary', type: 'button', onclick: async () => { const all = { ...(evCfg().norms || {}) }; all[k] = cur; try { await evSave({ norms: all }); toast(EV('Baremo guardado', 'Norms saved')); } catch (er) { toast(errText(er), true); } } }, EV('Guardar baremo', 'Save norms')),
+        EV_NORMS[k] ? h('button', { class: 'btn sm', type: 'button', onclick: async () => { const all = { ...(evCfg().norms || {}) }; delete all[k]; try { await evSave({ norms: all }); toast(EV('Baremo restablecido', 'Norms reset')); route(); } catch (er) { toast(errText(er), true); } } }, EV('Volver al de serie', 'Reset to default')) : null) : null);
+  };
+  const row = (k, label, opts = {}) => {
+    const info = EV_INFO[k];
+    return h('details', { class: 'ev-test' },
+      h('summary', null, h('b', null, label), h('span', { class: 'muted' }, opts.tag || ''), opts.btn || null),
+      info && info.w ? h('div', { style: 'margin-top:6px' }, h('b', null, EV('Qué mide: ', 'Measures: ')), EV(...info.w)) : null,
+      info && info.q ? h('div', { style: 'margin-top:6px' }, h('b', null, EV('Cómo se hace: ', 'How: ')), EV(...info.q)) : null,
+      normsEd(k));
+  };
+  const toggle = k => h('button', { class: 'btn sm' + (extras.has(k) ? '' : ' primary'), type: 'button', disabled: !edit, onclick: async ev => { ev.preventDefault(); ev.stopPropagation(); extras.has(k) ? extras.delete(k) : extras.add(k); try { await evSave({ extras: [...extras] }); toast(extras.has(k) ? EV('Añadido a la batería', 'Added') : EV('Quitado de la batería (lo ya guardado se conserva)', 'Removed (saved results are kept)')); } catch (er) { toast(errText(er), true); } } }, extras.has(k) ? EV('Quitar', 'Remove') : EV('Añadir', 'Add'));
+  const base = EV_BASE.map(f => row(f[0], f[1] + (f[2] ? ` (${f[2]})` : ''), { tag: EV('incluido', 'included') }));
+  const ext = Object.values(EV_EXTRA).map(f => row(f[0], f[1] + ` (${f[2]})`, { tag: extras.has(f[0]) ? EV('en la batería', 'in battery') : EV('opcional', 'optional'), btn: edit ? toggle(f[0]) : null }));
+  const cus = custom.map(c => h('details', { class: 'ev-test' }, h('summary', null, h('b', null, c.label + (c.unit ? ` (${c.unit})` : '')), h('span', { class: 'muted' }, EV('propio', 'custom') + ' · ' + (c.better > 0 ? EV('más es mejor', 'higher is better') : EV('menos es mejor', 'lower is better'))),
+    edit ? h('button', { class: 'btn sm danger', type: 'button', onclick: async ev => { ev.preventDefault(); ev.stopPropagation(); if (!confirm(EV(`¿Quitar el test «${c.label}»? Los resultados ya guardados se conservan pero dejan de mostrarse.`, `Remove “${c.label}”? Saved results are kept but hidden.`))) return; try { await evSave({ custom: custom.filter(x => x.k !== c.k) }); toast(EV('Test quitado', 'Test removed')); } catch (er) { toast(errText(er), true); } } }, EV('Quitar', 'Remove')) : null),
+    normsEd(c.k) || null));
+  const nName = h('input', { type: 'text', class: 'nt-in', placeholder: EV('Ej.: Salto horizontal', 'e.g. Broad jump'), maxlength: 30, 'aria-label': EV('Nombre del test', 'Test name') });
+  const nUnit = h('input', { type: 'text', class: 'nt-in', placeholder: EV('cm, s, m, rep…', 'cm, s, m, reps…'), maxlength: 8, style: 'max-width:110px', 'aria-label': EV('Unidad', 'Unit') });
+  const nBet = h('select', { class: 'f', 'aria-label': EV('Qué es mejor', 'Which is better') }, h('option', { value: '1' }, EV('Más es mejor', 'Higher is better')), h('option', { value: '-1' }, EV('Menos es mejor', 'Lower is better')));
+  const add = edit ? h('div', { class: 'panel section-gap' }, h('h3', null, EV('Crear un test propio', 'Create your own test')),
+    h('div', { class: 'controls', style: 'flex-wrap:wrap;gap:8px' }, nName, nUnit, nBet,
+      h('button', { class: 'btn primary', type: 'button', onclick: async () => {
+        const label = nName.value.trim(); if (!label) { toast(EV('Pon un nombre', 'Add a name'), true); return; }
+        if (TEST_FIELDS.some(f => f[1].toLowerCase() === label.toLowerCase())) { toast(EV('Ya hay un test con ese nombre', 'That test already exists'), true); return; }
+        const c = { k: 'c_' + Math.random().toString(36).slice(2, 8), label, unit: nUnit.value.trim(), better: +nBet.value, dec: 1 };
+        try { await evSave({ custom: custom.concat([c]) }); toast(EV('Test creado: ya aparece al registrar', 'Test created')); } catch (er) { toast(errText(er), true); }
+      } }, EV('Crear', 'Create'))),
+    h('div', { class: 'sub', style: 'margin-top:6px' }, EV('Puedes ponerle baremo después, abriéndolo en la lista.', 'You can add norms afterwards from the list.'))) : null;
+  main.append(h('div', { class: 'panel section-gap' }, h('h3', null, EV('Batería de tests', 'Test battery')),
+    h('div', { class: 'sub', style: 'margin:-6px 0 8px' }, EV('Toca un test para ver cómo se hace y su baremo por edad. Los baremos son orientativos (fútbol masculino, a partir de estudios con jugadores de academia) y puedes ajustarlos a tu club.', 'Tap a test to see the protocol and its age norms. Norms are a guide (male football, from academy-player studies) and you can adjust them.')),
+    ...base, h('div', { class: 'sub', style: 'margin:12px 0 4px' }, EV('Opcionales', 'Optional')), ...ext, cus.length ? h('div', { class: 'sub', style: 'margin:12px 0 4px' }, EV('Tus tests', 'Your tests')) : null, ...cus),
+    add, canEdit() ? h('div', { class: 'controls section-gap' }, h('button', { class: 'btn', type: 'button', onclick: () => { UI.evTab = 'nac'; route(); } }, EV('Años de nacimiento de los jugadores', 'Players\' birth years'))) : null);
+}
+function evEditTest(main, id) {
+  const M = MODEL;
+  const d0 = id === 'new' ? null : (M.docs.tests || []).find(x => x.id === id);
+  const doc = d0 || { date: todaySerial(), nombre: '', momento: '', results: {} };
+  const close = () => { UI.editTest = null; UI.editing = false; route(); };
+  const mom = h('select', { class: 'f', id: 't-mom' }, h('option', { value: '' }, '—'), EV_MOMENTS.map(([k, es, en]) => h('option', { value: k, selected: doc.momento === k }, EV(es, en))));
+  main.setAttribute('data-noi18n', '');
+  main.append(h('div', { class: 'view-head' }, h('div', null, h('h2', null, d0 ? EV('Editar evaluación', 'Edit assessment') : EV('Nueva evaluación física', 'New fitness assessment')),
+    h('div', { class: 'sub' }, EV('Deja vacío lo que no se haya medido. El IMC se calcula solo. Se guarda en el móvil y, si la tienes activada, en la copia cifrada de la nube.', 'Leave blank what was not measured. BMI is automatic.')))),
+    h('div', { class: 'panel' }, h('div', { class: 'formgrid' },
+      h('label', { class: 'f' }, EV('Momento', 'When'), mom),
+      h('label', { class: 'f' }, EV('Fecha', 'Date'), h('input', { type: 'date', id: 't-date', value: isoOf(doc.date) })),
+      h('label', { class: 'f' }, EV('Nombre (opcional)', 'Name (optional)'), h('input', { type: 'text', id: 't-name', value: doc.nombre || '', placeholder: EV('Ej.: Test 2', 'e.g. Test 2') }))),
+      h('details', { class: 'wa-more', style: 'margin-top:10px' }, h('summary', null, EV('Cómo se hace cada test', 'How to run each test')),
+        h('ul', { class: 'ev-ul' }, TEST_FIELDS.filter(f => EV_INFO[f[0]] && EV_INFO[f[0]].q).map(f => h('li', null, h('b', null, f[1] + ': '), EV(...EV_INFO[f[0]].q)))))));
+  const plist = M.players.filter(p => p.estado !== 'Baja' || (doc.results || {})[p.id]);
+  const F = TEST_FIELDS.slice();
+  const tb = h('tbody', null, plist.map(p => {
+    const r = (doc.results || {})[p.id] || {};
+    const imcEl = h('td', { class: 'muted' }, imcOf(r) ? fmt1(imcOf(r)) : '');
+    const inp = k => h('td', null, numIn('t-' + p.id + '-' + k, r[k], 'n', { step: 'any', 'aria-label': evName(k) + ' · ' + p.name }));
+    const row = h('tr', null, h('td', { class: 'name' }, p.name, ' ', h('span', { class: 'muted', style: 'font-weight:500' }, p.pos)),
+      F.slice(0, 2).map(f => inp(f[0])), imcEl, F.slice(2).map(f => inp(f[0])));
+    row.addEventListener('input', () => { const v = imcOf({ peso: val('t-' + p.id + '-peso'), altura: val('t-' + p.id + '-altura') }); imcEl.textContent = v ? fmt1(v) : ''; });
+    return row;
+  }));
+  const heads = [...F.slice(0, 2).map(f => f[1] + ` (${f[2]})`), 'IMC', ...F.slice(2).map(f => f[1] + (f[2] ? ` (${f[2]})` : ''))];
+  const tablePanel = h('div', { class: 'panel section-gap' }, h('div', { class: 'tablewrap' }, h('table', null,
+    h('thead', null, h('tr', null, h('th', null, EV('Jugador', 'Player')), heads.map(t => h('th', null, t)))), tb)));
+  // «Por test»: una estación cada vez (como se hacen los tests en el campo), con todos los jugadores en lista
+  UI.evMode = UI.evMode || (innerWidth < 700 ? 'test' : 'player');
+  if (!UI.evStation || !F.some(f => f[0] === UI.evStation)) UI.evStation = (F[2] || F[0])[0];
+  const station = h('div', { class: 'panel section-gap ev-station' });
+  const renderStation = () => {
+    const k = UI.evStation, f = F.find(x => x[0] === k), info = EV_INFO[k];
+    const rowsSt = plist.map((p, i) => {
+      const real = () => document.getElementById('t-' + p.id + '-' + k);
+      const inp = h('input', { type: 'number', step: 'any', inputmode: 'decimal', class: 'n ev-st-in', value: real() ? real().value : '', 'aria-label': f[1] + ' · ' + p.name, enterkeyhint: 'next',
+        oninput: e => { const r = real(); if (r) { r.value = e.target.value; r.dispatchEvent(new Event('input', { bubbles: true })); } UI.editing = true; },
+        onkeydown: e => { if (e.key === 'Enter') { e.preventDefault(); const nx = station.querySelectorAll('.ev-st-in')[i + 1]; if (nx) nx.focus(); else e.target.blur(); } } });
+      return h('label', { class: 'ev-st-row' }, typeof miniShirt === 'function' ? miniShirt(p.dorsal ?? '', p.pos === 'POR', 22) : null, h('span', { class: 'ev-st-n' }, p.name, ' ', h('small', { class: 'muted' }, p.pos || '')), inp, h('small', { class: 'muted ev-st-u' }, f[2] || ''));
+    });
+    station.replaceChildren(
+      h('div', { class: 'chips', role: 'group', 'aria-label': EV('Test', 'Test') }, F.map(x => { const n = plist.filter(p => { const r = document.getElementById('t-' + p.id + '-' + x[0]); return r && r.value !== ''; }).length;
+        return h('button', { class: 'chip', type: 'button', 'aria-pressed': x[0] === k ? 'true' : 'false', onclick: () => { UI.evStation = x[0]; renderStation(); } }, h('span', { class: 'sc', style: 'font-size:.85rem' }, x[1] + (n ? ' · ' + n : ''))); })),
+      info && info.q ? h('details', { class: 'wa-more', style: 'margin:8px 0' }, h('summary', null, EV('Cómo se hace', 'How to run it')), h('div', { class: 'sub', style: 'margin-top:6px' }, EV(...info.q))) : null,
+      h('div', { class: 'ev-st-list' }, rowsSt));
+  };
+  const modeBar = h('div', { class: 'chips section-gap', role: 'group', 'aria-label': EV('Forma de apuntar', 'Entry mode') },
+    [['test', EV('Por test', 'By test')], ['player', EV('Por jugador', 'By player')]].map(([m, l]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': UI.evMode === m ? 'true' : 'false', onclick: e => { UI.evMode = m; [...e.currentTarget.parentNode.children].forEach(b => b.setAttribute('aria-pressed', b === e.currentTarget ? 'true' : 'false')); applyMode(); } }, h('span', { class: 'sc' }, l))));
+  const applyMode = () => { const t = UI.evMode === 'test'; tablePanel.style.display = t ? 'none' : ''; station.style.display = t ? '' : 'none'; if (t) renderStation(); };
+  main.append(modeBar, station, tablePanel);
+  setTimeout(applyMode, 0);
+  const saveBtn = h('button', { class: 'btn primary', type: 'button' }, EV('Guardar evaluación', 'Save assessment'));
+  const actions = h('div', { class: 'bar-actions' }, saveBtn, h('button', { class: 'btn', type: 'button', onclick: close }, EV('Cancelar', 'Cancel')));
+  if (d0) actions.append(h('button', { class: 'btn danger', type: 'button', onclick: () => actions.replaceChildren(h('div', { class: 'confirm' }, EV('¿Borrar esta evaluación entera?', 'Delete this whole assessment?'),
+    h('button', { class: 'btn sm danger', type: 'button', onclick: async () => { try { await deleteDoc('tests', d0.id); toast(EV('Evaluación borrada', 'Assessment deleted')); UI.testId = null; close(); } catch (e) { toast(errText(e), true); } } }, EV('Sí, borrar', 'Yes, delete')),
+    h('button', { class: 'btn sm', type: 'button', onclick: () => route() }, 'No'))) }, EV('Borrar evaluación', 'Delete assessment')));
+  main.append(actions);
+  saveBtn.addEventListener('click', async () => {
+    const date = serialOf(sval('t-date')); if (date == null) { toast(EV('Pon la fecha', 'Set the date'), true); return; }
+    const results = {};
+    for (const p of plist) {
+      const r = { ...((doc.results || {})[p.id] || {}) };           // conserva tests que ya no están activos
+      F.forEach(([k]) => { const v = val('t-' + p.id + '-' + k); if (v != null) r[k] = v; else delete r[k]; });
+      if (Object.keys(r).length) results[p.id] = r;
+    }
+    for (const [pid, r] of Object.entries(doc.results || {})) if (!plist.some(p => p.id === pid)) results[pid] = r;
+    if (!Object.keys(results).length) { toast(EV('Escribe al menos un resultado', 'Enter at least one result'), true); return; }
+    const tid = d0 ? d0.id : 't' + date + '-' + Math.random().toString(36).slice(2, 6);
+    saveBtn.disabled = true;
+    try { await writeDoc('tests', tid, { date, nombre: sval('t-name'), momento: sval('t-mom') || null, results }); toast(EV('Evaluación guardada', 'Assessment saved')); UI.testId = tid; UI.evTab = 'res'; close(); }
+    catch (e) { toast(errText(e), true); saveBtn.disabled = false; }
+  });
+}
+VIEWS.tests = vEval;
+
+/* ---------- informe PDF por jugador ---------- */
+async function evPdf(p, btn) {
+  const M = MODEL, cfg = M.cfg;
+  const dl = await window.claude?.use?.('downloads');
+  const t0 = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = EV('Generando…', 'Generating…'); }
+  try {
+    const lib = await loadJsPdf(); const K = repKit(lib), { doc } = K, z = K.zone;
+    const prof = evProfile(M, p), risk = evLoadRisk(M, p, prof);
+    const LVC = [z.bad, z.warn, z.ok];
+    const lastDate = Math.max(...prof.items.map(it => it.last.date));
+    const crest = document.querySelector('.crest');
+    let tx = K.ML;
+    if (crest && /^data:image\/(png|jpe?g)/i.test(crest.src || '')) { try { doc.addImage(crest.src, /png/i.test(crest.src.slice(0, 20)) ? 'PNG' : 'JPEG', K.ML, K.y - 7, 15, 15); tx = K.ML + 19; } catch (_) {} }
+    K.text(K.fit(cfg.team.toUpperCase(), 110, { bold: true, size: 13 }), tx, K.y, { bold: true, size: 13 });
+    K.text(EV('Evaluación física', 'Fitness assessment'), K.PW - K.MR, K.y, { size: 9, color: K.muted, align: 'right' }); K.y += 8;
+    K.text(K.fit((p.dorsal != null ? p.dorsal + ' · ' : '') + p.name + (p.ap ? ' ' + p.ap : ''), K.CW - (tx - K.ML), { bold: true, size: 18 }), tx, K.y, { bold: true, size: 18 }); K.y += 6;
+    K.text([p.pos, prof.group ? `${prof.group.label} · ${prof.group.age} ${EV('años', 'years')}` : null, EV('Última evaluación: ', 'Latest: ') + ddmmyy(lastDate)].filter(Boolean).join('  ·  '), tx, K.y, { size: 9.5, color: K.muted }); K.y += 8;
+    // resumen
+    const graded = prof.items.filter(it => evField(it.k) && evField(it.k)[3]);
+    K.kpis(graded.slice(0, 8).map(it => ({ l: evName(it.k), v: evFmt(it.k, it.last.v) + (evUnit(it.k) ? ' ' + evUnit(it.k) : ''), s: it.lv != null ? EV(EV_LV[it.lv][0], EV_LV[it.lv][1]) + (it.vsMean != null ? ` · ${it.vsMean >= 0 ? '+' : ''}${Math.round(it.vsMean)} % ${EV('vs media', 'vs avg')}` : '') : it.vsMean != null ? `${it.vsMean >= 0 ? '+' : ''}${Math.round(it.vsMean)} % ${EV('vs media del equipo', 'vs team avg')}` : '', fill: it.lv != null ? LVC[it.lv] : null })), 4);
+    // tabla de resultados
+    K.h2(EV('Resultados', 'Results'), prof.group ? EV('Nivel según el baremo de su edad', 'Level by age norms') : EV('Sin año de nacimiento: sin nivel por edad', 'No birth year: no age level'));
+    const rows = prof.items.map(it => {
+      const f = evField(it.k), d = it.prev ? it.last.v - it.prev.v : null, good = d == null || !f[3] ? null : (f[3] > 0 ? d > 0 : d < 0);
+      return [evName(it.k) + (evUnit(it.k) ? ` (${evUnit(it.k)})` : ''), evFmt(it.k, it.last.v), it.lv != null ? { t: EV(EV_LV[it.lv][0], EV_LV[it.lv][1]), fill: LVC[it.lv] } : '—',
+        it.last.mean != null ? evFmt(it.k, it.last.mean) : '—', it.vsMean != null && f[3] ? `${it.vsMean >= 0 ? '+' : ''}${Math.round(it.vsMean)} %` : '—',
+        it.prev ? evFmt(it.k, it.prev.v) : '—', d == null ? '—' : { t: (d > 0 ? '+' : '') + fmtT(d, f[4]), color: good == null || d === 0 ? K.muted : good ? z.ok : z.bad, bold: true }];
+    });
+    K.table([EV('Test', 'Test'), EV('Resultado', 'Result'), EV('Nivel', 'Level'), EV('Media equipo', 'Team avg'), EV('vs media', 'vs avg'), EV('Anterior', 'Previous'), EV('Cambio', 'Change')], rows, [46, 22, 24, 24, 20, 22, 24], ['l', 'r', 'r', 'r', 'r', 'r', 'r']);
+    // evolución
+    const evo = graded.filter(it => it.list.length >= 2);
+    if (evo.length) {
+      K.h2(EV('Evolución', 'Progress'), EV('línea: jugador · gris: media del equipo · arriba es mejor', 'line: player · grey: team average · up is better'));
+      const cw = (K.CW - 6) / 2, ch = 30;
+      evo.forEach((it, i) => {
+        const col = i % 2, x0 = K.ML + col * (cw + 6);
+        if (col === 0) K.need(ch + 14);
+        const y0 = K.y, f = evField(it.k);
+        K.text(evName(it.k) + (evUnit(it.k) ? ` (${evUnit(it.k)})` : ''), x0, y0, { bold: true, size: 8.5 });
+        const gy0 = y0 + 3, gh = ch - 10, gx0 = x0 + 10, gw = cw - 14;
+        const vs = it.list.flatMap(x => [x.v, x.mean]).filter(v => v != null);
+        let lo = Math.min(...vs), hi = Math.max(...vs); if (hi - lo < 1e-6) { lo -= 1; hi += 1; } const pd = (hi - lo) * .15; lo -= pd; hi += pd;
+        const X = j => it.list.length === 1 ? gx0 + gw / 2 : gx0 + j * gw / (it.list.length - 1);
+        const Y = v => f[3] < 0 ? gy0 + (v - lo) / (hi - lo) * gh : gy0 + gh - (v - lo) / (hi - lo) * gh;
+        doc.setDrawColor(...K.line); doc.setLineWidth(.2); doc.line(gx0, gy0 + gh, gx0 + gw, gy0 + gh);
+        doc.setDrawColor(160, 168, 164); doc.setLineWidth(.5);
+        if (doc.setLineDashPattern) doc.setLineDashPattern([1.2, 1], 0);
+        for (let j = 1; j < it.list.length; j++) if (it.list[j - 1].mean != null && it.list[j].mean != null) doc.line(X(j - 1), Y(it.list[j - 1].mean), X(j), Y(it.list[j].mean));
+        if (doc.setLineDashPattern) doc.setLineDashPattern([], 0);
+        doc.setDrawColor(...K.accent); doc.setLineWidth(.8);
+        for (let j = 1; j < it.list.length; j++) doc.line(X(j - 1), Y(it.list[j - 1].v), X(j), Y(it.list[j].v));
+        doc.setLineWidth(.2); doc.setFillColor(...K.accent);
+        it.list.forEach((x, j) => { doc.circle(X(j), Y(x.v), .9, 'F'); K.text(evFmt(it.k, x.v), X(j), Y(x.v) - 1.8, { size: 6, color: K.ink, align: 'center' }); K.text(ddmm(x.date), X(j), gy0 + gh + 3.6, { size: 5.8, color: K.muted, align: 'center' }); });
+        if (col === 1 || i === evo.length - 1) K.y += ch + 4;
+      });
+    }
+    // fortalezas, debilidades y plan
+    const bullet = (title, xs, color) => { if (!xs.length) return; K.need(12); K.text(title, K.ML, K.y, { bold: true, size: 9.5, color }); K.y += 5; xs.forEach(t => { doc.splitTextToSize('•  ' + t, K.CW - 2).forEach((ln, k) => { K.need(5); K.text(k ? '   ' + ln : ln, K.ML + 1, K.y, { size: 8.4 }); K.y += 4; }); K.y += 1; }); K.y += 2; };
+    K.h2(EV('Valoración', 'Assessment'));
+    bullet(EV('Puntos fuertes', 'Strengths'), prof.strong.map(it => `${evName(it.k)}: ${evFmt(it.k, it.last.v)} ${evUnit(it.k)}` + (it.lv === 2 ? EV(' (nivel alto para su edad).', ' (high for age).') : it.vsMean != null ? EV(` (${Math.round(it.vsMean)} % mejor que la media del equipo).`, ` (${Math.round(it.vsMean)} % above team average).`) : '.')).concat(prof.strong.length ? [] : []), z.ok);
+    bullet(EV('A mejorar', 'To improve'), prof.weak.map(it => `${evName(it.k)}: ${evFmt(it.k, it.last.v)} ${evUnit(it.k)}` + (it.lv === 0 ? EV(' (nivel bajo para su edad).', ' (low for age).') : it.vsMean != null ? EV(` (${Math.abs(Math.round(it.vsMean))} % por debajo de la media del equipo).`, ` (${Math.abs(Math.round(it.vsMean))} % below team average).`) : '.')), z.bad);
+    if (!prof.strong.length && !prof.weak.length) K.para(EV('Resultados en la línea del equipo y de su edad, sin puntos especialmente altos ni bajos.', 'Results in line with the team and age group, nothing particularly high or low.'));
+    bullet(EV('Cómo puede mejorar', 'How to improve'), prof.weak.map(it => `${evName(it.k)}: ` + EV(...(EV_TIPS[it.k] || EV_TIP_CUSTOM))).concat(prof.strong.length ? [EV('Mantener los puntos fuertes con estímulos de recuerdo semanales (1 sesión corta).', 'Keep strengths with a short weekly top-up session.')] : []), K.accent);
+    if (risk) bullet(EV('Carga de entrenamiento', 'Training load'), [EV(`Su ${evName(risk.aer.k)} está ${risk.aer.lv === 0 ? 'en nivel bajo' : 'por debajo de la media'} y esta semana lleva ${risk.why}. Se recomienda ajustar su carga y progresar el trabajo aeróbico.`, `${evName(risk.aer.k)} is low and this week: ${risk.why}. Adjust the load and progress aerobic work.`)], z.warn);
+    K.y += 2; K.para(EV('Baremos orientativos por edad (fútbol masculino, estudios con jugadores de academia), ajustables por el preparador físico. Nivel: Bajo / Medio / Alto según el rango de su edad.', 'Age norms are a guide (male football, academy studies) and can be adjusted by the coach.'), { size: 7, color: K.muted });
+    const n = doc.getNumberOfPages();
+    for (let i = 1; i <= n; i++) { doc.setPage(i); K.text(`${cfg.team} · ${EV('Evaluación física', 'Fitness assessment')} · ${p.name} · ${i}/${n}`, K.PW / 2, 292, { size: 7, color: K.muted, align: 'center' }); }
+    await wrShareOrSave(doc, `Evaluacion_${(p.name + (p.ap ? '_' + p.ap : '')).replace(/[^\wÁÉÍÓÚÑáéíóúñ]+/g, '_')}_${ddmmyy(lastDate).replace(/\//g, '-')}.pdf`, false, dl);
+  } catch (e) { console.error(e); toast(EV('No se pudo generar el informe', 'Could not create the report'), true); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = t0; } }
+}
+
+/* ---------- año de nacimiento en Plantilla ---------- */
+// en el móvil la plantilla se ve en tarjetas: con la columna nueva tiene 14 columnas
+setTimeout(() => { try { MC_SPECS.push({ n: 14, first: ['dorsal', 'no.'], spec: { form: true, title: [0, 1], act: [13], main: [3, 4, 5], more: [2, 6, 7, 8, 9, 10, 11, 12] } }); } catch (_) {} }, 0);
+const vPlant32 = VIEWS.plantilla;
+VIEWS.plantilla = function (main) {
+  vPlant32(main);
+  if (!MODEL || !canEdit()) return;
+  const tb = main.querySelector('tbody tr[data-id]') && main.querySelector('tbody tr[data-id]').parentNode; if (!tb) return;
+  const table = tb.closest('table'), hr = table && table.querySelector('thead tr'); if (!hr) return;
+  const y0 = sdate(todaySerial()).getUTCFullYear(), nac = { ...(evCfg().nac || {}) };
+  const estTh = hr.children[5]; hr.insertBefore(h('th', null, EV('Año nac.', 'Birth yr')), estTh || null);
+  const addCell = tr => { if (tr.querySelector('.ev-nac')) return; const id = tr.dataset.id;
+    const td = h('td', null, h('input', { type: 'number', inputmode: 'numeric', class: 'n s ev-nac', min: y0 - 60, max: y0 - 5, value: nac[id] || '', 'aria-label': EV('Año de nacimiento', 'Birth year'), placeholder: '—' }));
+    tr.insertBefore(td, tr.children[5] || null); };
+  [...tb.querySelectorAll('tr[data-id]')].forEach(addCell);
+  new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && n.matches('tr[data-id]')) addCell(n); }))).observe(tb, { childList: true });
+  const save = [...main.querySelectorAll('button')].find(b => /Guardar plantilla|Save roster/.test(b.textContent));
+  if (save) save.addEventListener('click', async () => {
+    const next = { ...nac };
+    tb.querySelectorAll('tr[data-id]').forEach(tr => { const v = +((tr.querySelector('.ev-nac') || {}).value || 0); next[tr.dataset.id] = v >= y0 - 60 && v <= y0 - 5 ? v : null; });
+    const clean0 = Object.fromEntries(Object.entries(next).filter(([, v]) => v));
+    if (JSON.stringify(clean0) !== JSON.stringify(Object.fromEntries(Object.entries(nac).filter(([, v]) => v)))) { try { await evSave({ nac: clean0 }); setTimeout(() => toast(EV('Años de nacimiento guardados', 'Birth years saved')), 400); } catch (e) { console.error(e); } }
+  }, true);
+};
+
+/* ---------- estilos y nombre de la sección ---------- */
+document.head.append(h('style', { id: 'f32-css' }, `
+.ev-tabs { margin-top: 4px; }
+.ev-pill { font-size: .72rem; padding: 2px 8px; }
+html td.ev-c { position: relative; }
+html .mc-f.ev-c { border-radius: 8px; padding: 3px 6px; margin: -3px -6px; }
+html .mc-f.ev-l0 { background: color-mix(in srgb, var(--z-bad) 16%, transparent); }
+html .mc-f.ev-l1 { background: color-mix(in srgb, var(--z-warn) 16%, transparent); }
+html .mc-f.ev-l2 { background: color-mix(in srgb, var(--z-ok) 16%, transparent); }
+html td.ev-l0 { background: color-mix(in srgb, var(--z-bad) 16%, transparent); }
+html td.ev-l1 { background: color-mix(in srgb, var(--z-warn) 16%, transparent); }
+html td.ev-l2 { background: color-mix(in srgb, var(--z-ok) 16%, transparent); }
+.ev-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: .82rem; margin-top: 10px; }
+.ev-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ev-sw { width: 14px; height: 10px; border-radius: 3px; display: inline-block; }
+.ev-sw.ev-l0 { background: color-mix(in srgb, var(--z-bad) 45%, transparent); } .ev-sw.ev-l1 { background: color-mix(in srgb, var(--z-warn) 45%, transparent); } .ev-sw.ev-l2 { background: color-mix(in srgb, var(--z-ok) 45%, transparent); }
+.ev-sw.ev-me { background: var(--accent); height: 3px; } .ev-sw.ev-tm { height: 0; border-top: 2px dashed var(--ink-3); border-radius: 0; }
+.ev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.ev-card { margin: 0; }
+.ev-ch { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ev-v { font-size: 1.7rem; font-weight: 800; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+.ev-v small { font-size: .85rem; font-weight: 600; color: var(--ink-2); }
+.ev-spark { width: 100%; height: 64px; margin-top: 8px; overflow: visible; }
+.ev-spark .ev-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.ev-spark .ev-mean { fill: none; stroke: var(--ink-3); stroke-width: 1.6; stroke-dasharray: 4 3; }
+.ev-spark .ev-dot { fill: var(--accent); stroke: var(--panel); stroke-width: 1.5; }
+.ev-dates { display: flex; justify-content: space-between; font-size: .72rem; color: var(--ink-3); margin-top: 2px; }
+.ev-dates span:only-child { margin: 0 auto; }
+.ev-ul { margin: 0; padding-left: 18px; } .ev-ul li { margin: 6px 0; line-height: 1.45; }
+details.ev-test { border-top: 1px solid var(--line); padding: 10px 0; }
+details.ev-test > summary { display: flex; align-items: center; gap: 10px; cursor: pointer; flex-wrap: wrap; }
+details.ev-test > summary b { flex: 1 1 auto; }
+.ev-st-list { display: grid; gap: 2px; }
+.ev-st-row { display: grid; grid-template-columns: auto 1fr 96px 34px; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line-2); }
+.ev-st-row:last-child { border-bottom: 0; }
+.ev-st-n { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev-st-in { width: 100%; min-height: 40px; font-size: 1.05rem; text-align: center; }
+.ev-norms { margin-top: 4px; } .ev-norms td, .ev-norms th { padding: 4px 8px 4px 0; text-align: left; }
+`));
+(function () {
+  const a = document.querySelector('a.tab[href="#tests"]'); if (a) a.textContent = EV('Evaluación física', 'Fitness');
+})();
+
+/* ==F32-END== */
 /* ==THEME15-START== */
 /* ================= tema claro / oscuro elegido por el usuario ================= */
 const TH = (es, en) => LANG === 'en' ? en : es;
