@@ -6036,6 +6036,164 @@ function evTeamRadar(M, t) {
     h('div', { class: 'chips', style: 'justify-content:center;margin-top:6px' }, series.map(sr => h('button', { class: 'chip', type: 'button', 'aria-pressed': UI.evLines[sr.l] ? 'true' : 'false', onclick: () => { UI.evLines[sr.l] = !UI.evLines[sr.l]; route(); } }, h('span', { class: 'sc', style: 'display:inline-flex;align-items:center;gap:6px' }, h('i', { style: `width:12px;height:12px;border-radius:3px;background:${sr.c};display:inline-block` }), `${sr.l} (${sr.n})`)))));
 }
 
+/* ---------- índice en una evaluación concreta, perfil del equipo y podio ---------- */
+function evBatStats(t, k) {
+  const all = Object.values(t.res).map(x => x[k]).filter(v => v != null && v !== '').map(Number); if (!all.length) return null;
+  const mu = mean(all), sd = all.length > 2 ? Math.sqrt(all.reduce((a2, x) => a2 + (x - mu) ** 2, 0) / (all.length - 1)) : null; return { mu, sd };
+}
+function evQualAt(M, p, t) {
+  const r = t.res[p.name]; if (!r) return null;
+  const g = evGroup(evNac(p.id), t.date);
+  const qs = EV_QUAL.map(([q, es, en, keys]) => { const scs = keys.map(k => { const v = r[k]; if (v == null || v === '') return null; const st = evBatStats(t, k); return evScore(k, +v, g && g.k, st && st.mu, st && st.sd); }).filter(v => v != null); return { q, label: EV(es, en), score: scs.length ? mean(scs) : null }; });
+  const v = qs.filter(x => x.score != null).map(x => x.score);
+  return { qs, index: v.length ? Math.round(mean(v)) : null };
+}
+function evTeamQ(M, t, names) {
+  names = names || M.players.filter(p => t.res[p.name]).map(p => p.name);
+  const cnt = {}; names.forEach(n => { const p = M.players.find(x => x.name === n), g = evGroup(evNac(p.id), t.date); if (g) cnt[g.k] = (cnt[g.k] || 0) + 1; });
+  const top = Object.entries(cnt).sort((a2, b2) => b2[1] - a2[1])[0], G = top ? top[0] : null;
+  const team = EV_QUAL.map(([q, es, en, keys]) => {
+    const scs = keys.map(k => { const vs = names.map(n => t.res[n][k]).filter(v => v != null && v !== '').map(Number), st = evBatStats(t, k); return vs.length && st ? evScore(k, mean(vs), G, st.mu, st.sd) : null; }).filter(v => v != null);
+    return { q, label: EV(es, en), has: keys.some(k => evBatStats(t, k)), score: scs.length ? mean(scs) : null };
+  });
+  const v = team.filter(x => x.has && x.score != null).map(x => x.score);
+  return { team, axes: team.filter(x => x.has), G, index: v.length ? Math.round(mean(v)) : null };
+}
+function evImproved(M, t, prevT) {
+  if (!prevT) return [];
+  return M.players.filter(p => p.estado !== 'Baja' && t.res[p.name] && prevT.res[p.name]).map(p => {
+    const a2 = evQualAt(M, p, prevT), b2 = evQualAt(M, p, t);
+    return a2 && b2 && a2.index != null && b2.index != null ? { p, from: a2.index, to: b2.index, d: b2.index - a2.index } : null;
+  }).filter(Boolean).sort((x, y) => y.d - x.d);
+}
+function evPodium(M, t, prevT) {
+  const list = evImproved(M, t, prevT).filter(x => x.d > 0).slice(0, 3); if (!list.length) return null;
+  const order = [list[1], list[0], list[2]], med = ['🥈', '🥇', '🥉'], hgt = [74, 100, 56];
+  return h('div', { class: 'panel section-gap' }, h('h3', null, EV('Los que más han mejorado', 'Most improved')),
+    h('div', { class: 'sub', style: 'margin:-6px 0 10px' }, EV(`Subida del índice físico desde el ${ddmmyy(prevT.date)}`, `Fitness index gain since ${ddmmyy(prevT.date)}`)),
+    h('div', { class: 'ev-podium' }, order.map((x, i) => x ? h('button', { type: 'button', class: 'ev-pod', onclick: () => { UI.evPlayer = x.p.name; UI.evTab = 'jug'; route(); scrollTo(0, 0); } },
+      h('div', { class: 'ev-pm' }, med[i]), h('div', { class: 'ev-pn' }, x.p.name), h('div', { class: 'ev-pd' }, '+' + x.d),
+      h('div', { class: 'ev-pb p' + i, style: `height:${hgt[i]}px` }, h('small', null, x.from + ' → ' + x.to))) : h('div'))));
+}
+// próxima evaluación (aviso en «Hoy»)
+function evNextBox(M) {
+  const nx = evCfg().next, today = todaySerial(), edit = canEdit();
+  const left = nx != null ? nx - today : null;
+  const pill = left == null ? null : h('span', { class: 'pill ' + (left < 0 ? 'z-bad' : left <= 7 ? 'z-warn' : 'z-none') }, left < 0 ? EV(`pasada hace ${-left} d`, `${-left} d overdue`) : left === 0 ? EV('hoy', 'today') : EV(`en ${left} días`, `in ${left} days`));
+  return h('div', { class: 'ev-next' }, h('span', null, '📅 ', h('b', null, EV('Próxima evaluación', 'Next assessment'))),
+    edit ? h('input', { type: 'date', value: nx != null ? isoOf(nx) : '', 'aria-label': EV('Fecha de la próxima evaluación', 'Next assessment date'), onchange: async e => { const v = e.target.value ? serialOf(e.target.value) : null; try { await evSave({ next: v }); toast(v != null ? EV('Te lo recordaré en «Hoy» la semana antes', 'You will get a reminder in “Today” the week before') : EV('Fecha quitada', 'Date removed')); } catch (er) { toast(errText(er), true); } } })
+      : h('span', null, nx != null ? ddmmyy(nx) : '—'), pill);
+}
+const todayCard32 = todayCard;
+todayCard = function (M) {
+  const el = todayCard32(M);
+  try {
+    const nx = evCfg().next, left = nx != null ? nx - todaySerial() : null;
+    if (el && left != null && left <= 7) {
+      const row = h('div', { class: 'td-row' }, h('span', { class: 'td-ic' + (left < 0 ? ' warn' : '') }, '⏱'),
+        h('span', { class: 'td-tx' }, h('b', null, left < 0 ? EV('Evaluación física pendiente', 'Fitness assessment overdue') : left === 0 ? EV('Hoy toca evaluación física', 'Fitness assessment today') : EV(`Evaluación física en ${left} días`, `Fitness assessment in ${left} days`)), h('small', null, ' · ' + ddmm(nx))),
+        h('button', { class: 'btn sm primary', type: 'button', onclick: () => { if (typeof tbClose === 'function') tbClose(); UI.evTab = 'res'; if (left <= 0) { UI.editTest = 'new'; UI.editing = true; } location.hash === '#tests' ? route() : (location.hash = 'tests'); } }, left <= 0 ? EV('Empezar', 'Start') : EV('Ver', 'View')));
+      const pend = el.querySelector('.td-pend'); pend ? pend.before(row) : el.append(row);
+    }
+  } catch (e) { console.error(e); }
+  return el;
+};
+
+/* ---------- informe del equipo para el club ---------- */
+function evPdfRadarAt(K, axes, series, cx, cy, R) {
+  const { doc } = K, z = K.zone, n = axes.length; if (n < 3) return;
+  const mix = (c, w) => c.map(v => Math.round(v * (1 - w) + 255 * w));
+  const ang = k => -Math.PI / 2 + k * 2 * Math.PI / n, pt = (k, sc) => [cx + Math.cos(ang(k)) * R * sc / 100, cy + Math.sin(ang(k)) * R * sc / 100];
+  const poly = (scs, style) => { const pts = scs.map((v, k) => pt(k, v == null ? 0 : v)); doc.lines(pts.slice(1).map((q, k) => [q[0] - pts[k][0], q[1] - pts[k][1]]), pts[0][0], pts[0][1], [1, 1], style, true); };
+  const same = r => axes.map(() => r);
+  doc.setFillColor(...mix(z.ok, .85)); poly(same(100), 'F'); doc.setFillColor(...mix(z.warn, .85)); poly(same(66.6), 'F'); doc.setFillColor(...mix(z.bad, .86)); poly(same(33.3), 'F');
+  const first = series[0];
+  if (first && first.fill) { let gs = false; try { doc.setGState(new doc.GState({ opacity: .3 })); gs = true; } catch (_) {} doc.setFillColor(...(gs ? first.color : mix(first.color, .65))); poly(first.scores, 'F'); if (gs) try { doc.setGState(new doc.GState({ opacity: 1 })); } catch (_) {} }
+  doc.setDrawColor(205, 212, 208); doc.setLineWidth(.2); [33.3, 66.6, 100].forEach(r => poly(same(r), 'S'));
+  axes.forEach((_, k) => { const [x, y] = pt(k, 100); doc.line(cx, cy, x, y); });
+  series.forEach(sr => { if (sr.scores.some(v => v == null)) return; doc.setDrawColor(...sr.color); doc.setLineWidth(sr.w || .9); if (sr.dash && doc.setLineDashPattern) doc.setLineDashPattern([1.6, 1.2], 0); poly(sr.scores, 'S'); if (doc.setLineDashPattern) doc.setLineDashPattern([], 0); });
+  doc.setLineWidth(.2);
+  axes.forEach((x, k) => {
+    const [lx, ly] = pt(k, 122), al = Math.abs(lx - cx) < 3 ? 'center' : lx > cx ? 'left' : 'right', yy = ly + (ly < cy - 8 ? -2.5 : ly > cy + 8 ? 2.5 : .5);
+    K.text(x.label, lx, yy, { bold: true, size: 8, align: al === 'left' ? undefined : al });
+    if (first) { const v = first.scores[k]; K.text(v != null ? String(Math.round(v)) : '—', lx, yy + 4, { bold: true, size: 9, color: first.color, align: al === 'left' ? undefined : al }); }
+  });
+}
+async function evTeamPdf(t, btn) {
+  const M = MODEL, cfg = M.cfg;
+  const dl = await window.claude?.use?.('downloads');
+  const t0 = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = EV('Generando…', 'Generating…'); }
+  try {
+    const lib = await loadJsPdf(); const K = repKit(lib), { doc } = K, z = K.zone;
+    const mix = (c, w) => c.map(v => Math.round(v * (1 - w) + 255 * w));
+    const LVP = sc => [z.bad, z.warn, z.ok][evScoreLv(sc)] || z.none;
+    const td = evTestDoc(t.id), ti = M.tests.findIndex(x => x.id === t.id), prevT = M.tests[ti - 1] || null;
+    const players = M.players.filter(p => t.res[p.name]);
+    const TQ = evTeamQ(M, t);
+    // portada
+    const HB = 44;
+    doc.setFillColor(...K.accent); doc.rect(0, 0, K.PW, HB, 'F'); doc.setFillColor(...mix(K.accent, .18)); doc.rect(0, HB - 3, K.PW, 3, 'F');
+    const crest = document.querySelector('.crest'); let tx = K.ML;
+    if (crest && /^data:image\/(png|jpe?g)/i.test(crest.src || '')) { try { doc.setFillColor(255, 255, 255); doc.roundedRect(K.ML, 9, 26, 26, 3, 3, 'F'); doc.addImage(crest.src, /png/i.test(crest.src.slice(0, 20)) ? 'PNG' : 'JPEG', K.ML + 2, 11, 22, 22); tx = K.ML + 31; } catch (_) {} }
+    K.text(EV('INFORME DE EVALUACIÓN FÍSICA', 'FITNESS ASSESSMENT REPORT'), tx, 15, { bold: true, size: 9, color: mix(K.accent, .7) });
+    K.text(K.fit(cfg.team, 150, { bold: true, size: 22 }), tx, 26, { bold: true, size: 22, color: [255, 255, 255] });
+    K.text([t.nombre || evMomLabel(td.momento), ddmmyy(t.date), cfg.season ? EV('Temporada ', 'Season ') + cfg.season : null].filter(Boolean).join('  ·  '), tx, 34, { size: 10, color: mix(K.accent, .75) });
+    K.y = HB + 10;
+    const best = TQ.axes.filter(x => x.score != null).sort((a2, b2) => b2.score - a2.score)[0], worst = TQ.axes.filter(x => x.score != null).sort((a2, b2) => a2.score - b2.score)[0];
+    const rows = players.map(p => ({ p, Q: evQualAt(M, p, t) })).filter(x => x.Q).sort((a2, b2) => (b2.Q.index ?? -1) - (a2.Q.index ?? -1));
+    K.kpis([
+      { l: EV('Jugadores evaluados', 'Players assessed'), v: String(players.length), s: ddmmyy(t.date) },
+      { l: EV('Índice físico medio', 'Average fitness index'), v: TQ.index != null ? String(TQ.index) : '—', s: TQ.index != null ? EV(['Nivel bajo', 'Nivel medio', 'Nivel alto'][evScoreLv(TQ.index)], ['Low', 'Average', 'High'][evScoreLv(TQ.index)]) : '', fill: TQ.index != null ? LVP(TQ.index) : null },
+      { l: EV('Punto fuerte del equipo', 'Team strength'), v: best ? best.label : '—', s: best ? Math.round(best.score) + ' / 100' : '', fill: z.ok },
+      { l: EV('A mejorar', 'To improve'), v: worst && worst !== best ? worst.label : '—', s: worst && worst !== best ? Math.round(worst.score) + ' / 100' : '', fill: z.bad }], 4);
+    // estrella del equipo y por líneas
+    const top = K.y + 2, LINES = [['POR', [242, 183, 5]], ['DF', [63, 100, 137]], ['MC', [142, 68, 173]], ['DL', [209, 73, 91]]];
+    if (TQ.axes.length >= 3) {
+      const ser = [{ scores: TQ.axes.map(x => x.score), color: K.accent, fill: true, w: 1.1 }];
+      const leg = [];
+      LINES.forEach(([l, c]) => { const ns = players.filter(p => p.line === l).map(p => p.name); if (!ns.length) return; const q = evTeamQ(M, t, ns); ser.push({ scores: TQ.axes.map(x => (q.team.find(y => y.q === x.q) || {}).score), color: c, w: .6 }); leg.push([l + ' (' + ns.length + ')', c]); });
+      evPdfRadarAt(K, TQ.axes, ser, K.ML + 50, top + 40, 31);
+      // leyenda de líneas
+      let lx = K.ML + 8; const ly = top + 86;
+      [[EV('Equipo', 'Team'), K.accent], ...leg].forEach(([l, c]) => { doc.setDrawColor(...c); doc.setLineWidth(1); doc.line(lx, ly - 1, lx + 5, ly - 1); doc.setLineWidth(.2); K.text(l, lx + 6.5, ly, { size: 6.8, color: K.muted }); K.font({ size: 6.8 }); lx += 11 + doc.getTextWidth(l); });
+      // a la derecha: mejores por cualidad
+      const rx = K.ML + 108, rw = K.PW - K.MR - rx; let yy = top + 2;
+      K.text(EV('LÍDERES POR CUALIDAD', 'LEADERS BY QUALITY'), rx, yy, { bold: true, size: 8, color: K.muted }); yy += 6;
+      TQ.axes.forEach(x => {
+        const ldr = rows.map(r => ({ p: r.p, v: (r.Q.qs.find(y => y.q === x.q) || {}).score })).filter(r => r.v != null).sort((a2, b2) => b2.v - a2.v).slice(0, 3);
+        K.text(x.label, rx, yy, { bold: true, size: 8.5 }); yy += 4.4;
+        K.text(ldr.map((r, i) => `${i + 1}. ${r.p.name} ${Math.round(r.v)}`).join('   '), rx, yy, { size: 7.6, color: K.muted }); yy += 6.6;
+      });
+      K.y = Math.max(top + 92, yy + 2);
+    }
+    // ranking con todas las cualidades
+    K.h2(EV('Clasificación por índice físico', 'Ranking by fitness index'), EV('0–100 · 33–66 = nivel medio para su edad', '0–100 · 33–66 = average for age'));
+    const qcols = TQ.axes;
+    K.table(['#', EV('Jugador', 'Player'), EV('Pos.', 'Pos.'), EV('Índice', 'Index'), ...qcols.map(x => EV(...EV_ABBR[x.q]))],
+      rows.map((r, i) => [String(i + 1), r.p.name, r.p.pos || '', r.Q.index != null ? { t: String(r.Q.index), fill: LVP(r.Q.index) } : '—',
+        ...qcols.map(x => { const v = (r.Q.qs.find(y => y.q === x.q) || {}).score; return v != null ? { t: String(Math.round(v)), fill: LVP(v) } : '—'; })]),
+      [8, 50, 16, 22, ...qcols.map(() => (K.CW - 96) / qcols.length)], ['r', 'l', 'l', 'r', ...qcols.map(() => 'r')]);
+    const imp = evImproved(M, t, prevT);
+    if (imp.length) {
+      K.h2(EV('Evolución desde la evaluación anterior', 'Change since previous assessment'), ddmmyy(prevT.date) + '  >  ' + ddmmyy(t.date));
+      const up = imp.filter(x => x.d > 0).slice(0, 5), dn = imp.filter(x => x.d < 0).slice(-3).reverse();
+      K.table([EV('Más mejoran', 'Most improved'), EV('Antes', 'Before'), EV('Ahora', 'Now'), EV('Cambio', 'Change')], up.map(x => [x.p.name, String(x.from), String(x.to), { t: '+' + x.d, fill: z.ok }]), [70, 30, 30, 52]);
+      if (dn.length) K.table([EV('Bajan', 'Dropped'), EV('Antes', 'Before'), EV('Ahora', 'Now'), EV('Cambio', 'Change')], dn.map(x => [x.p.name, String(x.from), String(x.to), { t: String(x.d), fill: z.bad }]), [70, 30, 30, 52]);
+    }
+    // cómo leer el informe (para el club y las familias)
+    K.h2(EV('Cómo leer este informe', 'How to read this report'));
+    K.para(EV('Cada jugador tiene un índice físico de 0 a 100, que es la media de sus cualidades. Cada cualidad sale de sus tests y se compara con el baremo de su edad: por debajo de 33 es nivel bajo, de 33 a 66 medio y por encima de 66 alto. Si falta el año de nacimiento, se compara con la media del equipo (50).', 'Each player has a fitness index 0–100, the average of their qualities. Each quality comes from its tests and is compared with age norms: below 33 low, 33–66 average, above 66 high. Without a birth year, it is compared with the team average (50).'));
+    K.y += 1;
+    K.table([EV('Cualidad', 'Quality'), EV('Tests', 'Tests'), EV('Qué indica', 'What it shows')], EV_QUAL.filter(([q]) => TQ.axes.some(x => x.q === q)).map(([q, es, en, keys]) => [EV(es, en), keys.map(k => evName(k)).join(', '), EV({ pot: 'Fuerza explosiva de piernas: salto, golpeo, duelos', acc: 'Arrancar rápido en los primeros metros', vel: 'Velocidad máxima en carrera', cod: 'Frenar y cambiar de dirección', res: 'Aguantar esfuerzos repetidos y recuperar' }[q], { pot: 'Explosive leg strength', acc: 'Quick start over the first metres', vel: 'Top running speed', cod: 'Braking and changing direction', res: 'Repeated efforts and recovery' }[q])]), [34, 54, 94], ['l', 'l', 'l']);
+    K.para(EV('Carta del jugador: oro con índice de 67 o más, plata de 33 a 66 y bronce por debajo. Los baremos son orientativos y los ajusta el preparador físico del club.', 'Player card: gold 67+, silver 33–66, bronze below. Norms are a guide set by the club fitness coach.'), { size: 7.5, color: K.muted });
+    // una página por jugador
+    for (const r of rows) { doc.addPage(); K.y = 16; await evPdfDraw(K, M, r.p); }
+    evPdfFooter(K, t.nombre || evMomLabel(td.momento) || ddmmyy(t.date));
+    await wrShareOrSave(doc, `Evaluacion_fisica_${(cfg.team || 'equipo').replace(/[^\wÁÉÍÓÚÑáéíóúñ]+/g, '_')}_${ddmmyy(t.date).replace(/\//g, '-')}.pdf`, false, dl);
+  } catch (e) { console.error(e); toast(EV('No se pudo generar el informe', 'Could not create the report'), true); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = t0; } }
+}
+
 /* ---------- vista ---------- */
 function evSpark(list, better) {
   const W = 220, H = 64, P = 6;
@@ -6077,8 +6235,15 @@ function vEval(main) {
   if (UI.evTab === 'cfg') return evCfgView(main);
   const ban0 = evNacBanner(M);
   if (!M.tests.length) {
-    if (ban0) main.append(ban0);
-    main.append(emptyBox('stopwatch', EV('Todavía no hay evaluaciones', 'No assessments yet'), EV('Crea la primera con «+ Nueva evaluación» (por ejemplo, la de inicio de pretemporada). En «Tests y baremos» tienes cómo hacer cada test.', 'Create the first one with “+ New assessment”. “Tests & norms” explains how to run each test.')));
+    const step = (n2, t, d, act) => h('div', { class: 'ev-step' }, h('span', { class: 'ev-sn' }, n2), h('div', null, h('b', null, t), h('div', { class: 'sub' }, d), act || null));
+    const nacN = M.players.filter(p => p.estado !== 'Baja' && evNac(p.id)).length;
+    main.append(h('div', { class: 'panel section-gap ev-empty' },
+      h('div', { class: 'ev-eh' }, h('div', null, h('h3', null, EV('Evalúa a tu plantilla en 3 pasos', 'Assess your squad in 3 steps')),
+        h('div', { class: 'sub' }, EV('Cada jugador tendrá su carta, su gráfico en estrella y un informe en PDF para el club.', 'Each player gets a card, a star chart and a PDF report for the club.'))),
+        h('div', { class: 'ev-emoji', 'aria-hidden': 'true' }, '⭐')),
+      step(1, EV('Años de nacimiento', 'Birth years'), EV(`Para comparar con el baremo de su edad. Tienes ${nacN} de ${M.players.filter(p => p.estado !== 'Baja').length}.`, `To compare with age norms. ${nacN} of ${M.players.filter(p => p.estado !== 'Baja').length} done.`), canEdit() ? h('button', { class: 'btn sm', type: 'button', style: 'margin-top:6px', onclick: () => { UI.evTab = 'nac'; route(); } }, EV('Ponerlos', 'Add them')) : null),
+      step(2, EV('Elige la batería', 'Pick the battery'), EV('CMJ, Abalakov, 10 y 20 m y 30-15 IFT vienen incluidos; añade 30 m, 505, Yo-Yo o tus propios tests.', 'CMJ, Abalakov, 10/20 m and 30-15 IFT included; add 30 m, 505, Yo-Yo or your own.'), h('button', { class: 'btn sm', type: 'button', style: 'margin-top:6px', onclick: () => { UI.evTab = 'cfg'; route(); } }, EV('Ver tests y protocolos', 'See tests & protocols'))),
+      step(3, EV('Apunta los resultados en el campo', 'Log results on the pitch'), EV('Por test, jugador a jugador, con 1 o 3 intentos (se guarda el mejor).', 'Test by test, player by player, with 1 or 3 tries (best is kept).'), canEdit() ? h('button', { class: 'btn sm primary', type: 'button', style: 'margin-top:6px', onclick: () => { UI.editTest = 'new'; UI.editing = true; route(); } }, EV('+ Nueva evaluación', '+ New assessment')) : null)));
     return;
   }
   if (ban0) main.append(ban0);
@@ -6089,6 +6254,7 @@ function evResultsView(main) {
   const M = MODEL, edit = canEdit();
   if (!UI.testId || !M.tests.find(t => t.id === UI.testId)) UI.testId = M.tests[M.tests.length - 1].id;
   const ti = M.tests.findIndex(t => t.id === UI.testId), t = M.tests[ti], prevT = M.tests[ti - 1] || null, td = evTestDoc(t.id);
+  main.append(evNextBox(M));
   main.append(h('div', { class: 'chips section-gap', role: 'group', 'aria-label': EV('Evaluaciones', 'Assessments') }, M.tests.map(x => { const xd = evTestDoc(x.id);
     return h('button', { class: 'chip', type: 'button', 'aria-pressed': x.id === t.id ? 'true' : 'false', onclick: () => { UI.testId = x.id; route(); } },
       h('span', { class: 'j' }, ddmmyy(x.date)), h('span', { class: 'sc', style: 'font-size:.85rem' }, x.nombre || evMomLabel(xd.momento) || EV('Evaluación', 'Assessment')), h('span', { class: 'bar' })); })));
@@ -6112,7 +6278,9 @@ function evResultsView(main) {
       tb, h('tfoot', null, meanRow(EV('Media equipo', 'Team average'), names), lines.map(([l, list]) => meanRow(EV('Media ', 'Average ') + l, list))))),
     h('div', { class: 'ev-legend' }, EV_LV.map((x, i) => h('span', null, h('i', { class: 'ev-sw ev-l' + i }), EV(x[0], x[1]))),
       h('span', { class: 'muted' }, EV('según su edad · ▲▼ cambio respecto a la evaluación anterior', 'for their age · ▲▼ change vs previous assessment'))),
-    edit ? h('div', { class: 'bar-actions' }, h('button', { class: 'btn', type: 'button', onclick: () => { UI.editTest = t.id; UI.editing = true; route(); } }, EV('Editar esta evaluación', 'Edit this assessment'))) : null));
+    h('div', { class: 'bar-actions' }, h('button', { class: 'btn primary', type: 'button', onclick: e => evTeamPdf(t, e.currentTarget) }, EV('📘 Informe del equipo (PDF)', '📘 Team report (PDF)')),
+      edit ? h('button', { class: 'btn', type: 'button', onclick: () => { UI.editTest = t.id; UI.editing = true; route(); } }, EV('Editar esta evaluación', 'Edit this assessment')) : null)));
+  const pod = evPodium(M, t, prevT); if (pod) main.append(pod);
   const tr = evTeamRadar(M, t); if (tr) main.append(tr);
   const rk = evRanking(M); if (rk) main.append(rk);
 }
@@ -6213,6 +6381,7 @@ function evEditTest(main, id) {
   const M = MODEL;
   const d0 = id === 'new' ? null : (M.docs.tests || []).find(x => x.id === id);
   const doc = d0 || { date: todaySerial(), nombre: '', momento: '', results: {} };
+  UI.evAttV = {};
   const close = () => { UI.editTest = null; UI.editing = false; route(); };
   const mom = h('select', { class: 'f', id: 't-mom' }, h('option', { value: '' }, '—'), EV_MOMENTS.map(([k, es, en]) => h('option', { value: k, selected: doc.momento === k }, EV(es, en))));
   main.setAttribute('data-noi18n', '');
@@ -6244,8 +6413,21 @@ function evEditTest(main, id) {
   const station = h('div', { class: 'panel section-gap ev-station' });
   const renderStation = () => {
     const k = UI.evStation, f = F.find(x => x[0] === k), info = EV_INFO[k];
+    const att = UI.evAtt === 3 ? 3 : 1;
+    UI.evAttV = UI.evAttV || {};
     const rowsSt = plist.map((p, i) => {
       const real = () => document.getElementById('t-' + p.id + '-' + k);
+      if (att === 3) {
+        const key = p.id + '-' + k, vals = UI.evAttV[key] || [real() && real().value !== '' ? real().value : '', '', ''];
+        const best = h('b', { class: 'ev-best' }, '');
+        const upd2 = () => { const ns = vals.filter(v => v !== '' && v != null && !isNaN(+v)).map(Number); const bv = ns.length ? (f[3] < 0 ? Math.min(...ns) : Math.max(...ns)) : null; best.textContent = bv != null ? fmtT(bv, f[4]) : '—'; const r = real(); if (r) { r.value = bv != null ? String(bv) : ''; r.dispatchEvent(new Event('input', { bubbles: true })); } UI.evAttV[key] = vals; };
+        const ins = [0, 1, 2].map(j => h('input', { type: 'number', step: 'any', inputmode: 'decimal', class: 'n ev-st-in ev-att', value: vals[j], placeholder: String(j + 1), 'aria-label': `${f[1]} · ${p.name} · ${EV('intento', 'attempt')} ${j + 1}`, enterkeyhint: 'next',
+          oninput: e => { vals[j] = e.target.value; upd2(); UI.editing = true; },
+          onkeydown: e => { if (e.key === 'Enter') { e.preventDefault(); const all = [...station.querySelectorAll('.ev-st-in')], ix = all.indexOf(e.target); if (all[ix + 1]) all[ix + 1].focus(); else e.target.blur(); } } }));
+        const row = h('label', { class: 'ev-st-row att' }, typeof miniShirt === 'function' ? miniShirt(p.dorsal ?? '', p.pos === 'POR', 22) : null, h('span', { class: 'ev-st-n' }, p.name), ...ins, best);
+        setTimeout(() => { const ns = vals.filter(v => v !== '' && !isNaN(+v)).map(Number); best.textContent = ns.length ? fmtT(f[3] < 0 ? Math.min(...ns) : Math.max(...ns), f[4]) : '—'; }, 0);
+        return row;
+      }
       const inp = h('input', { type: 'number', step: 'any', inputmode: 'decimal', class: 'n ev-st-in', value: real() ? real().value : '', 'aria-label': f[1] + ' · ' + p.name, enterkeyhint: 'next',
         oninput: e => { const r = real(); if (r) { r.value = e.target.value; r.dispatchEvent(new Event('input', { bubbles: true })); } UI.editing = true; },
         onkeydown: e => { if (e.key === 'Enter') { e.preventDefault(); const nx = station.querySelectorAll('.ev-st-in')[i + 1]; if (nx) nx.focus(); else e.target.blur(); } } });
@@ -6254,7 +6436,10 @@ function evEditTest(main, id) {
     station.replaceChildren(
       h('div', { class: 'chips', role: 'group', 'aria-label': EV('Test', 'Test') }, F.map(x => { const n = plist.filter(p => { const r = document.getElementById('t-' + p.id + '-' + x[0]); return r && r.value !== ''; }).length;
         return h('button', { class: 'chip', type: 'button', 'aria-pressed': x[0] === k ? 'true' : 'false', onclick: () => { UI.evStation = x[0]; renderStation(); } }, h('span', { class: 'sc', style: 'font-size:.85rem' }, x[1] + (n ? ' · ' + n : ''))); })),
-      info && info.q ? h('details', { class: 'wa-more', style: 'margin:8px 0' }, h('summary', null, EV('Cómo se hace', 'How to run it')), h('div', { class: 'sub', style: 'margin-top:6px' }, EV(...info.q))) : null,
+      h('div', { class: 'ev-st-bar' },
+        info && info.q ? h('details', { class: 'wa-more' }, h('summary', null, EV('Cómo se hace', 'How to run it')), h('div', { class: 'sub', style: 'margin-top:6px' }, EV(...info.q))) : h('span'),
+        h('div', { class: 'ev-seg', role: 'group', 'aria-label': EV('Intentos', 'Attempts') }, [1, 3].map(n2 => h('button', { type: 'button', 'aria-pressed': att === n2 ? 'true' : 'false', onclick: () => { UI.evAtt = n2; renderStation(); } }, n2 === 1 ? EV('1 intento', '1 try') : EV('3 intentos · el mejor', '3 tries · best'))))),
+      att === 3 ? h('div', { class: 'ev-st-head' }, h('span'), h('span'), h('span', null, '1'), h('span', null, '2'), h('span', null, '3'), h('span', null, EV('Mejor', 'Best'))) : null,
       h('div', { class: 'ev-st-list' }, rowsSt));
   };
   const modeBar = h('div', { class: 'chips section-gap', role: 'group', 'aria-label': EV('Forma de apuntar', 'Entry mode') },
@@ -6288,11 +6473,25 @@ VIEWS.tests = vEval;
 
 /* ---------- informe PDF por jugador ---------- */
 async function evPdf(p, btn) {
-  const M = MODEL, cfg = M.cfg;
+  const M = MODEL;
   const dl = await window.claude?.use?.('downloads');
   const t0 = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = EV('Generando…', 'Generating…'); }
   try {
-    const lib = await loadJsPdf(); const K = repKit(lib), { doc } = K, z = K.zone;
+    const lib = await loadJsPdf(); const K = repKit(lib), { doc } = K;
+    const lastDate = await evPdfDraw(K, M, p);
+    evPdfFooter(K, p.name);
+    await wrShareOrSave(doc, `Evaluacion_${(p.name + (p.ap ? '_' + p.ap : '')).replace(/[^\wÁÉÍÓÚÑáéíóúñ]+/g, '_')}_${ddmmyy(lastDate).replace(/\//g, '-')}.pdf`, false, dl);
+  } catch (e) { console.error(e); toast(EV('No se pudo generar el informe', 'Could not create the report'), true); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = t0; } }
+}
+function evPdfFooter(K, what) {
+  const { doc } = K, n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) { doc.setPage(i); K.text(`${MODEL.cfg.team} · ${EV('Evaluación física', 'Fitness assessment')}${what ? ' · ' + what : ''} · ${i}/${n}`, K.PW / 2, 292, { size: 7, color: K.muted, align: 'center' }); }
+}
+// dibuja el informe de un jugador a partir de la página actual (sirve para el individual y para el del equipo)
+async function evPdfDraw(K, M, p) {
+  const cfg = M.cfg, { doc } = K, z = K.zone;
+  {
     const prof = evProfile(M, p), risk = evLoadRisk(M, p, prof);
     const LVC = [z.bad, z.warn, z.ok];
     const lastDate = Math.max(...prof.items.map(it => it.last.date));
@@ -6421,11 +6620,8 @@ async function evPdf(p, btn) {
     bullet(EV('Cómo puede mejorar', 'How to improve'), prof.weak.map(it => `${evName(it.k)}: ` + EV(...(EV_TIPS[it.k] || EV_TIP_CUSTOM))).concat(prof.strong.length ? [EV('Mantener los puntos fuertes con estímulos de recuerdo semanales (1 sesión corta).', 'Keep strengths with a short weekly top-up session.')] : []), K.accent);
     if (risk) bullet(EV('Carga de entrenamiento', 'Training load'), [EV(`Su ${evName(risk.aer.k)} está ${risk.aer.lv === 0 ? 'en nivel bajo' : 'por debajo de la media'} y esta semana lleva ${risk.why}. Se recomienda ajustar su carga y progresar el trabajo aeróbico.`, `${evName(risk.aer.k)} is low and this week: ${risk.why}. Adjust the load and progress aerobic work.`)], z.warn);
     K.y += 2; K.para(EV('Baremos orientativos por edad (fútbol masculino, estudios con jugadores de academia), ajustables por el preparador físico. Nivel: Bajo / Medio / Alto según el rango de su edad.', 'Age norms are a guide (male football, academy studies) and can be adjusted by the coach.'), { size: 7, color: K.muted });
-    const n = doc.getNumberOfPages();
-    for (let i = 1; i <= n; i++) { doc.setPage(i); K.text(`${cfg.team} · ${EV('Evaluación física', 'Fitness assessment')} · ${p.name} · ${i}/${n}`, K.PW / 2, 292, { size: 7, color: K.muted, align: 'center' }); }
-    await wrShareOrSave(doc, `Evaluacion_${(p.name + (p.ap ? '_' + p.ap : '')).replace(/[^\wÁÉÍÓÚÑáéíóúñ]+/g, '_')}_${ddmmyy(lastDate).replace(/\//g, '-')}.pdf`, false, dl);
-  } catch (e) { console.error(e); toast(EV('No se pudo generar el informe', 'Could not create the report'), true); }
-  finally { if (btn) { btn.disabled = false; btn.textContent = t0; } }
+    return lastDate;
+  }
 }
 
 /* ---------- año de nacimiento en Plantilla ---------- */
@@ -6493,6 +6689,26 @@ details.ev-test > summary b { flex: 1 1 auto; }
 .ev-st-in { width: 100%; min-height: 40px; font-size: 1.05rem; text-align: center; }
 .ev-norms { margin-top: 4px; }
 .ev-hero { overflow: hidden; }
+.ev-next { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; font-size: .92rem; }
+.ev-next input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); }
+.ev-podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: end; max-width: 460px; margin: 0 auto; }
+.ev-pod { display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; padding: 0; }
+.ev-pm { font-size: 1.9rem; line-height: 1; } .ev-pn { font-weight: 800; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ev-pd { font-weight: 900; font-size: 1.15rem; color: var(--z-ok-tx, var(--z-ok)); }
+.ev-pb { width: 100%; border-radius: 10px 10px 4px 4px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; color: #fff; font-weight: 700; animation: evRise .7s cubic-bezier(.2,.9,.3,1.2) both; }
+.ev-pb.p1 { background: linear-gradient(180deg, #f7e08a, #c99a1c); color: #3b2a02; } .ev-pb.p0 { background: linear-gradient(180deg, #e3e8ec, #8d9aa7); color: #1f2a33; } .ev-pb.p2 { background: linear-gradient(180deg, #e3ad7c, #a8683a); color: #2d1606; }
+@keyframes evRise { from { transform: scaleY(.1); transform-origin: bottom; opacity: 0; } }
+.ev-st-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 6px; }
+.ev-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.ev-seg button { font: inherit; font-size: .82rem; font-weight: 700; padding: 7px 10px; border: 0; background: var(--panel); color: var(--ink-2); cursor: pointer; }
+.ev-seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.ev-st-row.att { grid-template-columns: auto minmax(0, 1fr) repeat(3, 52px) 46px; gap: 6px; }
+.ev-st-head { display: grid; grid-template-columns: 22px minmax(0, 1fr) repeat(3, 52px) 46px; gap: 6px; font-size: .72rem; font-weight: 700; color: var(--ink-3); text-align: center; }
+.ev-att { font-size: .95rem !important; padding: 4px 2px; }
+.ev-best { text-align: center; font-variant-numeric: tabular-nums; color: var(--accent); }
+.ev-empty .ev-eh { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+.ev-emoji { font-size: 2.6rem; }
+.ev-step { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line-2); }
+.ev-sn { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 800; }
 .ev-top { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 22px; align-items: center; }
 @media (max-width: 760px) { .ev-top { grid-template-columns: 1fr; } }
 .ev-cardw { display: flex; flex-direction: column; align-items: center; gap: 10px; }
