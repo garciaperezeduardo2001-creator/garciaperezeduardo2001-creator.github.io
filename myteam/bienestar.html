@@ -57,11 +57,56 @@ a.btn2.wa{background:#25d366;border-color:#25d366;color:#06301a}
 .qr{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:10px 0}
 .qr img{width:min(86vw,420px);height:auto;image-rendering:pixelated;background:#fff;padding:10px;border-radius:12px}
 @media print{.noprint{display:none!important}body{background:#fff;color:#000}}
+.days{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.daybtn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 8px;border-radius:12px;border:2px solid var(--line,#2a3a32);background:transparent;color:inherit;font:inherit;cursor:pointer}
+.daybtn b{font-size:1.05rem}.daybtn span{opacity:.75;font-size:.9rem;text-transform:capitalize}
+.daybtn.on{border-color:var(--accent,#23408e);background:color-mix(in srgb,var(--accent,#23408e) 18%,transparent)}
 </style>
 </head>
 <body>
 <main id="app"></main>
 <div class="bar" id="bar" hidden><div class="in"><button class="send" id="send" disabled></button></div></div>
+<script>window.NUBE_CFG={apiKey:'AIzaSyCRBCeWaIHeVzrzZdnJezbrMVE2iKhrY88',projectId:'my-team-app-2477e',appId:'1:516560385940:web:9355a566b6668b81160181',appCheckSiteKey:''};
+/* My Team · App Check (opcional): si hay clave de reCAPTCHA configurada, cada llamada a Firebase lleva un justificante de que viene de la app de verdad */
+(function () {
+  var C = window.NUBE_CFG || {};
+  if (!C.appCheckSiteKey || !C.appId || !window.fetch) return;
+  var of = window.fetch.bind(window), tok = null, exp = 0, pend = null;
+  var css = document.createElement('style'); css.textContent = '.grecaptcha-badge{visibility:hidden}'; (document.head || document.documentElement).appendChild(css);
+  function loadRc() {
+    return new Promise(function (res, rej) {
+      if (window.grecaptcha && window.grecaptcha.execute) return window.grecaptcha.ready(res);
+      var s = document.createElement('script'); s.src = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(C.appCheckSiteKey);
+      s.onload = function () { window.grecaptcha.ready(res); }; s.onerror = rej; document.head.appendChild(s);
+    });
+  }
+  function get() {
+    if (tok && Date.now() < exp - 60000) return Promise.resolve(tok);
+    if (pend) return pend;
+    pend = loadRc().then(function () { return window.grecaptcha.execute(C.appCheckSiteKey, { action: 'fire_app_check' }); })
+      .then(function (rt) {
+        var pn = String(C.appId).split(':')[1];
+        return of('https://firebaseappcheck.googleapis.com/v1/projects/' + pn + '/apps/' + C.appId + ':exchangeRecaptchaV3Token?key=' + C.apiKey,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recaptchaV3Token: rt }) });
+      })
+      .then(function (r) { if (!r.ok) throw new Error('appcheck ' + r.status); return r.json(); })
+      .then(function (j) { tok = j.token; exp = Date.now() + (parseFloat(j.ttl) || 3600) * 1000; pend = null; return tok; })
+      .catch(function (e) { pend = null; console.warn(e); return null; });
+    return pend;
+  }
+  var HOSTS = /^https:\/\/(firestore|identitytoolkit|securetoken)\.googleapis\.com\//;
+  window.fetch = function (input, init) {
+    var u = typeof input === 'string' ? input : (input && input.url) || '';
+    if (!HOSTS.test(u)) return of(input, init);
+    return get().then(function (t) {
+      if (!t) return of(input, init);
+      init = init || {};
+      var hd = new Headers(init.headers || (typeof input !== 'string' && input.headers) || {}); hd.set('X-Firebase-AppCheck', t);
+      return of(input, Object.assign({}, init, { headers: hd }));
+    });
+  };
+})();
+</script>
 <script>
 (function () {
   'use strict';
@@ -99,10 +144,17 @@ a.btn2.wa{background:#25d366;border-color:#25d366;color:#06301a}
   }
   document.title = T('Bienestar y RPE · ', 'Wellness & RPE · ') + data.team;
   var initials = data.team.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase() || 'MT';
-  var now = new Date(); if (now.getHours() < 5) now = new Date(now.getTime() - 6 * 3600e3); // de madrugada cuenta para el entreno de ayer
   var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-  var dShort = pad(now.getDate()) + '/' + pad(now.getMonth() + 1) + '/' + String(now.getFullYear()).slice(2);
-  var dLong = now.toLocaleDateString(EN ? 'en-GB' : 'es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  // ¿de qué entreno es? Por la tarde, de hoy; de madrugada, de ayer; por la mañana lo elige el jugador
+  var realNow = new Date(), yestNow = new Date(realNow.getTime() - 864e5), hourNow = realNow.getHours();
+  var dayPick = hourNow < 5 ? 'y' : hourNow < 13 ? null : 't';
+  var now, dShort, dLong;
+  function setDay(dt) {
+    now = dt; dShort = pad(now.getDate()) + '/' + pad(now.getMonth() + 1) + '/' + String(now.getFullYear()).slice(2);
+    dLong = now.toLocaleDateString(EN ? 'en-GB' : 'es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    var hs = document.querySelector('header .sub'); if (hs && typeof data !== 'undefined') hs.textContent = data.team + ' · ' + dLong;
+  }
+  setDay(dayPick === 'y' ? yestNow : realNow);
   var head = function (title) { return h('header', null, h('div', { class: 'badge' }, initials), h('div', null, h('h1', null, title), h('div', { class: 'sub' }, data.team + ' · ' + dLong))); };
   var KEY = 'mt-well-' + data.team;
   var store = { get: function () { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } },
@@ -159,8 +211,13 @@ a.btn2.wa{background:#25d366;border-color:#25d366;color:#06301a}
   function sendCloud(p) {
     var ymd = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate());
     var url = 'https://firestore.googleapis.com/v1/projects/' + NUBE.projectId + '/databases/(default)/documents/buzon/' + KEYW + '/r/' + p.id + '-' + ymd + '?key=' + NUBE.apiKey;
-    var body = { fields: { m: { stringValue: codes(p).join('\n') }, c: { stringValue: note.trim().replace(/[\[\]\n\r]/g, ' ').slice(0, 140) }, t: { timestampValue: new Date().toISOString() } } };
-    return fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); });
+    var body = { fields: { m: { stringValue: codes(p).join('\n') }, c: { stringValue: note.trim().replace(/[\[\]\n\r]/g, ' ').slice(0, 140) }, t: { timestampValue: new Date().toISOString() },
+      x: { timestampValue: new Date(Date.now() + 21 * 864e5).toISOString() } } }; // x: Firebase la borra sola a las 3 semanas
+    var put = function (b) { return fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }); };
+    return put(body).then(function (r) {
+      if (r.status === 403) { delete body.fields.x; return put(body); } // reglas antiguas: se envía sin la fecha de borrado
+      return r;
+    }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); });
   }
   var cardsAll = [];
   function form() {
@@ -195,10 +252,23 @@ a.btn2.wa{background:#25d366;border-color:#25d366;color:#06301a}
       h('div', { class: 'who' }, h('div', null, h('div', { class: 'sub' }, T('Respondes como', 'Answering as')), h('strong', null, (p.dorsal ? p.dorsal + ' · ' : '') + p.name)),
         h('button', { class: 'link', type: 'button', onclick: pickPlayer }, T('No soy yo', 'Not me'))),
       h('div', { class: 'tip' }, T('Rellénalo entre 15 y 30 minutos después de entrenar. Son 5 preguntas: cómo has llegado hoy y cómo de dura ha sido la sesión.', 'Fill it in 15–30 minutes after training. 5 questions: how you came in today and how hard the session was.')),
-      cards[0], cards[1], cards[2], cards[3], rcard,
+      dayCard(), cards[0], cards[1], cards[2], cards[3], rcard,
       h('div', { class: 'card' }, h('div', { class: 'q' }, T('¿Alguna molestia o algo que comentar? (opcional)', 'Any niggles or anything to add? (optional)')), ta),
       st.last === dShort ? h('p', { class: 'sub', style: 'text-align:center' }, T('Ya lo enviaste hoy. Si lo vuelves a enviar, cuenta el último.', 'You already sent it today. If you send it again, the latest one counts.')) : null].filter(Boolean));
     bar.hidden = false; upd(); window.scrollTo(0, 0);
+  }
+  var dayEl = null;
+  function dayCard() {
+    if (hourNow >= 13) { dayEl = null; return null; }
+    var short = function (d) { return d.toLocaleDateString(EN ? 'en-GB' : 'es-ES', { weekday: 'short', day: 'numeric', month: 'numeric' }); };
+    var mk = function (k, label, d) {
+      var b = h('button', { type: 'button', role: 'radio', 'aria-checked': dayPick === k ? 'true' : 'false', class: 'daybtn' + (dayPick === k ? ' on' : '') }, h('b', null, label), h('span', null, short(d)));
+      b.onclick = function () { dayPick = k; setDay(k === 'y' ? yestNow : realNow); dayEl.classList.remove('miss'); [].forEach.call(b.parentNode.children, function (x) { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b ? 'true' : 'false'); }); upd(); };
+      return b;
+    };
+    dayEl = h('div', { class: 'card' }, h('div', { class: 'q' }, T('¿De qué entrenamiento es?', 'Which session is this for?')),
+      h('div', { class: 'days', role: 'radiogroup' }, mk('y', T('Ayer', 'Yesterday'), yestNow), mk('t', T('Hoy', 'Today'), realNow)));
+    return dayEl;
   }
   function goNext(qi) { var next = cardsAll[qi + 1]; if (next && !answered(qi + 1)) setTimeout(function () { next.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 120); }
   function answered(i) { return i < 4 ? ans[Q[i][0]] != null : rpe != null; }
@@ -207,6 +277,7 @@ a.btn2.wa{background:#25d366;border-color:#25d366;color:#06301a}
     var n = nDone();
     sendBtn.disabled = false; sendBtn.classList.toggle('pending', n < 5);
     sendBtn.classList.toggle('cloud', !!KEYW);
+    if (n === 5 && !dayPick) { sendBtn.textContent = T('Elige de qué día es el entreno', 'Choose which day the session was'); return; }
     sendBtn.textContent = n < 5 ? T('Te faltan ' + (5 - n) + ' de 5 preguntas', (5 - n) + ' of 5 questions left') : KEYW ? T('Enviar al entrenador', 'Send to coach') : T('Enviar por WhatsApp', 'Send via WhatsApp');
   }
   sendBtn.onclick = function () {
@@ -217,6 +288,7 @@ a.btn2.wa{background:#25d366;border-color:#25d366;color:#06301a}
       cardsAll[k].scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    if (!dayPick && dayEl) { dayEl.classList.add('miss'); dayEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     var msg = message(p), phone = (data.phone || '').replace(/\D/g, '');
     var url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
     var st = store.get();

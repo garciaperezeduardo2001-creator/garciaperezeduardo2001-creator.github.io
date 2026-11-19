@@ -411,7 +411,46 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
   if ('serviceWorker' in navigator && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 })();
 </script>
-<script>window.NUBE_CFG={"apiKey": "AIzaSyCRBCeWaIHeVzrzZdnJezbrMVE2iKhrY88", "projectId": "my-team-app-2477e"};</script>
+<script>window.NUBE_CFG={"apiKey": "AIzaSyCRBCeWaIHeVzrzZdnJezbrMVE2iKhrY88", "projectId": "my-team-app-2477e", "appId": "1:516560385940:web:9355a566b6668b81160181"};/* My Team · App Check (opcional): si hay clave de reCAPTCHA configurada, cada llamada a Firebase lleva un justificante de que viene de la app de verdad */
+(function () {
+  var C = window.NUBE_CFG || {};
+  if (!C.appCheckSiteKey || !C.appId || !window.fetch) return;
+  var of = window.fetch.bind(window), tok = null, exp = 0, pend = null;
+  var css = document.createElement('style'); css.textContent = '.grecaptcha-badge{visibility:hidden}'; (document.head || document.documentElement).appendChild(css);
+  function loadRc() {
+    return new Promise(function (res, rej) {
+      if (window.grecaptcha && window.grecaptcha.execute) return window.grecaptcha.ready(res);
+      var s = document.createElement('script'); s.src = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(C.appCheckSiteKey);
+      s.onload = function () { window.grecaptcha.ready(res); }; s.onerror = rej; document.head.appendChild(s);
+    });
+  }
+  function get() {
+    if (tok && Date.now() < exp - 60000) return Promise.resolve(tok);
+    if (pend) return pend;
+    pend = loadRc().then(function () { return window.grecaptcha.execute(C.appCheckSiteKey, { action: 'fire_app_check' }); })
+      .then(function (rt) {
+        var pn = String(C.appId).split(':')[1];
+        return of('https://firebaseappcheck.googleapis.com/v1/projects/' + pn + '/apps/' + C.appId + ':exchangeRecaptchaV3Token?key=' + C.apiKey,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recaptchaV3Token: rt }) });
+      })
+      .then(function (r) { if (!r.ok) throw new Error('appcheck ' + r.status); return r.json(); })
+      .then(function (j) { tok = j.token; exp = Date.now() + (parseFloat(j.ttl) || 3600) * 1000; pend = null; return tok; })
+      .catch(function (e) { pend = null; console.warn(e); return null; });
+    return pend;
+  }
+  var HOSTS = /^https:\/\/(firestore|identitytoolkit|securetoken)\.googleapis\.com\//;
+  window.fetch = function (input, init) {
+    var u = typeof input === 'string' ? input : (input && input.url) || '';
+    if (!HOSTS.test(u)) return of(input, init);
+    return get().then(function (t) {
+      if (!t) return of(input, init);
+      init = init || {};
+      var hd = new Headers(init.headers || (typeof input !== 'string' && input.headers) || {}); hd.set('X-Firebase-AppCheck', t);
+      return of(input, Object.assign({}, init, { headers: hd }));
+    });
+  };
+})();
+</script>
 <script>/* My Team · vista del cuerpo técnico: ?ver=ID#k=CLAVE abre los datos compartidos (cifrados) en solo lectura */
 (function () {
   const q = new URLSearchParams(location.search), id = q.get('ver');
@@ -6555,7 +6594,20 @@ function wellAskPanel(M, plist, getDate) {
       const recent = [...other].sort((a, b) => a[0] < b[0] ? 1 : -1).slice(0, 4);
       const toIso = y => y.slice(0, 4) + '-' + y.slice(4, 6) + '-' + y.slice(6, 8);
       cloudHelp.replaceChildren(h('div', { style: 'opacity:.8' }, WL(`Buzón ${k.w.slice(0, 6)} · ${docs.length} respuesta${docs.length === 1 ? '' : 's'} guardada${docs.length === 1 ? '' : 's'} en total.`, `Inbox ${k.w.slice(0, 6)} · ${docs.length} answer${docs.length === 1 ? '' : 's'} stored in total.`)));
-      if (recent.length) cloudHelp.append(WL('También hay respuestas de: ', 'There are also answers for: '), ...recent.map(([y, n]) => h('button', { class: 'btn sm', type: 'button', style: 'margin:4px 6px 0 0', onclick: () => { const di = document.getElementById('s-date'); if (di) { di.value = toIso(y); di.dispatchEvent(new Event('input', { bubbles: true })); di.dispatchEvent(new Event('change', { bubbles: true })); } } }, y.slice(6, 8) + '/' + y.slice(4, 6) + ' · ' + n)));
+      // respuestas que llegaron otro día (p. ej., los jugadores contestaron al día siguiente): se pueden meter en esta sesión
+      const dS = ddmm(d) + '/' + String(sdate(d).getUTCFullYear()).slice(2);
+      const useHere = y => {
+        const list = docs.filter(x => x.id.endsWith('-' + y));
+        const txt = list.map(x => String(x.m).replace(/\d{2}\/\d{2}\/\d{2}\]/g, dS + ']')).join('\n');
+        apply(txt, false, list.filter(x => x.c).map(x => ({ name: names.get(x.id.split('-')[0]) || '?', c: x.c })));
+        toast(WL(`${list.length} respuesta${list.length === 1 ? '' : 's'} del ${y.slice(6, 8)}/${y.slice(4, 6)} añadida${list.length === 1 ? '' : 's'} a la sesión del ${ddmm(d)}. Revisa y pulsa «Guardar sesión».`, `${list.length} answer${list.length === 1 ? '' : 's'} from ${y.slice(6, 8)}/${y.slice(4, 6)} added to the ${ddmm(d)} session. Review and tap “Save session”.`));
+      };
+      const goDay = y => { const di = document.getElementById('s-date'); if (di) { di.value = toIso(y); di.dispatchEvent(new Event('input', { bubbles: true })); di.dispatchEvent(new Event('change', { bubbles: true })); } };
+      if (recent.length) cloudHelp.append(h('div', { style: 'margin-top:6px' }, WL('Respuestas de otros días:', 'Answers from other days:')),
+        ...recent.map(([y, n]) => h('div', { style: 'display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px' },
+          h('b', { style: 'min-width:92px' }, y.slice(6, 8) + '/' + y.slice(4, 6) + ' · ' + n),
+          h('button', { class: 'btn sm primary', type: 'button', onclick: () => useHere(y) }, WL('Usar en la sesión del ', 'Use in the session of ') + ddmm(d)),
+          h('button', { class: 'btn sm', type: 'button', onclick: () => goDay(y) }, WL('Ir a ese día', 'Go to that day')))));
       const mine = k.w;
       try { const kn = JSON.parse(localStorage.getItem('mt-nube-known') || '[]').filter(x => x && x.w !== k.w); kn.unshift({ w: k.w, r: k.r, team: (MODEL && MODEL.cfg.team) || '', app: location.pathname }); localStorage.setItem('mt-nube-known', JSON.stringify(kn.slice(0, 12))); } catch (_) {}
       // ¿están llegando al buzón de otro de tus equipos? (pasa si el enlace del grupo es el de otro equipo)
