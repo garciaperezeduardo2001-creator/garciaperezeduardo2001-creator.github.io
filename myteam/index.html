@@ -1716,7 +1716,9 @@ function vPlantilla(main) {
     const tb = h('tbody');
     const delArea = h('div');
     const askDelete = (p, tr) => {
-      if (tr.dataset.new) { tr.remove(); return; }
+      if (!tr) return;
+      if (tr.dataset.new) { tr.remove(); if (tr._mcCard) tr._mcCard.remove(); return; }
+      document.querySelectorAll('.mc-card > .confirm').forEach(x => x.remove());
       $$('tr.delrow', tr.parentNode).forEach(r => r.remove());
       const u = playerUsage(M, p.id), tot = u.ses.length + u.mat.length + u.inj.length + u.tst.length;
       const doc0 = (M.docs.players || []).find(x => x.id === p.id);
@@ -1733,6 +1735,9 @@ function vPlantilla(main) {
         tot && doc0 && doc0.estado !== 'Baja' ? h('button', { class: 'btn sm', type: 'button', onclick: async () => { const { id, ...bd } = doc0; try { await writeDoc('players', p.id, { ...bd, estado: 'Baja' }); toast(p.name + ' dado de baja'); close(); } catch (err) { toast(errText(err), true); } } }, 'Dar de baja') : null,
         h('button', { class: 'btn sm', type: 'button', onclick: close }, 'Cancelar'))));
       tr.after(cr);
+      // en el móvil la plantilla se ve en tarjetas: la confirmación va dentro de la tarjeta del jugador
+      const card = tr._mcCard;
+      if (card && card.isConnected) { const box = cr.querySelector('.confirm'); box.style.cssText = 'margin-top:10px;flex-wrap:wrap'; card.append(box); cr.remove(); [...box.querySelectorAll('button')].pop().onclick = () => box.remove(); box.querySelector('button').focus(); box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
       cr.querySelector('button').focus();
     };
     const rowFor = p => {
@@ -1747,7 +1752,7 @@ function vPlantilla(main) {
         h('td', null, numIn(pre + 'fcmax', p.fcmax, 'n s', { disabled: !edit, 'aria-label': 'FC máx' })),
         h('td', null, numIn(pre + 'fcrest', p.fcrest, 'n s', { disabled: !edit, 'aria-label': 'FC reposo' })),
         ...['goals', 'ast', 'ya', 'rc', 'gc'].map(k => h('td', null, numIn(pre + 'pv-' + k, pv[k] || '', 'n s', { disabled: !edit }))),
-        edit ? h('td', { class: 'stick-r' }, h('button', { class: 'btn sm danger', type: 'button', 'aria-label': 'Eliminar ' + (p.name || 'jugador'), title: 'Eliminar jugador', onclick: e => askDelete(p, e.target.closest('tr')) }, 'Eliminar')) : null);
+        edit ? h('td', { class: 'stick-r' }, h('button', { class: 'btn sm danger', type: 'button', 'aria-label': 'Eliminar ' + (p.name || 'jugador'), title: 'Eliminar jugador', onclick: e => askDelete(p, e.target.closest('tr') || (e.target.closest('.mc-card') || {})._row) }, 'Eliminar')) : null);
     };
     M.players.forEach(p => tb.append(rowFor(p)));
     const usedI = new Set(M.players.map(p => p.i));
@@ -7334,6 +7339,7 @@ const isMob = () => MOB_MQ.matches;
 .mc-tools select { flex: 1; min-width: 0; }
 .mc-list { display: flex; flex-direction: column; gap: 10px; }
 .mc-card { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px 8px; background: var(--panel); }
+.mc-card.mc-new { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 .mc-card.hi, .mc-card.sel { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
 .mc-head { display: flex; align-items: center; gap: 8px; min-height: 28px; }
 .mc-title { flex: 1; min-width: 0; font-weight: 700; font-size: 1rem; line-height: 1.25; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
@@ -7491,7 +7497,8 @@ function mcCardify(t, spec, heads) {
   const used = new Set([...(spec.title || []), spec.badge, ...(spec.act || []), ...(spec.main || []), ...(spec.more || [])].filter(x => x != null));
   if (spec.days) for (let k = spec.days[0]; k <= spec.days[1]; k++) used.add(k);
   const extra = heads.map((_, k) => k).filter(k => !used.has(k));
-  rows.forEach(r => {
+  // cada fila es una tarjeta; se guarda cómo hacerla para las filas que se añadan después (p. ej., «+ Añadir jugador»)
+  const mk = r => {
     const c = [...r.cells];
     const title = h('div', { class: 'mc-title' });
     (spec.title || [0]).forEach((k, i) => { if (!c[k]) return; const s = mcMove(c[k], h('span', { class: i ? 'mc-sub' : '' })); if (s.textContent.trim() || s.querySelector('input,select')) title.append(s); });
@@ -7516,8 +7523,8 @@ function mcCardify(t, spec, heads) {
         const sum = h('summary', null, ...head.childNodes, h('span', { class: 'chev', 'aria-hidden': 'true' }, '▾'));
         card.append(h('details', null, sum, h('div', { class: 'mc-body' }, mg)));
       } else { head.style.padding = '9px 12px'; card.append(head); }
-      list.append(card);
-      return;
+      card._row = r; r._mcCard = card; r.dataset.mcd = '1';
+      return card;
     }
     const card = h('div', { class: 'mc-card ' + (r.className || '') }, head);
     if (r.title) card.title = r.title;
@@ -7536,8 +7543,11 @@ function mcCardify(t, spec, heads) {
       const mg = h('div', { class: 'mc-grid' }); moreIdx.forEach(k => mg.append(mcField(c[k], heads[k])));
       card.append(h('details', { class: 'mc-more' }, h('summary', null, spec.form ? MB('Más campos', 'More fields') : MB('Más datos', 'More data')), mg));
     }
-    list.append(card);
-  });
+    card._row = r; r._mcCard = card; r.dataset.mcd = '1';
+    return card;
+  };
+  rows.forEach(r => list.append(mk(r)));
+  t._mc = { mk, list };
   if (spec.compact) list.classList.add('cp');
   const tools = spec.sort ? mcSortTools(t, heads) : null;
   t.classList.add('mc-src');
@@ -7602,7 +7612,17 @@ function mobileAdapt() {
   if (!isMob()) return;
   mobileNav();
   $$('#main table').forEach(t => {
-    if (t.dataset.mc) return;
+    if (t.dataset.mc) {
+      // filas nuevas o quitadas después de pasar la tabla a tarjetas
+      if (t._mc && t.tBodies[0]) {
+        [...t._mc.list.children].forEach(cd => { if (cd._row && !cd._row.isConnected) cd.remove(); });
+        [...t.tBodies[0].rows].filter(r => !r.dataset.mcd && r.cells.length > 1 && ![...r.cells].some(x => x.colSpan > 1)).forEach(r => {
+          r.dataset.mcd = '1'; const cd = t._mc.mk(r); if (!cd) return; t._mc.list.append(cd);
+          if (r.dataset.new) { cd.classList.add('mc-new'); cd.scrollIntoView({ block: 'center', behavior: 'smooth' }); const f = cd.querySelector('input[type=text]') || cd.querySelector('input'); if (f) setTimeout(() => f.focus(), 250); }
+        });
+      }
+      return;
+    }
     t.dataset.mc = '1';
     if (t.closest('[data-nomc]')) return;
     const heads = mcHeads(t); if (!heads.length || !t.tBodies[0]) return;
