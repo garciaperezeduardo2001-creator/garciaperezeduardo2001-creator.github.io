@@ -395,14 +395,35 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
     async save({ filename, data }) {
       const type = /\.json$/i.test(filename) ? 'application/json' : /\.html?$/i.test(filename) ? 'text/html' : /\.pdf$/i.test(filename) ? 'application/pdf' : /\.xlsx$/i.test(filename) ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/octet-stream';
       const blob = new Blob([data], { type });
+      const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+      const file = new File([blob], filename, { type });
+      const canFiles = (() => { try { return !!(navigator.canShare && navigator.canShare({ files: [file] })); } catch (_) { return false; } })();
       try {
-        const file = new File([blob], filename, { type });
-        if (navigator.canShare && navigator.canShare({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+        if (canFiles && (ios || /Android/i.test(navigator.userAgent))) {
           await navigator.share({ files: [file], title: filename });
           return;
         }
-      } catch (e) { if (e && e.name === 'AbortError') throw { code: 'declined' }; }
+      } catch (e) {
+        if (e && e.name === 'AbortError') throw { code: 'declined' };
+        // Safari solo deja compartir justo después de tocar un botón; si el archivo tardó en prepararse, se pide un toque más
+        if (canFiles) return await new Promise((res, rej) => {
+          const box = document.createElement('div');
+          box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Archivo listo');
+          box.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:9999;background:#12201a;color:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.35);font:600 15px system-ui,-apple-system,sans-serif;display:flex;gap:10px;align-items:center;flex-wrap:wrap';
+          const en = (document.documentElement.lang || '').startsWith('en');
+          const t = document.createElement('span'); t.style.flex = '1 1 160px'; t.textContent = (en ? 'Ready: ' : 'Listo: ') + filename;
+          const go = document.createElement('button'); go.type = 'button'; go.textContent = en ? 'Save or share' : 'Guardar o compartir';
+          go.style.cssText = 'font:700 15px system-ui;border:0;border-radius:10px;padding:10px 14px;background:#4ade80;color:#0b2414';
+          const no = document.createElement('button'); no.type = 'button'; no.textContent = '✕'; no.setAttribute('aria-label', en ? 'Close' : 'Cerrar');
+          no.style.cssText = 'font:700 16px system-ui;border:0;border-radius:10px;padding:10px 12px;background:transparent;color:#fff';
+          go.onclick = async () => { try { await navigator.share({ files: [file], title: filename }); box.remove(); res(); } catch (er) { if (er && er.name === 'AbortError') { box.remove(); rej({ code: 'declined' }); } else { box.remove(); const u = URL.createObjectURL(blob); window.open(u, '_blank'); setTimeout(() => URL.revokeObjectURL(u), 60000); res(); } } };
+          no.onclick = () => { box.remove(); rej({ code: 'declined' }); };
+          box.append(t, go, no); document.body.append(box); go.focus();
+        });
+      }
       const url = URL.createObjectURL(blob);
+      // en la app instalada de iPhone un enlace de descarga no hace nada: se abre el archivo para guardarlo desde ahí
+      if (ios && navigator.standalone) { window.open(url, '_blank'); setTimeout(() => URL.revokeObjectURL(url), 60000); return; }
       const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30000);
     }
@@ -519,7 +540,12 @@ const LOC = LANG === 'en' ? 'en-GB' : 'es-ES';
 const resL = r => LANG === 'en' ? ({ V: 'W', E: 'D', D: 'L' })[r] || r : r;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+// iPhone/iPad: los campos numéricos de Safari pierden el valor si se escribe con coma (1,85).
+// Allí se usan campos de texto con teclado decimal y la coma se cambia por punto al escribir.
+const MT_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+if (MT_IOS) document.addEventListener('input', ev => { const t = ev.target; if (t && t.dataset && t.dataset.num != null && t.value.includes(',')) { const pos = t.selectionStart; t.value = t.value.replace(/,/g, '.'); try { t.setSelectionRange(pos, pos); } catch (_) {} } }, true);
 function h(tag, attrs, ...kids) {
+  if (MT_IOS && tag === 'input' && attrs && attrs.type === 'number') attrs = { ...attrs, type: 'text', inputmode: attrs.inputmode || 'decimal', autocomplete: 'off', 'data-num': '' };
   const e = document.createElement(tag);
   if (attrs) for (const [k, v] of Object.entries(attrs)) {
     if (v == null || v === false) continue;
@@ -1760,7 +1786,7 @@ function vPlantilla(main) {
       let i = 0; while (usedI.has(i) && i < 40) i++;
       if (i >= 40) { toast('Máximo 40 jugadores', true); return; }
       usedI.add(i); UI.editing = true;
-      const r = rowFor({ id: 'p' + pad2(i), i, name: '', estado: 'Activo', prev: {} }); r.dataset.new = '1'; tb.append(r); r.querySelector('input[type=text]').focus();
+      const r = rowFor({ id: 'p' + pad2(i), i, name: '', estado: 'Activo', prev: {} }); r.dataset.new = '1'; tb.append(r); r.querySelector('input[type=text]:not([data-num])').focus();
     } }, '+ Añadir jugador');
     const saveBtn = h('button', { class: 'btn primary', type: 'button', onclick: async () => {
       const rows = $$('tr[data-id]', tb), names = new Set(), docs = [];
@@ -5551,6 +5577,39 @@ VIEWS.plantilla = function (main) {
 `));
 })();
 
+/* ---------- recordatorio: activar la copia en la nube (para que nadie pierda la temporada) ---------- */
+const CB_SNOOZE = 'mt-cloud-snooze';
+async function cbActivateFromBanner(btn) {
+  btn.disabled = true; const t0 = btn.textContent; btn.textContent = CB('Activando…', 'Turning on…');
+  const c = cbNewCode(); cbSet(cbCodeKey, c);
+  const ok = await cloudBackup();
+  if (!ok) { cbSet(cbCodeKey, null); toast(CB('No se pudo activar la copia. Comprueba la conexión.', 'Could not turn backup on. Check the connection.'), true); btn.disabled = false; btn.textContent = t0; return; }
+  UI.cbShow = true; toast(CB('Copia activada. Guarda tu código ahora: es la única forma de recuperarla.', 'Backup on. Save your code now: it is the only way to restore it.'));
+  location.hash = 'plantilla';
+  setTimeout(() => { const el = document.getElementById('nubecopia'); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 500);
+}
+function cbNudge() {
+  if (!nubeOn() || store.fromSnap || !store.db || !MODEL || !MODEL.players.length || cbGet(cbCodeKey)) return null;
+  const sn = +(cbGet(CB_SNOOZE) || 0); if (sn && Date.now() < sn) return null;
+  return h('div', { class: 'panel section-gap cb-nudge', 'data-noi18n': '' },
+    h('div', { class: 'cb-n-ic', 'aria-hidden': 'true' }, '☁️'),
+    h('div', { class: 'cb-n-tx' }, h('b', null, CB('Protege tu temporada', 'Protect your season')),
+      h('div', { class: 'sub' }, CB('Ahora todo está solo en este móvil. Si lo pierdes o se rompe, lo pierdes todo. Activa la copia en la nube: es gratis, va cifrada y lo recuperas en otro móvil con tu código.', 'Everything is only on this phone. If it breaks or gets lost, you lose it all. Turn on cloud backup: free, encrypted, and you restore it on another phone with your code.'))),
+    h('div', { class: 'cb-n-act' }, h('button', { class: 'btn primary', type: 'button', onclick: e => cbActivateFromBanner(e.currentTarget) }, CB('Activar ahora', 'Turn on now')),
+      h('button', { class: 'btn', type: 'button', onclick: e => { cbSet(CB_SNOOZE, String(Date.now() + 7 * 864e5)); e.currentTarget.closest('.cb-nudge').remove(); toast(CB('Te lo recordaré en una semana', 'I will remind you in a week')); } }, CB('Más tarde', 'Later'))));
+}
+const vRes30 = VIEWS.resumen;
+VIEWS.resumen = function (main) {
+  vRes30(main);
+  const n = cbNudge();
+  // con la copia en la nube activa (o mientras se propone), sobra el aviso de guardar la copia a mano
+  if (n || cbGet(cbCodeKey)) [...main.querySelectorAll('.warnbox, .panel, div')].filter(el => el.querySelector && [...el.querySelectorAll(':scope > div > button, :scope > button')].some(b => /Guardar copia ahora|Save a copy now/.test(b.textContent))).slice(0, 1).forEach(el => el.remove());
+  if (n) { const head = main.querySelector('.view-head'); head ? head.after(n) : main.prepend(n); }
+};
+document.head.append(h('style', null, `.cb-nudge { display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; align-items: center; border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.cb-n-ic { font-size: 2rem; } .cb-n-act { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+@media (min-width: 760px) { .cb-nudge { grid-template-columns: auto 1fr auto; } .cb-n-act { grid-column: auto; } }`));
+
 /* ==F30-END== */
 /* ==F31-START== */
 
@@ -6230,6 +6289,26 @@ async function evTeamPdf(t, btn) {
   finally { if (btn) { btn.disabled = false; btn.textContent = t0; } }
 }
 
+/* ---------- baremos calculados con los datos propios ---------- */
+const EV_MIN_N = 6;   // jugadores mínimos por edad para proponer un baremo
+function evNormsFromData(k) {
+  const f = evField(k); if (!f || !f[3]) return {};
+  const last = {};  // último valor de cada jugador (de tu equipo y de los otros equipos evaluados)
+  (currentDocs().tests || []).filter(t => t.date != null).sort((a, b) => a.date - b.date).forEach(t => {
+    for (const [pid, r] of Object.entries(t.results || {})) { const v = num(r[k]); if (v == null) continue; const g = evGroup(evNac(pid), t.date); if (g) last[pid] = { v, gk: g.k }; }
+  });
+  const by = {}; Object.values(last).forEach(x => (by[x.gk] = by[x.gk] || []).push(x.v));
+  const q = (xs, p) => { const a = xs.slice().sort((x, y) => x - y), i = (a.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i); return a[lo] + (a[hi] - a[lo]) * (i - lo); };
+  const rd = v => +v.toFixed(f[4] != null ? Math.max(f[4], 0) : 1);
+  const out = {};
+  for (const [gk, xs] of Object.entries(by)) {
+    if (xs.length < EV_MIN_N) { out[gk] = { n: xs.length }; continue; }
+    const p33 = rd(q(xs, 1 / 3)), p67 = rd(q(xs, 2 / 3));
+    out[gk] = { n: xs.length, norm: f[3] > 0 ? [p33, p67] : [p67, p33] };
+  }
+  return out;
+}
+
 /* ---------- vista ---------- */
 function evSpark(list, better) {
   const W = 220, H = 64, P = 6;
@@ -6448,14 +6527,27 @@ function evCfgView(main) {
     const grid = h('table', { class: 'ev-norms' }, h('thead', null, h('tr', null, h('th', null, EV('Edad', 'Age')), h('th', null, h('span', { class: 'pill z-bad ev-pill' }, EV('Bajo', 'Low')), f[3] > 0 ? ' <' : ' >'), h('th', null, h('span', { class: 'pill z-ok ev-pill' }, EV('Alto', 'High')), f[3] > 0 ? ' ≥' : ' ≤'))),
       h('tbody', null, EV_GROUPS.map(([gk, es, en]) => {
         const n = evNorm(k, gk) || ['', ''];
-        const mk = i => h('input', { type: 'number', step: 'any', class: 'n', value: n[i] ?? '', disabled: !edit, style: 'width:76px', 'aria-label': `${EV(es, en)} ${i ? EV('alto', 'high') : EV('bajo', 'low')}`,
+        const mk = i => h('input', { type: 'number', step: 'any', class: 'n', value: n[i] ?? '', disabled: !edit, style: 'width:76px', 'data-g': gk, 'data-i': i, 'aria-label': `${EV(es, en)} ${i ? EV('alto', 'high') : EV('bajo', 'low')}`,
           onchange: ev => { const v = ev.target.value === '' ? null : +ev.target.value; const pr = cur[gk] ? cur[gk].slice() : (evNorm(k, gk) || [null, null]).slice(); pr[i] = v; cur[gk] = pr; } });
         return h('tr', null, h('td', { class: 'name' }, EV(es, en)), h('td', null, mk(0)), h('td', null, mk(1)));
       })));
+    const info = h('div', { class: 'sub', style: 'margin-top:6px' });
+    const fromData = () => {
+      const D = evNormsFromData(k), used = [], few = [];
+      for (const [gk, es, en] of EV_GROUPS) {
+        const d = D[gk]; if (!d) continue;
+        if (!d.norm) { few.push(`${EV(es, en)} (${d.n})`); continue; }
+        cur[gk] = d.norm.slice(); used.push(`${EV(es, en)}: ${d.n}`);
+        grid.querySelectorAll(`input[data-g="${gk}"]`).forEach(inp => { inp.value = d.norm[+inp.dataset.i]; inp.classList.add('ev-new'); });
+      }
+      info.textContent = used.length ? EV(`Propuesta con tus datos (jugadores por edad → ${used.join(' · ')}). Un tercio queda en cada nivel. Revisa y pulsa «Guardar baremo».`, `Proposal from your data (${used.join(' · ')}). One third ends up in each level. Review and tap “Save norms”.`) + (few.length ? EV(` Sin datos suficientes (mínimo ${EV_MIN_N}): ${few.join(', ')}.`, ` Not enough data (min ${EV_MIN_N}): ${few.join(', ')}.`) : '')
+        : EV(`Aún no hay datos suficientes: hacen falta al menos ${EV_MIN_N} jugadores de la misma edad con este test y año de nacimiento.`, `Not enough data yet: at least ${EV_MIN_N} same-age players with this test and a birth year.`);
+    };
     return h('div', null, h('div', { class: 'sub', style: 'margin:8px 0 4px' }, EV('Baremo (entre los dos límites es «Medio»):', 'Norms (between the two limits is “Average”):')), grid,
       edit ? h('div', { class: 'controls', style: 'margin-top:6px;flex-wrap:wrap' },
+        h('button', { class: 'btn sm', type: 'button', onclick: fromData }, EV('📊 Calcular con mis datos', '📊 Calculate from my data')),
         h('button', { class: 'btn sm primary', type: 'button', onclick: async () => { const all = { ...(evCfg().norms || {}) }; all[k] = cur; try { await evSave({ norms: all }); toast(EV('Baremo guardado', 'Norms saved')); } catch (er) { toast(errText(er), true); } } }, EV('Guardar baremo', 'Save norms')),
-        EV_NORMS[k] ? h('button', { class: 'btn sm', type: 'button', onclick: async () => { const all = { ...(evCfg().norms || {}) }; delete all[k]; try { await evSave({ norms: all }); toast(EV('Baremo restablecido', 'Norms reset')); route(); } catch (er) { toast(errText(er), true); } } }, EV('Volver al de serie', 'Reset to default')) : null) : null);
+        EV_NORMS[k] ? h('button', { class: 'btn sm', type: 'button', onclick: async () => { const all = { ...(evCfg().norms || {}) }; delete all[k]; try { await evSave({ norms: all }); toast(EV('Baremo restablecido', 'Norms reset')); route(); } catch (er) { toast(errText(er), true); } } }, EV('Volver al de serie', 'Reset to default')) : null) : null, info);
   };
   const row = (k, label, opts = {}) => {
     const info = EV_INFO[k];
@@ -6493,6 +6585,14 @@ function evCfgView(main) {
     h('div', { class: 'sub', style: 'margin-top:6px' }, EV('Puedes ponerle baremo después, abriéndolo en la lista.', 'You can add norms afterwards from the list.'))) : null;
   main.append(h('div', { class: 'panel section-gap' }, h('h3', null, EV('Batería de tests', 'Test battery')),
     h('div', { class: 'sub', style: 'margin:-6px 0 8px' }, EV('Todos los tests son opcionales: añade o quita los que uses. Toca uno para ver cómo se hace y su baremo por edad. Los baremos son orientativos (fútbol masculino, a partir de estudios con jugadores de academia) y puedes ajustarlos a tu club.', 'Tap a test to see the protocol and its age norms. Norms are a guide (male football, from academy-player studies) and you can adjust them.')),
+    edit ? h('div', { class: 'ev-auto' }, h('div', null, h('b', null, EV('Baremos a medida de tu club', 'Norms tailored to your club')), h('div', { class: 'sub' }, EV(`Con al menos ${EV_MIN_N} jugadores de la misma edad evaluados, la app calcula los límites para que un tercio quede en cada nivel.`, `With at least ${EV_MIN_N} same-age players assessed, the app sets limits so one third falls in each level.`))),
+      h('button', { class: 'btn sm primary', type: 'button', onclick: async () => {
+        const all = { ...(evCfg().norms || {}) }; let tests = 0, groups = 0;
+        TEST_FIELDS.filter(f => f[3]).forEach(f => { const D = evNormsFromData(f[0]); const upd = {}; for (const [gk, d] of Object.entries(D)) if (d.norm) { upd[gk] = d.norm; groups++; } if (Object.keys(upd).length) { all[f[0]] = { ...(all[f[0]] || {}), ...upd }; tests++; } });
+        if (!tests) { toast(EV(`Aún no hay datos suficientes: hacen falta al menos ${EV_MIN_N} jugadores de la misma edad con año de nacimiento.`, `Not enough data yet (min ${EV_MIN_N} same-age players with birth year).`), true); return; }
+        if (!confirm(EV(`Se ajustarán ${tests} test${tests === 1 ? '' : 's'} (${groups} franjas de edad) con tus datos. Las demás franjas se quedan como están. ¿Seguir?`, `Adjust ${tests} test(s) (${groups} age bands) with your data? Other bands stay as they are.`))) return;
+        try { await evSave({ norms: all }); toast(EV('Baremos ajustados con tus datos', 'Norms adjusted with your data')); route(); } catch (er) { toast(errText(er), true); }
+      } }, EV('📊 Ajustar todos con mis datos', '📊 Adjust all from my data'))) : null,
     h('div', { class: 'sub', style: 'margin:4px 0' }, EV('En tu batería', 'In your battery') + ` (${base.length})`), ...base,
     ext.length ? h('div', { class: 'sub', style: 'margin:12px 0 4px' }, EV('Disponibles para añadir', 'Available to add')) : null, ...ext, cus.length ? h('div', { class: 'sub', style: 'margin:12px 0 4px' }, EV('Tus tests', 'Your tests')) : null, ...cus),
     add, canEdit() ? h('div', { class: 'controls section-gap' }, h('button', { class: 'btn', type: 'button', onclick: () => { UI.evTab = 'nac'; route(); } }, EV('Años de nacimiento de los jugadores', 'Players\' birth years'))) : null);
@@ -6768,6 +6868,14 @@ const vPlant32 = VIEWS.plantilla;
 VIEWS.plantilla = function (main) {
   vPlant32(main);
   if (!MODEL || !canEdit()) return;
+  // equipo recién creado: la plantilla abre con tres filas (tarjetas en el móvil) listas para escribir
+  if (!MODEL.players.length) {
+    const add = [...main.querySelectorAll('button')].find(b => /\+ Añadir jugador|\+ Add player/.test(b.textContent));
+    if (add && !main.querySelector('tr[data-id]')) { add.click(); add.click(); add.click(); UI.editing = false; setTimeout(() => { const f = main.querySelector('.mc-card input[id$="-name"]') || main.querySelector('input[id^="pl-"][id$="-name"]'); if (f) f.focus({ preventScroll: true }); }, 400); }
+  }
+  // pistas en los campos vacíos de cada jugador
+  const hint = () => main.querySelectorAll('input[id^="pl-"]').forEach(i => { if (i.placeholder) return; if (/-name$/.test(i.id)) i.placeholder = EV('Nombre', 'Name'); else if (/-dorsal$/.test(i.id)) i.placeholder = '#'; else if (/-ap$/.test(i.id)) i.placeholder = EV('Apellidos', 'Surname'); });
+  hint(); const hObs = new MutationObserver(() => { if (!/plantilla/.test(location.hash)) { hObs.disconnect(); return; } hint(); }); hObs.observe(main, { childList: true, subtree: true });
   const tb = main.querySelector('tbody tr[data-id]') && main.querySelector('tbody tr[data-id]').parentNode; if (!tb) return;
   const table = tb.closest('table'), hr = table && table.querySelector('thead tr'); if (!hr) return;
   const y0 = sdate(todaySerial()).getUTCFullYear(), nac = { ...(evCfg().nac || {}) };
@@ -6825,6 +6933,9 @@ details.ev-test > summary b { flex: 1 1 auto; }
 .ev-st-n { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ev-st-in { width: 100%; min-height: 40px; font-size: 1.05rem; text-align: center; }
 .ev-norms { margin-top: 4px; }
+.ev-norms input.ev-new { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+.ev-auto { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 12px; margin: 4px 0 12px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.ev-auto > div { flex: 1 1 240px; }
 .ev-hero { overflow: hidden; }
 .ev-ctx { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
 .ev-ctx.ext { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
@@ -7638,7 +7749,7 @@ function mobileAdapt() {
         [...t._mc.list.children].forEach(cd => { if (cd._row && !cd._row.isConnected) cd.remove(); });
         [...t.tBodies[0].rows].filter(r => !r.dataset.mcd && r.cells.length > 1 && ![...r.cells].some(x => x.colSpan > 1)).forEach(r => {
           r.dataset.mcd = '1'; const cd = t._mc.mk(r); if (!cd) return; t._mc.list.append(cd);
-          if (r.dataset.new) { cd.classList.add('mc-new'); cd.scrollIntoView({ block: 'center', behavior: 'smooth' }); const f = cd.querySelector('input[type=text]') || cd.querySelector('input'); if (f) setTimeout(() => f.focus(), 250); }
+          if (r.dataset.new) { cd.classList.add('mc-new'); cd.scrollIntoView({ block: 'center', behavior: 'smooth' }); const f = cd.querySelector('input[type=text]:not([data-num])') || cd.querySelector('input'); if (f) setTimeout(() => f.focus(), 250); }
         });
       }
       return;
